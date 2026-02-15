@@ -1,0 +1,14 @@
+[Unit]
+Description=Gunicorn instance to serve EpsteinTool
+After=network.target
+
+[Service]
+# Adjust User to your ubuntu user, e.g., 'ubuntu' or 'root' if you really must (not recommended)
+User=ubuntu
+# Group=www-data
+WorkingDirectory=/home/ubuntu/EpsteinTool
+Environment="PATH=/home/ubuntu/EpsteinTool/venv/bin"
+ExecStart=/home/ubuntu/EpsteinTool/venv/bin/gunicorn --workers 3 --bind unix:epsteintool.sock -m 007 app:app
+
+[Install]
+WantedBy=multi-user.target

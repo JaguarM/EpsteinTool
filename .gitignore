@@ -6,7 +6,8 @@
 # I don't know what any of these do, but I'm too scared to delete them
 # PDF and workspace files
 *.pdf
-*.workspace 
+*.code-workspace 
+run_app.bat
 
 # User-specific files
 *.rsuser
