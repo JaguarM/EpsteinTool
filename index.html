@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epstein Document Unredaction</title>
+  <style>
+    /* Design Tokens */
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-body: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 8px;
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --font-stack: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-stack);
+      background: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Typography */
+    h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
+      color: var(--text-main);
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h2 span {
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+    }
+
+    /* Layout */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    /* Controls Grid */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+      align-items: end;
+    }
+
+    /* Form Elements */
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: border-color 0.15s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      height: 42px;
+      /* Accessibly align with inputs */
+    }
+
+    input[type="checkbox"] {
+      width: 1.1em;
+      height: 1.1em;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    /* Buttons */
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    button.secondary {
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    button.secondary:hover {
+      background: #f1f5f9;
+    }
+
+    button.danger-ghost {
+      background: transparent;
+      color: #ef4444;
+      padding: 0.25rem 0.5rem;
+    }
+
+    button.danger-ghost:hover {
+      background: #fee2e2;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Specific Sections */
+    .file-input-wrapper {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
+    .file-input-wrapper .input-group {
+      flex: 1;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .paste-area {
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .paste-area textarea {
+      min-height: 150px;
+      resize: vertical;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Tables */
+    .table-wrapper {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background: #f8fafc;
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    th.sortable:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .col-num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      width: 120px;
+    }
+
+    .col-action {
+      width: 60px;
+      text-align: center;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+      background: #f8fafc;
+    }
+
+    /* States */
+    .empty-state {
+      padding: 3rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .status-msg {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .status-msg.error {
+      color: #ef4444;
+    }
+
+    .matches-list {
+      font-size: 0.9rem;
+      color: #16a34a;
+    }
+
+    .no-match {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    /* Loading Overlay */
+    .loading {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+  <h1>Epstein Document Unredaction</h1>
+
+  <!-- 1. Analyze PDF -->
+  <div class="card">
+    <h2><span>1</span> Analyze PDF</h2>
+    <div class="file-input-wrapper">
+      <div class="input-group">
+        <label for="pdf-file">Select Document</label>
+        <input type="file" id="pdf-file" accept=".pdf">
+      </div>
+      <button id="analyze-btn" onclick="analyzePdf()">Analyze</button>
+    </div>
+    <div id="pdf-status" class="status-msg"></div>
+  </div>
+
+  <!-- 2. Candidate Names -->
+  <div class="card">
+    <h2><span>2</span> Candidate Names</h2>
+
+    <!-- Settings -->
+    <div class="controls-grid">
+      <div>
+        <label for="font">Font</label>
+        <select id="font"></select>
+      </div>
+      <div>
+        <label for="size">Size (pt)</label>
+        <input type="number" id="size" value="12" step="0.1">
+      </div>
+      <div>
+        <label for="tolerance">Tolerance (px)</label>
+        <input type="number" id="tolerance" value="3" step="0.1">
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="kerning" checked>
+        <label for="kerning">Kerning</label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="ligatures" checked>
+        <label for="ligatures">Ligatures</label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="force-uppercase">
+        <label for="force-uppercase">Force Uppercase</label>
+      </div>
+    </div>
+
+    <!-- Input Actions -->
+    <div class="action-row">
+      <input type="text" id="name-input" placeholder="Type a name..." style="flex: 2;">
+      <button onclick="addName()">Add</button>
+      <button class="secondary" onclick="togglePaste()">Paste List</button>
+      <button class="secondary" onclick="clearAll()" style="color: #ef4444;">Clear All</button>
+    </div>
+
+    <!-- Paste Area -->
+    <div id="paste-area" class="paste-area">
+      <textarea id="paste-input" placeholder="Paste names here, one per line..."></textarea>
+      <div style="display: flex; gap: 0.5rem;">
+        <button onclick="processPaste()">Import Names</button>
+        <button class="secondary" onclick="togglePaste()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <table id="names-table">
+        <thead>
+          <tr>
+            <th class="sortable" onclick="setSort('name')">Name <span id="sort-icon-name"></span></th>
+            <th class="sortable col-num" onclick="setSort('width')">Width (px) <span id="sort-icon-width"></span></th>
+            <th class="col-action"></th>
+          </tr>
+        </thead>
+        <tbody id="names-body">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+      <div id="empty-msg" class="empty-state">No candidate names added yet.</div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="pagination" style="display: none;">
+        <button class="secondary" onclick="changePage(-1)" id="prev-btn">Previous</button>
+        <span id="page-info">Page 1</span>
+        <button class="secondary" onclick="changePage(1)" id="next-btn">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Redaction Matches -->
+  <div class="card" id="matches-section" style="display: none;">
+    <h2><span>3</span> Redaction Matches</h2>
+    <div id="match-summary" class="status-msg" style="margin-bottom: 1rem; color: var(--text-main);"></div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 80px;">Page</th>
+            <th class="col-num">Box Width</th>
+            <th class="col-num">Box Height</th>
+            <th>Potential Matches</th>
+          </tr>
+        </thead>
+        <tbody id="matches-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    /* State */
+    const state = {
+      candidates: [
+        'Jeffrey Epstein', 'Ghislaine Maxwell', 'Alan Dershowitz', 'Bill Clinton',
+        'Donald Trump', 'Prince Andrew', 'Virginia Giuffre', 'Virginia Roberts',
+        'Jean-Luc Brunel', 'Sarah Kellen', 'Nadia Marcinkova', 'Les Wexner',
+        'Glenn Dubin', 'Eva Dubin', 'Bill Richardson', 'George Mitchell',
+        'Leon Black', 'Mort Zuckerman', 'Emmy Tayler', 'Lesley Groff',
+        'Adriana Ross', 'Juan Alessi', 'Alfredo Rodriguez'
+      ],
+      widths: {},
+      redactions: [],
+
+      // Pagination & Sort
+      page: 1,
+      perPage: 25,
+      sortBy: 'name', // 'name' | 'width'
+      sortDir: 'asc',
+
+      // Detected from PDF
+      detectedFont: null,
+      detectedSize: null
+    };
+
+    /* DOM Elements */
+    const els = {
+      font: document.getElementById('font'),
+      size: document.getElementById('size'),
+      tol: document.getElementById('tolerance'),
+      kern: document.getElementById('kerning'),
+      lig: document.getElementById('ligatures'),
+      upper: document.getElementById('force-uppercase'),
+      nameInput: document.getElementById('name-input'),
+      pasteArea: document.getElementById('paste-area'),
+      pasteInput: document.getElementById('paste-input'),
+      tableBody: document.getElementById('names-body'),
+      emptyMsg: document.getElementById('empty-msg'),
+      pagination: document.getElementById('pagination'),
+      pageInfo: document.getElementById('page-info'),
+      prevBtn: document.getElementById('prev-btn'),
+      nextBtn: document.getElementById('next-btn'),
+      matchesSection: document.getElementById('matches-section'),
+      matchesBody: document.getElementById('matches-body'),
+      matchSummary: document.getElementById('match-summary'),
+      pdfStatus: document.getElementById('pdf-status'),
+      analyzeBtn: document.getElementById('analyze-btn'),
+      fileInput: document.getElementById('pdf-file')
+    };
+
+    /* Initialization */
+    (async function init() {
+      try {
+        const resp = await fetch('/fonts-list');
+        const fonts = await resp.json();
+        fonts.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f;
+          opt.textContent = f;
+          els.font.appendChild(opt);
+        });
+        if (fonts.includes('times.ttf')) els.font.value = 'times.ttf';
+
+        // Listeners
+        els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
+        [els.font, els.size, els.kern, els.lig, els.upper].forEach(el =>
+          el.addEventListener('change', calculateWidths)
+        );
+        els.tol.addEventListener('change', renderMatches);
+
+        calculateWidths();
+      } catch (err) {
+        console.error('Init error:', err);
+      }
+    })();
+
+    /* Actions */
+    function addName() {
+      const val = els.nameInput.value.trim();
+      if (val && !state.candidates.includes(val)) {
+        state.candidates.push(val);
+        els.nameInput.value = '';
+        calculateWidths();
+      }
+    }
+
+    function togglePaste() {
+      const show = els.pasteArea.style.display !== 'block';
+      els.pasteArea.style.display = show ? 'block' : 'none';
+      if (show) els.pasteInput.focus();
+    }
+
+    function processPaste() {
+      const txt = els.pasteInput.value;
+      const lines = txt.split('\n').map(l => l.trim()).filter(l => l);
+      let added = 0;
+      lines.forEach(l => {
+        if (!state.candidates.includes(l)) {
+          state.candidates.push(l);
+          added++;
+        }
+      });
+      if (added > 0) calculateWidths();
+      els.pasteInput.value = '';
+      togglePaste();
+    }
+
+    function clearAll() {
+      if (confirm('Are you sure you want to clear all names?')) {
+        state.candidates = [];
+        calculateWidths();
+      }
+    }
+
+    function removeName(name) {
+      state.candidates = state.candidates.filter(c => c !== name);
+      calculateWidths(); // Re-render primarily
+    }
+
+    /* Core Logic */
+    async function calculateWidths() {
+      if (state.candidates.length === 0) {
+        state.widths = {};
+        renderCandidates();
+        renderMatches();
+        return;
+      }
+
+      try {
+        const resp = await fetch('/widths', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strings: state.candidates,
+            font: els.font.value,
+            size: parseFloat(els.size.value) || 12,
+            kerning: els.kern.checked,
+            ligatures: els.lig.checked,
+            force_uppercase: els.upper.checked
+          })
+        });
+
+        const data = await resp.json();
+        state.widths = {};
+        data.results.forEach(r => state.widths[r.text] = r.width);
+
+        renderCandidates();
+        renderMatches();
+      } catch (e) {
+        console.error("Width calc error", e);
+      }
+    }
+
+    async function analyzePdf() {
+      const file = els.fileInput.files[0];
+      if (!file) return alert('Select a PDF first');
+
+      els.analyzeBtn.disabled = true;
+      els.analyzing = true;
+      els.pdfStatus.textContent = 'Analyzing PDF structure...';
+      els.matchesSection.style.display = 'none';
+
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+
+        const resp = await fetch('/analyze-pdf', { method: 'POST', body: fd });
+        if (!resp.ok) throw new Error((await resp.json()).detail);
+
+        const data = await resp.json();
+        state.redactions = data.redactions;
+
+        // Auto-detect font logic (simplified from old version)
+        if (data.spans && data.spans.length) {
+          const fontCounts = {};
+          data.spans.forEach(s => {
+            const k = `${s.font.matched_font}|${s.font.size}`;
+            fontCounts[k] = (fontCounts[k] || 0) + 1;
+          });
+          const dominant = Object.entries(fontCounts).sort((a, b) => b[1] - a[1])[0];
+          if (dominant) {
+            const [fName, fSize] = dominant[0].split('|');
+            if (fSize && !isNaN(parseFloat(fSize))) els.size.value = Math.round(parseFloat(fSize));
+            state.detectedFont = fName;
+          }
+        }
+
+        els.pdfStatus.textContent = `Found ${state.redactions.length} redactions.`;
+        renderMatches();
+
+      } catch (e) {
+        els.pdfStatus.textContent = `Error: ${e.message}`;
+        els.pdfStatus.classList.add('error');
+      } finally {
+        els.analyzeBtn.disabled = false;
+      }
+    }
+
+    /* Rendering & Pagination */
+    function setSort(field) {
+      if (state.sortBy === field) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortBy = field;
+        state.sortDir = 'asc';
+      }
+      renderCandidates();
+    }
+
+    function changePage(delta) {
+      state.page += delta;
+      renderCandidates();
+    }
+
+    function renderCandidates() {
+      const { candidates: list, widths } = state;
+      const isUpper = els.upper.checked;
+
+      // Update icons
+      document.getElementById('sort-icon-name').textContent = state.sortBy === 'name' ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+      document.getElementById('sort-icon-width').textContent = state.sortBy === 'width' ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+
+      // Sort
+      const sorted = [...list].sort((a, b) => {
+        let va, vb;
+        if (state.sortBy === 'width') {
+          va = widths[a] || 0;
+          vb = widths[b] || 0;
+        } else {
+          va = a.toLowerCase();
+          vb = b.toLowerCase();
+        }
+        if (va < vb) return state.sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return state.sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Paginate
+      const total = sorted.length;
+      const pages = Math.ceil(total / state.perPage) || 1;
+      if (state.page > pages) state.page = pages;
+      if (state.page < 1) state.page = 1;
+
+      const start = (state.page - 1) * state.perPage;
+      const slice = sorted.slice(start, start + state.perPage);
+
+      // DOM Update
+      if (total === 0) {
+        els.tableBody.innerHTML = '';
+        els.emptyMsg.style.display = 'block';
+        els.pagination.style.display = 'none';
+        return;
+      }
+
+      els.emptyMsg.style.display = 'none';
+      els.pagination.style.display = 'flex';
+      els.pageInfo.textContent = `Page ${state.page} of ${pages} (${total} items)`;
+      els.prevBtn.disabled = state.page === 1;
+      els.nextBtn.disabled = state.page === pages;
+
+      // Font Styles for Preview
+      const fontStyle = `
+        font-family: ${getFontFamily(els.font.value)};
+        font-variant-ligatures: ${els.lig.checked ? 'common-ligatures' : 'none'};
+        font-feature-settings: "kern" ${els.kern.checked ? 1 : 0};
+        text-transform: ${isUpper ? 'uppercase' : 'none'}; 
+        font-size: ${els.size.value}pt;
+      `;
+
+      els.tableBody.innerHTML = slice.map(name => {
+        const w = widths[name];
+        const escName = name.replace(/'/g, "&apos;");
+        const displayName = isUpper ? name.toUpperCase() : name;
+
+        return `
+           <tr>
+             <td style="${fontStyle}">${displayName}</td>
+             <td class="col-num">${w !== undefined ? w.toFixed(3) : '...'}</td>
+             <td class="col-action">
+               <button class="danger-ghost" onclick="removeName('${escName.replace(/'/g, "\\'")}')">&times;</button>
+             </td>
+           </tr>
+         `;
+      }).join('');
+    }
+
+    function renderMatches() {
+      if (!state.redactions.length) {
+        els.matchesSection.style.display = 'none';
+        return;
+      }
+      els.matchesSection.style.display = 'block';
+
+      const tol = parseFloat(els.tol.value) || 0;
+      const isUpper = els.upper.checked;
+
+      const fontStyle = `
+        font-family: ${getFontFamily(els.font.value)};
+        font-variant-ligatures: ${els.lig.checked ? 'common-ligatures' : 'none'};
+        font-feature-settings: "kern" ${els.kern.checked ? 1 : 0};
+        text-transform: ${isUpper ? 'uppercase' : 'none'}; 
+      `;
+
+      let matchCount = 0;
+
+      els.matchesBody.innerHTML = state.redactions.map(r => {
+        const matches = state.candidates.filter(c => {
+          const w = state.widths[c];
+          return w !== undefined && Math.abs(w - r.width) <= tol;
+        });
+
+        if (matches.length) matchCount++;
+
+        const matchHtml = matches.length
+          ? `<span class="matches-list" style="${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
+          : `<span class="no-match">No matches found within tolerance</span>`;
+
+        return `
+          <tr>
+            <td>${r.page}</td>
+            <td class="col-num">${r.width.toFixed(2)}</td>
+            <td class="col-num">${r.height ? r.height.toFixed(2) : '-'}</td>
+            <td>${matchHtml}</td>
+          </tr>
+        `;
+      }).join('');
+
+      els.matchSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+    }
+
+    function getFontFamily(fontFile) {
+      const low = (fontFile || '').toLowerCase();
+      if (low.includes('times')) return '"Times New Roman", Times, serif';
+      if (low.includes('arial')) return 'Arial, Helvetica, sans-serif';
+      if (low.includes('calibri')) return 'Calibri, sans-serif';
+      if (low.includes('verdana')) return 'Verdana, sans-serif';
+      return 'system-ui, sans-serif';
+    }
+  </script>
+</body>
+
+</html>
