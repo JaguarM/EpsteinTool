@@ -61,11 +61,34 @@ sudo systemctl start epsteintool
 sudo systemctl enable epsteintool
 ```
 
-### Troubleshooting User Error (217/USER)
-If the service fails to start with `status=217/USER`, it means the `User=` line in `epsteintool.service` doesn't match a user on your system.
-1. Check your current user with `whoami`.
-2. Ensure `epsteintool.service` has `User=root` (if you are root) or your specific username.
-3. Ensure all paths (`WorkingDirectory`, `ExecStart`, etc.) match your user's home directory.
+### Troubleshooting: Permission Denied (13: Permission denied)
+If you see a `Permission denied` error in your Nginx logs, it means Nginx (`www-data`) cannot access the Gunicorn socket.
+To fix this, ensure Gunicorn runs as `www-data` and owns the project folder:
+
+1. **Update the Service**:
+   Ensure `epsteintool.service` has:
+   ```ini
+   [Service]
+   User=www-data
+   Group=www-data
+   ```
+
+2. **Fix Folder Ownership**:
+   Run this command to give `www-data` ownership of the project:
+   ```bash
+   sudo chown -R www-data:www-data /var/www/epsteintool
+   ```
+
+3. **Reload and Restart**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart epsteintool
+   sudo systemctl restart nginx
+   ```
+
+### Troubleshooting: User Error (217/USER)
+If the service fails to start with `status=217/USER`, it means the `User=` line in `epsteintool.service` refers to a user that doesn't exist. Ensure it is set to `www-data` or a user that exists on your system.
+
 
 ### Nginx
 ```bash
@@ -89,11 +112,26 @@ sudo systemctl restart nginx
 ```
 
 ## 5. SSL Certificate (HTTPS)
-Secure your site with Let's Encrypt:
+Secure your site with Let's Encrypt. If Certbot is not installed, run:
 
 ```bash
-sudo certbot --nginx -d guesser.moedritscher.ch
+sudo apt update
+sudo apt install certbot python3-certbot-nginx -y
 ```
 
-## 6. Access the App
-Open your browser and navigate to: [http://guesser.moedritscher.ch](http://guesser.moedritscher.ch)
+Now, obtain and install the SSL certificate:
+
+```bash
+sudo certbot --nginx -d puzzle.moedritscher.ch
+```
+
+*Follow the prompts to enter your email and agree to the terms. When asked whether to redirect HTTP to HTTPS, choose **2 (Redirect)** to ensure Safari handles the connection correctly.*
+
+## 6. Verification
+Check that the socket file is owned by `www-data`:
+
+```bash
+ls -l /var/www/epsteintool/epsteintool.sock
+```
+
+Open your browser and navigate to: [https://puzzle.moedritscher.ch](https://puzzle.moedritscher.ch)

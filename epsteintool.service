@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 # Adjust User to your ubuntu user, e.g., 'ubuntu' or 'root' if you really must (not recommended)
-User=root
-# Group=www-data
+User=www-data
+Group=www-data
 WorkingDirectory=/var/www/epsteintool
 Environment="PATH=/var/www/epsteintool/venv/bin"
 ExecStart=/var/www/epsteintool/venv/bin/gunicorn --workers 3 --bind unix:epsteintool.sock -m 007 app:app

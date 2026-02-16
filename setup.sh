@@ -31,4 +31,4 @@ pip install gunicorn
 
 # SSL Setup (Interactive)
 # sudo apt-get install -y certbot python3-certbot-nginx
-# sudo certbot --nginx -d guesser.moedritscher.ch
+# sudo certbot --nginx -d puzzle.moedritscher.ch
