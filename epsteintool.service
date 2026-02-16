@@ -6,9 +6,9 @@ After=network.target
 # Adjust User to your ubuntu user, e.g., 'ubuntu' or 'root' if you really must (not recommended)
 User=root
 # Group=www-data
-WorkingDirectory=/root/EpsteinTool
-Environment="PATH=/root/EpsteinTool/venv/bin"
-ExecStart=/root/EpsteinTool/venv/bin/gunicorn --workers 3 --bind unix:epsteintool.sock -m 007 app:app
+WorkingDirectory=/var/www/epsteintool
+Environment="PATH=/var/www/epsteintool/venv/bin"
+ExecStart=/var/www/epsteintool/venv/bin/gunicorn --workers 3 --bind unix:epsteintool.sock -m 007 app:app
 
 [Install]
 WantedBy=multi-user.target

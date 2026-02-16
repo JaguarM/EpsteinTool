@@ -18,23 +18,25 @@ sudo apt-get install -y git
 If you are setting up for the first time, clone the repository:
 
 ```bash
-cd ~
-git clone https://github.com/JaguarM/EpsteinTool.git
+mkdir -p /var/www
+cd /var/www
+git clone https://github.com/JaguarM/EpsteinTool.git epsteintool
+cd epsteintool
 ```
 
 If you already have the code and want to update it:
 
 ```bash
-cd ~/EpsteinTool
+cd /var/www/epsteintool
 git pull
 ```
-*Note: This will create or update the directory named `EpsteinTool` in your home directory (e.g., `/root/EpsteinTool` if logged in as root).*
+*Note: This will create or update the directory named `epsteintool` in `/var/www/`.*
 
 ## 3. Run Setup Script
 On the server, run the setup script:
 
 ```bash
-cd ~/EpsteinTool
+cd /var/www/epsteintool
 chmod +x setup.sh
 ./setup.sh
 ```
@@ -45,7 +47,7 @@ The `setup.sh` script installs dependencies but you need to finalize the configu
 ### Systemd (Gunicorn)
 ```bash
 # Edit the service file if your path or user is not 'ubuntu'
-# If you are root, User should be 'root' and paths should be '/root/EpsteinTool'
+# If you are root, User should be 'root' and paths should be '/var/www/epsteintool'
 nano epsteintool.service
 
 # Copy to systemd directory
