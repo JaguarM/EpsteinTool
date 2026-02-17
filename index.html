@@ -341,7 +341,11 @@
       </div>
       <div>
         <label for="size">Size (pt)</label>
-        <input type="number" id="size" value="12" step="0.1">
+        <input type="number" id="size" value="12" step="1">
+      </div>
+      <div>
+        <label for="scale">Scale (%)</label>
+        <input type="number" id="scale" value="135" min="1" max="300" step="1">
       </div>
       <div>
         <label for="tolerance">Tolerance (px)</label>
@@ -452,6 +456,7 @@
     const els = {
       font: document.getElementById('font'),
       size: document.getElementById('size'),
+      scale: document.getElementById('scale'),
       tol: document.getElementById('tolerance'),
       kern: document.getElementById('kerning'),
       lig: document.getElementById('ligatures'),
@@ -488,7 +493,7 @@
 
         // Listeners
         els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
-        [els.font, els.size, els.kern, els.lig, els.upper].forEach(el =>
+        [els.font, els.size, els.scale, els.kern, els.lig, els.upper].forEach(el =>
           el.addEventListener('change', calculateWidths)
         );
         els.tol.addEventListener('change', renderMatches);
@@ -559,6 +564,7 @@
             strings: state.candidates,
             font: els.font.value,
             size: parseFloat(els.size.value) || 12,
+            scale: parseFloat(els.scale.value) || 135,
             kerning: els.kern.checked,
             ligatures: els.lig.checked,
             force_uppercase: els.upper.checked
@@ -595,7 +601,7 @@
         const data = await resp.json();
         state.redactions = data.redactions;
 
-        // Auto-detect font logic (simplified from old version)
+        // Auto-detect font logic
         if (data.spans && data.spans.length) {
           const fontCounts = {};
           data.spans.forEach(s => {

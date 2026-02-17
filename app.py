@@ -34,13 +34,16 @@ def calculate_widths():
     font_name = data.get('font', 'times.ttf')
     font_size = data.get('size', 12)
     force_uppercase = data.get('force_uppercase', False)
+    scale = data.get('scale', 135)
     
     # Optional flags like kerning/ligatures are tricky with PIL directly
     # PIL handles basic shaping usually.
     # We will pass what we can.
     
     try:
-        widths = get_text_widths(texts, font_name, font_size, force_uppercase)
+        # Convert scale percentage to multiplier (135 -> 1.35)
+        scale_factor = scale / 100.0
+        widths = get_text_widths(texts, font_name, font_size, force_uppercase, scale_factor)
         return jsonify({"results": widths})
     except Exception as e:
         return jsonify({"detail": str(e)}), 500

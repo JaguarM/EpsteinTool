@@ -1,7 +1,7 @@
 import os
 from PIL import ImageFont
 
-def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False):
+def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35):
     """
     Calculates pixel widths for a list of text strings data.
     """
@@ -49,7 +49,7 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
                 measure_text = text.upper() if force_uppercase else text
                 # getlength is more accurate for recent Pillow versions
                 # Scale by 1.35 to match PDF redaction box dimensions (approx difference between 72 DPI and 96 DPI)
-                width = round(font.getlength(measure_text) * 1.35, 3)
+                width = round(font.getlength(measure_text) * scale_factor, 3)
                 pd = {"text": text, "width": width} # Return original text but uppercase width
             except Exception as e:
                 pd = {"text": text, "width": 0, "error": str(e)}
