@@ -14,6 +14,22 @@ sudo apt-get update
 sudo apt-get install -y git
 ```
 
+### 1.1 Install Fonts
+The application requires Microsoft fonts (Times New Roman) to calculate text widths correctly. Install `fontconfig` and `ttf-mscorefonts-installer`:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y fontconfig ttf-mscorefonts-installer
+```
+
+*Note: You may be prompted to accept a license agreement (EULA). Use `TAB` to select `<Ok>` and `ENTER` to accept.*
+
+After installation, update the font cache:
+
+```bash
+sudo fc-cache -f -v
+```
+
 ## 2. Get or update code
 If you are setting up for the first time, clone the repository:
 

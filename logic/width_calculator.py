@@ -13,6 +13,8 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
         font_name,
         os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name),
         os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name + '.ttf'),
+        os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name),
+        os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name + '.ttf'),
         "times.ttf" # Fallback to local
     ]
     

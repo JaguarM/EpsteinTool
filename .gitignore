@@ -8,6 +8,7 @@
 *.pdf
 *.code-workspace 
 run_app.bat
+TROUBLESHOOT.md
 
 # User-specific files
 *.rsuser
