@@ -114,8 +114,8 @@ def get_available_fonts():
     # For now, return a static list of likely available fonts
     return [
         "times.ttf",
+        "cour.ttf",
         "arial.ttf",
         "calibri.ttf",
-        "cour.ttf",
-        "verdana.ttf"
+        "segoeui.ttf"
     ]

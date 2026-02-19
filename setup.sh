@@ -13,7 +13,7 @@ sudo apt-get update
 sudo apt-get upgrade -y
 # Pre-accept Microsoft Fonts license
 echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-sudo apt-get install -y python3-pip python3-venv nginx fontconfig ttf-mscorefonts-installer libgl1 libglib2.0-0 build-essential
+sudo apt-get install -y python3-pip python3-venv nginx fontconfig ttf-mscorefonts-installer libgl1 libglib2.0-0 build-essential libharfbuzz-bin libharfbuzz-dev
 
 # Refresh font cache
 sudo fc-cache -fv

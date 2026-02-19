@@ -13,7 +13,7 @@ sudo apt-get install -y python3 python3-pip python3-venv
 # libgl1 and libglib2.0-0 are commonly required for opencv-python-headless and other image libraries
 # build-essential is useful for compiling Python packages if wheels are missing
 echo "Installing system dependencies..."
-sudo apt-get install -y libgl1 libglib2.0-0 build-essential fontconfig ttf-mscorefonts-installer
+sudo apt-get install -y libgl1 libglib2.0-0 build-essential fontconfig ttf-mscorefonts-installer libharfbuzz-bin libharfbuzz-dev
 
 # Update font cache
 echo "Updating font cache..."

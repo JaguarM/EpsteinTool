@@ -4,3 +4,4 @@ numpy
 pymupdf
 pillow
 gunicorn
+uharfbuzz
