@@ -1,7 +1,10 @@
+try:
+    import uharfbuzz as hb
+except ImportError:
+    hb = None
 import os
-from PIL import ImageFont
 
-def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35):
+def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, ligatures=True):
     """
     Calculates pixel widths for a list of text strings data.
     """
@@ -18,23 +21,72 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
         "times.ttf" # Fallback to local
     ]
     
-    font = None
-    loaded_font_name = font_name
-    
+    font_path = None
     for path in font_paths:
         if os.path.exists(path):
-            try:
-                font = ImageFont.truetype(path, font_size)
-                loaded_font_name = path
-                break
-            except Exception:
-                continue
+            font_path = path
+            break
+            
+    # HarfBuzz Implementation
+    if hb and font_path:
+        try:
+            with open(font_path, 'rb') as f:
+                font_data = f.read()
+            face = hb.Face(font_data)
+            font = hb.Font(face)
+            upem = face.upem
+            
+            # Create features list
+            features = {}
+            if not ligatures:
+                features["liga"] = False
+                features["clig"] = False
+                features["dlig"] = False
+            else:
+                 features["liga"] = True
+                 features["clig"] = True
+            
+            if not kerning:
+                features["kern"] = False
+            
+            for text in texts:
+                if not text:
+                    results.append({"text": text, "width": 0})
+                    continue
+                    
+                measure_text = text.upper() if force_uppercase else text
                 
+                buf = hb.Buffer()
+                buf.add_str(measure_text)
+                buf.guess_segment_properties()
+                
+                hb.shape(font, buf, features)
+                
+                total_advance = sum(info.x_advance for info in buf.glyph_positions)
+                
+                # Convert font units to pixels
+                # (units / upem) * font_size
+                pixel_width = (total_advance / upem) * font_size * scale_factor
+                
+                results.append({"text": text, "width": round(pixel_width, 3)})
+            return results
+            
+        except Exception as e:
+            # Fallback to Pillow if HarfBuzz fails
+            print(f"HarfBuzz failed: {e}, falling back to Pillow")
+            pass
+
+    # Fallback / Pillow Implementation (No Ligature/Kerning control usually)
+    font = None
+    if font_path:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+        except:
+            pass
+            
     if font is None:
-        # Fallback to default if load fails
         try:
              font = ImageFont.load_default()
-             loaded_font_name = "default"
         except:
              pass
 
@@ -47,15 +99,15 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
         else:
             try:
                 measure_text = text.upper() if force_uppercase else text
-                # getlength is more accurate for recent Pillow versions
-                # Scale by 1.35 to match PDF redaction box dimensions (approx difference between 72 DPI and 96 DPI)
+                # Scale by 1.35 to match PDF redaction box dimensions
                 width = round(font.getlength(measure_text) * scale_factor, 3)
-                pd = {"text": text, "width": width} # Return original text but uppercase width
+                pd = {"text": text, "width": width}
             except Exception as e:
                 pd = {"text": text, "width": 0, "error": str(e)}
         results.append(pd)
         
     return results
+
 
 def get_available_fonts():
     # rudimentary list of common fonts or scan directory
