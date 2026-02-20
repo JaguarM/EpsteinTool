@@ -38,12 +38,15 @@ python3 manage.py migrate
 
 # 4. Setup Service (Using your provided file)
 echo -e "${GREEN}Installing Systemd Service...${NC}"
+# Fix permissions so that www-data can create the socket and write to db.sqlite3
+sudo chown -R www-data:www-data /var/www/epsteintool
+
 # ... hardcoded paths.
 sudo cp epsteintool.service /etc/systemd/system/
 
 # Reload the systemd daemon so it sees the new file
 sudo systemctl daemon-reload
-sudo systemctl start epsteintool
+sudo systemctl restart epsteintool
 sudo systemctl enable epsteintool
 
 # 5. Setup Nginx (Using your provided file)
