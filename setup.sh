@@ -36,6 +36,10 @@ pip install gunicorn
 # Migrate database
 python3 manage.py migrate
 
+# Collect static files
+echo -e "${GREEN}Collecting static files...${NC}"
+python3 manage.py collectstatic --noinput
+
 # 4. Setup Service (Using your provided file)
 echo -e "${GREEN}Installing Systemd Service...${NC}"
 # Fix permissions so that www-data can create the socket and write to db.sqlite3
