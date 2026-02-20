@@ -1,4 +1,4 @@
-flask
+django
 opencv-python-headless
 numpy
 pymupdf

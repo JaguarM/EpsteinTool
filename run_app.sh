@@ -28,4 +28,4 @@ pip install -r requirements.txt
 # Launch browser in background (give the app a moment to start)
 (sleep 2 && open_browser) &
 
-python3 app.py
+python3 manage.py runserver 5000

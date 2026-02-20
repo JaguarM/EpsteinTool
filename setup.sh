@@ -33,6 +33,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 pip install gunicorn
 
+# Migrate database
+python3 manage.py migrate
+
 # 4. Setup Service (Using your provided file)
 echo -e "${GREEN}Installing Systemd Service...${NC}"
 # ... hardcoded paths.
