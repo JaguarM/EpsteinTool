@@ -1,2 +1,0 @@
-[{'text': 'hello', 'width': 32.392}, {'text': 'world', 'width': 37.795}, {'text': 'HELLO', 'width': 53.085}, {'text': 'WORLD', 'width': 59.389}]
-[{'text': 'hello', 'width': 48.608}, {'text': 'world', 'width': 48.608}, {'text': 'HELLO', 'width': 48.608}, {'text': 'WORLD', 'width': 48.608}]

@@ -10,6 +10,7 @@
 run_app.bat
 TROUBLESHOOT.md
 TROUBLESHOOTING.md
+out.txt
 
 # User-specific files
 *.rsuser

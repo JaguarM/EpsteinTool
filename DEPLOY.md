@@ -3,12 +3,7 @@
 Follow these steps to deploy the EpsteinTool to your Ubuntu server.
 
 ## 1. Prepare the Server
-Connect to your server via SSH:
-```bash
-ssh root@46.225.122.81
-```
-
-Once connected, ensure `git` is installed:
+Ensure `git` is installed:
 ```bash
 sudo apt-get update
 sudo apt-get install -y git
