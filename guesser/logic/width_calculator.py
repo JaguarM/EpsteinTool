@@ -11,16 +11,17 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
     results = []
     
     # Try to locate the font
-    # Common system font paths or local file
+    # Search local and assets/fonts only
     font_paths = [
         font_name,
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'assets', 'fonts', font_name),
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'assets', 'fonts', font_name + '.ttf'),
-        os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name),
-        os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name + '.ttf'),
-        os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name),
-        os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name + '.ttf'),
-        "times.ttf" # Fallback to local
+        # System font paths commented out to avoid duplicates with uploaded fonts
+        # os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name),
+        # os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', font_name + '.ttf'),
+        # os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name),
+        # os.path.join('/usr/share/fonts/truetype/msttcorefonts/', font_name + '.ttf'),
+        # "times.ttf" # Fallback to local
     ]
     
     font_path = None
@@ -119,11 +120,11 @@ def get_available_fonts():
         asset_fonts = [f for f in os.listdir(font_dir) if f.lower().endswith('.ttf')]
 
     fallback_fonts = [
-        "times.ttf",
-        "cour.ttf",
-        "arial.ttf",
-        "calibri.ttf",
-        "segoeui.ttf"
+        # "times.ttf",
+        # "cour.ttf",
+        # "arial.ttf",
+        # "calibri.ttf",
+        # "segoeui.ttf"
     ]
 
     # Combine ensuring no duplicates and asset fonts are first
