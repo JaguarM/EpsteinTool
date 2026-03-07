@@ -84,6 +84,15 @@
       align-items: end;
     }
 
+    .advanced-settings {
+      display: none;
+      margin-top: 0.5rem;
+    }
+
+    .advanced-settings.is-open {
+      display: block;
+    }
+
     /* Form Elements */
     label {
       display: block;
@@ -343,25 +352,42 @@
         <label for="size">Size (pt)</label>
         <input type="number" id="size" value="12" step="1">
       </div>
-      <div>
-        <label for="scale">Scale (%)</label>
-        <input type="number" id="scale" value="135" min="1" max="300" step="1">
+      <div style="align-self: end;">
+        <button
+          type="button"
+          class="secondary"
+          id="advanced-toggle"
+          onclick="toggleAdvanced()"
+          aria-expanded="false"
+          aria-controls="advanced-settings"
+        >
+          Advanced ▼
+        </button>
       </div>
-      <div>
-        <label for="tolerance">Tolerance (px)</label>
-        <input type="number" id="tolerance" value="3" step="0.1">
-      </div>
-      <div class="checkbox-group">
-        <input type="checkbox" id="kerning" checked>
-        <label for="kerning">Kerning</label>
-      </div>
-      <div class="checkbox-group">
-        <input type="checkbox" id="ligatures" checked>
-        <label for="ligatures">Ligatures</label>
-      </div>
-      <div class="checkbox-group">
-        <input type="checkbox" id="force-uppercase">
-        <label for="force-uppercase">Force Uppercase</label>
+    </div>
+
+    <div id="advanced-settings" class="advanced-settings" role="region" aria-label="Advanced settings">
+      <div class="controls-grid">
+        <div>
+          <label for="scale">Scale (%)</label>
+          <input type="number" id="scale" value="135" min="1" max="300" step="1">
+        </div>
+        <div>
+          <label for="tolerance">Tolerance (px)</label>
+          <input type="number" id="tolerance" value="3" step="0.1">
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="kerning" checked>
+          <label for="kerning">Kerning</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="ligatures" checked>
+          <label for="ligatures">Ligatures</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="force-uppercase">
+          <label for="force-uppercase">Force Uppercase</label>
+        </div>
       </div>
     </div>
 
@@ -512,6 +538,14 @@
         els.nameInput.value = '';
         calculateWidths();
       }
+    }
+
+    function toggleAdvanced() {
+      const block = document.getElementById('advanced-settings');
+      const btn = document.getElementById('advanced-toggle');
+      const isOpen = block.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      btn.textContent = isOpen ? 'Hide advanced ▲' : 'Advanced ▼';
     }
 
     function togglePaste() {
