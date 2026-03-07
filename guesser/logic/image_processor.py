@@ -243,7 +243,24 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     
         if best_match:
             word_before, word_after = best_match
+            
             space_px = 9.5
+            calculated_space_px = 0
+            space_count = 0
+            
+            for i in range(len(best_line_words) - 1):
+                w1 = best_line_words[i]
+                w2 = best_line_words[i+1]
+                gap_px = (w2[0] - w1[2]) * pts_to_px_x
+                if 3 <= gap_px <= 11:
+                    calculated_space_px += gap_px
+                    space_count += 1
+                    
+            if space_count > 0:
+                avg_space_px = calculated_space_px / space_count
+                if 3 <= avg_space_px <= 11:
+                    space_px = avg_space_px
+
             expected_x1_px = None
             
             if word_before:
