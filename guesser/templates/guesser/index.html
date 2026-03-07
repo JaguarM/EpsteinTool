@@ -190,11 +190,23 @@
     .file-input-wrapper {
       display: flex;
       gap: 1rem;
-      align-items: flex-end;
+      align-items: center;
     }
 
     .file-input-wrapper .input-group {
       flex: 1;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .drop-zone.dragover {
+      background: rgba(37, 99, 235, 0.05);
+      border-color: var(--primary);
     }
 
     .action-row {
@@ -329,9 +341,9 @@
   <div class="card">
     <h2><span>1</span> Analyze PDF</h2>
     <div class="file-input-wrapper">
-      <div class="input-group">
-        <label for="pdf-file">Select Document</label>
-        <input type="file" id="pdf-file" accept=".pdf">
+      <div class="input-group drop-zone" id="drop-zone">
+        <label for="pdf-file">Select Document or Drag & Drop</label>
+        <input type="file" id="pdf-file" name="userfile" accept="application/pdf, .pdf">
       </div>
       <button id="analyze-btn" onclick="analyzePdf()">Analyze</button>
     </div>
@@ -353,14 +365,8 @@
         <input type="number" id="size" value="12" step="1">
       </div>
       <div style="align-self: end;">
-        <button
-          type="button"
-          class="secondary"
-          id="advanced-toggle"
-          onclick="toggleAdvanced()"
-          aria-expanded="false"
-          aria-controls="advanced-settings"
-        >
+        <button type="button" class="secondary" id="advanced-toggle" onclick="toggleAdvanced()" aria-expanded="false"
+          aria-controls="advanced-settings">
           Advanced ▼
         </button>
       </div>
@@ -501,7 +507,8 @@
       matchSummary: document.getElementById('match-summary'),
       pdfStatus: document.getElementById('pdf-status'),
       analyzeBtn: document.getElementById('analyze-btn'),
-      fileInput: document.getElementById('pdf-file')
+      fileInput: document.getElementById('pdf-file'),
+      dropZone: document.getElementById('drop-zone')
     };
 
     /* Initialization */
@@ -523,6 +530,32 @@
           el.addEventListener('change', calculateWidths)
         );
         els.tol.addEventListener('change', renderMatches);
+
+        // Drag and drop listeners
+        if (els.dropZone) {
+          ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            els.dropZone.addEventListener(eventName, e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }, false);
+          });
+
+          ['dragenter', 'dragover'].forEach(eventName => {
+            els.dropZone.addEventListener(eventName, () => els.dropZone.classList.add('dragover'), false);
+          });
+
+          ['dragleave', 'drop'].forEach(eventName => {
+            els.dropZone.addEventListener(eventName, () => els.dropZone.classList.remove('dragover'), false);
+          });
+
+          els.dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length) {
+              els.fileInput.files = files;
+            }
+          });
+        }
 
         calculateWidths();
       } catch (err) {
