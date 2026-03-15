@@ -552,7 +552,7 @@
     .selected-row td {
       background: rgba(138, 180, 248, 0.2);
     }
-    
+
     .col-right {
       text-align: right;
     }
@@ -732,7 +732,7 @@
                 <input type="number" id="calc-scale" class="tool-input" value="135" min="1" step="1">
               </div>
               <div class="control-group">
-                <label>Tolerance (px)</label>
+                <label>Tolerance (pt)</label>
                 <input type="number" id="tolerance" class="tool-input" value="3" step="0.1">
               </div>
               <label class="checkbox-lbl"><input type="checkbox" id="kerning" checked> Kerning</label>
@@ -765,7 +765,7 @@
               <thead>
                 <tr>
                   <th onclick="setSort('name')">Name</th>
-                  <th class="col-right" onclick="setSort('width')">Width <span id="sort-icon"></span></th>
+                  <th class="col-right" onclick="setSort('width')">Width (pt) <span id="sort-icon"></span></th>
                   <th class="col-del"></th>
                 </tr>
               </thead>
@@ -785,8 +785,8 @@
               <thead>
                 <tr>
                   <th>Page</th>
-                  <th class="col-right">Width</th>
-                  <th class="col-right">Height</th>
+                  <th class="col-right">Width (pt)</th>
+                  <th class="col-right">Height (pt)</th>
                   <th>Matches</th>
                 </tr>
               </thead>
@@ -813,7 +813,7 @@
       renderQueue: [],
 
       // Unredactor State
-      candidates: ['Jeffrey Epstein', 'Ghislaine Maxwell', 'Alan Dershowitz', 'Bill Clinton', 'Prince Andrew'],
+      candidates: ['Jeffrey Epstein', 'Ghislaine Maxwell', 'Alan Dershowitz', 'Bill Clinton', 'Donald Trump', 'Prince Andrew', 'Virginia Giuffre', 'Virginia Roberts', 'Jean-Luc Brunel', 'Sarah Kellen', 'Nadia Marcinkova', 'Les Wexner', 'Glenn Dubin', 'Eva Dubin', 'Bill Richardson', 'George Mitchell', 'Leon Black', 'Mort Zuckerman', 'Emmy Tayler', 'Lesley Groff', 'Adriana Ross', 'Juan Alessi', 'Alfredo Rodriguez', 'Adriana Mucinska', 'Nadia Marcinkova', 'Nadia', 'Marcinkova', 'Les Wexner', 'Lex Wexner', 'Lesley Groff', 'Haley Robson', 'William Hammond', 'David Rodgers', 'Gerald Lefcourt'],
       widths: {},
       redactions: [],
       selectedRedactionIdx: null,
@@ -1202,7 +1202,7 @@
 
 
     /* =========================================================
-       AI Candidates & Inspection Logic
+       Inspection Logic
        ========================================================= */
     function addName() {
       const v = els.nameInput.value.trim();
@@ -1242,7 +1242,7 @@
             strings: state.candidates,
             font: els.font.value,
             size: parseFloat(els.size.value) || 12,
-            scale: parseFloat(els.calcScale.value) || 135,
+            scale: parseFloat(els.calcScale.value) || 100,
             kerning: els.kern.checked,
             ligatures: els.lig.checked,
             force_uppercase: els.upper.checked
@@ -1298,7 +1298,7 @@
       state.selectedRedactionIdx = idx;
       document.querySelectorAll('.redaction-overlay').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('#all-matches-body tr').forEach(el => el.classList.remove('selected-row'));
-      
+
       const rowEl = document.getElementById(`match-row-${idx}`);
       if (rowEl) {
         rowEl.classList.add('selected-row');
