@@ -415,6 +415,9 @@ def process_pdf(pdf_bytes):
                     
                     expected_widths = estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, img_bytes)
                     
+                    px_to_pts_x = img_rect.width / img_w
+                    px_to_pts_y = img_rect.height / img_h
+                    
                     for i, box in enumerate(boxes):
                         bx1, by1, bx2, by2 = box
                         expected_data = expected_widths[i]
@@ -447,7 +450,11 @@ def process_pdf(pdf_bytes):
                             "y": float(by1),
                             "width": float(w),
                             "height": float(h),
-                            "area": float(area)
+                            "area": float(area),
+                            "pts_x": float(img_rect.x0 + final_x1 * px_to_pts_x),
+                            "pts_y": float(img_rect.y0 + by1 * px_to_pts_y),
+                            "pts_width": float(w * px_to_pts_x),
+                            "pts_height": float(h * px_to_pts_y)
                         })
                         
                 except Exception as e:
