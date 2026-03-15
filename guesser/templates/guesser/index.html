@@ -433,6 +433,48 @@
       z-index: 20;
     }
 
+    .resizer {
+      position: absolute;
+      background: transparent;
+      z-index: 30;
+    }
+
+    .resizer-l {
+      left: -4px;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: ew-resize;
+    }
+
+    .resizer-r {
+      right: -4px;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: ew-resize;
+    }
+
+    .resizer-t {
+      top: -4px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      cursor: ns-resize;
+    }
+
+    .resizer-b {
+      bottom: -4px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      cursor: ns-resize;
+    }
+
+    .resizer:hover {
+      background: rgba(138, 180, 248, 0.5);
+    }
+
     /* Sub-controls inside Tool Card */
     .control-group {
       margin-bottom: 10px;
@@ -729,7 +771,7 @@
             <div class="tool-grid">
               <div class="control-group">
                 <label>Scale (%)</label>
-                <input type="number" id="calc-scale" class="tool-input" value="100" min="1" step="1">
+                <input type="number" id="calc-scale" class="tool-input" value="144" min="1" step="1">
               </div>
               <div class="control-group">
                 <label>Tolerance (pt)</label>
@@ -772,7 +814,11 @@
               <tbody id="names-body"></tbody>
             </table>
           </div>
-          <div style="text-align:center; font-size:11px; color:#9aa0a6; margin-top:4px;" id="page-info"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <button class="tool-btn secondary" style="padding: 2px 8px; font-size: 11px; width: auto;" onclick="changePage(-1)" id="btn-prev-page" disabled>&lt; Prev</button>
+            <div style="text-align:center; font-size:11px; color:#9aa0a6;" id="page-info"></div>
+            <button class="tool-btn secondary" style="padding: 2px 8px; font-size: 11px; width: auto;" onclick="changePage(1)" id="btn-next-page" disabled>Next &gt;</button>
+          </div>
         </div>
 
         <!-- 3. All Matches Summary -->
@@ -1132,6 +1178,13 @@
           selectRedaction(idx);
         };
 
+        ['l', 'r', 't', 'b'].forEach(edge => {
+          const resizer = document.createElement('div');
+          resizer.className = `resizer resizer-${edge}`;
+          resizer.onmousedown = (e) => initResize(e, idx, edge);
+          overlay.appendChild(resizer);
+        });
+
         // Reapply selection state if we were rendering while clicked
         if (idx === state.selectedRedactionIdx) overlay.classList.add('selected');
 
@@ -1162,6 +1215,86 @@
           if (c) renderPage(i, c);
         }
       }, 300);
+    }
+
+    /* Resizing Redactions */
+    function initResize(e, idx, edge) {
+      e.stopPropagation();
+      e.preventDefault();
+
+      selectRedaction(idx);
+
+      const r = state.redactions[idx];
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startPtsX = r.pts_x;
+      const startPtsY = r.pts_y;
+      const startPtsWidth = r.pts_width;
+      const startPtsHeight = r.pts_height;
+      const scaleFactor = state.currentZoom;
+
+      const tol = parseFloat(els.tol.value) || 0;
+      const isUpper = els.upper.checked;
+      const fontStyle = `font-family: ${getFontFamily(els.font.value)}; font-variant-ligatures: ${els.lig.checked ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${els.kern.checked ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
+
+      function onMouseMove(moveEvent) {
+        const dx = (moveEvent.clientX - startX) / scaleFactor;
+        const dy = (moveEvent.clientY - startY) / scaleFactor;
+
+        if (edge === 'r') {
+          r.pts_width = Math.max(1, startPtsWidth + dx);
+        } else if (edge === 'l') {
+          const actualDx = Math.min(dx, startPtsWidth - 1);
+          r.pts_x = startPtsX + actualDx;
+          r.pts_width = startPtsWidth - actualDx;
+        } else if (edge === 'b') {
+          r.pts_height = Math.max(1, startPtsHeight + dy);
+        } else if (edge === 't') {
+          const actualDy = Math.min(dy, startPtsHeight - 1);
+          r.pts_y = startPtsY + actualDy;
+          r.pts_height = startPtsHeight - actualDy;
+        }
+
+        const overlay = document.getElementById(`redaction-idx-${idx}`);
+        if (overlay) {
+          overlay.style.setProperty('--pts-x', `${r.pts_x}px`);
+          overlay.style.setProperty('--pts-y', `${r.pts_y}px`);
+          overlay.style.setProperty('--pts-width', `${r.pts_width}px`);
+          overlay.style.setProperty('--pts-height', `${r.pts_height}px`);
+        }
+
+        const rowEl = document.getElementById(`match-row-${idx}`);
+        if (rowEl) {
+          rowEl.children[1].textContent = r.pts_width.toFixed(2);
+          rowEl.children[2].textContent = r.pts_height.toFixed(2);
+
+          const matches = state.candidates.filter(c => {
+            const w = state.widths[c];
+            return w !== undefined && Math.abs(w - r.pts_width) <= tol;
+          });
+          const matchHtml = matches.length
+            ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
+            : `<span class="no-match">No obvious matches</span>`;
+          rowEl.children[3].innerHTML = matchHtml;
+        }
+
+        // Re-evaluate matching candidates total count
+        let matchCount = 0;
+        state.redactions.forEach(rItem => {
+          if (state.candidates.some(c => state.widths[c] !== undefined && Math.abs(state.widths[c] - rItem.pts_width) <= tol)) {
+            matchCount++;
+          }
+        });
+        els.allMatchesSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+      }
+
+      function onMouseUp() {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
     }
 
     /* Thumbnails */
@@ -1258,9 +1391,15 @@
       }
     }
 
+    function changePage(delta) {
+      state.page += delta;
+      renderCandidates();
+    }
+
     function setSort(f) {
       if (state.sortBy === f) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
       else { state.sortBy = f; state.sortDir = 'asc'; }
+      state.page = 1; // reset to page 1 on sort
       renderCandidates();
     }
 
@@ -1276,9 +1415,18 @@
         return 0;
       });
 
+      const totalPages = Math.ceil(sorted.length / state.perPage) || 1;
+      if (state.page > totalPages) state.page = totalPages;
+      if (state.page < 1) state.page = 1;
+
       const start = (state.page - 1) * state.perPage;
       const slice = sorted.slice(start, start + state.perPage);
-      els.pageInfo.textContent = `List: ${state.candidates.length} (${state.page}/${Math.ceil(sorted.length / state.perPage) || 1})`;
+      els.pageInfo.textContent = `List: ${state.candidates.length} (${state.page}/${totalPages})`;
+
+      const btnPrev = document.getElementById('btn-prev-page');
+      const btnNext = document.getElementById('btn-next-page');
+      if (btnPrev) btnPrev.disabled = state.page <= 1;
+      if (btnNext) btnNext.disabled = state.page >= totalPages;
 
       els.tableBody.innerHTML = slice.map(n => {
         const w = state.widths[n];
