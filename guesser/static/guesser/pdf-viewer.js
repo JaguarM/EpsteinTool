@@ -190,15 +190,23 @@
           selectRedaction(idx); // Make sure selecting the text also highlights the box
         };
         label.onclick = (e) => e.stopPropagation();
-        
-        // Optionally save the manual edit
-        label.onblur = () => {
-            // Keep user manual edits intact and persist to per-redaction state
+
+        // As soon as the user types, treat this label as manual
+        label.oninput = () => {
+          if (state.redactions[idx]) {
+            state.redactions[idx].labelText = label.textContent || '';
+            state.redactions[idx].manualLabel = true;
             label.dataset.manualEdit = 'true';
-            if (state.redactions[idx]) {
-              state.redactions[idx].labelText = label.textContent || '';
-              state.redactions[idx].manualLabel = true;
-            }
+          }
+        };
+
+        // Also persist on blur (in case of paste or last change)
+        label.onblur = () => {
+          if (state.redactions[idx]) {
+            state.redactions[idx].labelText = label.textContent || '';
+            state.redactions[idx].manualLabel = true;
+            label.dataset.manualEdit = 'true';
+          }
         };
         
         overlay.appendChild(label);

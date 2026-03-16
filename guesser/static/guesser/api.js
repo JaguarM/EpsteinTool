@@ -192,8 +192,11 @@
 
         if (matches.length) matchCount++;
 
-        // Update per-redaction label text if it has not been manually overridden
-        if (!r.manualLabel) {
+        // Update per-redaction label text only:
+        // - once on initial load (onlyIdx === null), or
+        // - for the explicitly targeted redaction (onlyIdx === idx),
+        // and only if it has not been manually overridden.
+        if (!r.manualLabel && (onlyIdx === null || onlyIdx === idx)) {
           if (matches.length > 0) {
             r.labelText = isUpper ? matches[0].toUpperCase() : matches[0];
           } else {

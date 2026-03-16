@@ -465,5 +465,13 @@ def process_pdf(pdf_bytes):
     # Sort redactions: Top-to-bottom, Left-to-right
     redactions.sort(key=lambda b: (b["page"], b["y"], b["x"]))
 
+    # Calculate suggested scale assuming 12 pt font size and 816px / 612p ratio
+    suggested_scale = 133
+    if text_spans:
+        font_sizes = [span["font"]["size"] for span in text_spans if span["font"]["size"] > 0]
+        if font_sizes:
+            median_size = sorted(font_sizes)[len(font_sizes) // 2]
+            suggested_scale = round((median_size / 12.0) * (816 / 612) * 100)
+
     doc.close()
-    return {"redactions": redactions, "spans": text_spans}
+    return {"redactions": redactions, "spans": text_spans, "suggested_scale": suggested_scale}
