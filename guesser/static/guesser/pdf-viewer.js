@@ -83,11 +83,13 @@
 
         // Inject overlays into their specific rendered page containers!
         injectRedactionOverlays();
-        
+
+        // On initial load, compute matches and initialize labelText for all redactions once.
         if (state.redactions.length > 0) {
-            selectRedaction(0);
+          updateAllMatchesView();
+          selectRedaction(0);
         } else {
-            updateAllMatchesView();
+          updateAllMatchesView();
         }
 
       } catch (e) {

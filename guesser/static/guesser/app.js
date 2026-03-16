@@ -96,9 +96,8 @@
             r.settings.upper = els.upper.checked;
 
             if (el === els.tol) {
-              updateAllMatchesView(); // Tolerance doesn't need re-fetch, just re-filter
-              // Also trigger overlay re-render to update the guessed text label
-              selectRedaction(state.selectedRedactionIdx);
+              // Tolerance doesn't need re-fetch, just re-filter for the selected redaction
+              updateAllMatchesView(state.selectedRedactionIdx);
             } else {
               calculateWidthsForRedaction(state.selectedRedactionIdx);
             }

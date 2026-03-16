@@ -168,7 +168,8 @@
 
       // Re-render candidates since we changed selection (and widths depend on selection)
       renderCandidates();
-      updateAllMatchesView();
+      // Only update overlay label/style for the selected redaction
+      updateAllMatchesView(idx);
     }
 
     function updateAllMatchesView(onlyIdx = null) {
@@ -192,10 +193,9 @@
 
         if (matches.length) matchCount++;
 
-        // Update per-redaction label text only:
-        // - once on initial load (onlyIdx === null), or
-        // - for the explicitly targeted redaction (onlyIdx === idx),
-        // and only if it has not been manually overridden.
+        // Update per-redaction label text if it has not been manually overridden.
+        // When onlyIdx is provided, restrict text changes to that redaction; otherwise
+        // we are in the initial load case and can initialize all label texts.
         if (!r.manualLabel && (onlyIdx === null || onlyIdx === idx)) {
           if (matches.length > 0) {
             r.labelText = isUpper ? matches[0].toUpperCase() : matches[0];
