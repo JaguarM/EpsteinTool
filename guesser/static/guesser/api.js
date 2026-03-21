@@ -213,6 +213,17 @@
         if (overlay && (onlyIdx === null || onlyIdx === idx)) {
           const label = overlay.querySelector('.redaction-label');
           if (label) {
+            // If the user is actively editing this label, do not touch its text or styling
+            if (label.isContentEditable && document.activeElement === label) {
+              return `
+          <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
+            <td>${r.page}</td>
+            <td class="col-right">${r.pts_width.toFixed(2)}</td>
+            <td class="col-right">${r.pts_height.toFixed(2)}</td>
+            <td>${matchHtml}</td>
+          </tr>
+        `;
+            }
             const basePx = r.settings.size * (r.settings.scale / 100);
             
             label.style.fontFamily = getFontFamily(r.settings.font);

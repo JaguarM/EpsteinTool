@@ -171,6 +171,15 @@
           selectRedaction(idx);
         };
 
+        // Drag the entire redaction box (including its label) on mouse drag.
+        // Ignore resizer edges (they have their own handlers) and double-clicks (used for editing).
+        overlay.onmousedown = (e) => {
+          if (e.button !== 0) return; // left click only
+          if (e.detail > 1) return;   // let double-click be handled by label for editing
+          if (e.target.classList.contains('resizer')) return;
+          initDragRedaction(e, idx);
+        };
+
         ['l', 'r', 't', 'b'].forEach(edge => {
           const resizer = document.createElement('div');
           resizer.className = `resizer resizer-${edge}`;
@@ -181,17 +190,25 @@
         // We'll append an editable label to the left of the overlay
         const label = document.createElement('div');
         label.className = 'redaction-label';
-        label.contentEditable = 'true';
+        // Start non-editable by default; we enter edit mode on double-click
+        label.contentEditable = 'false';
         label.spellcheck = false;
         // Initialize from per-redaction state
         label.textContent = r.labelText || '';
         label.dataset.manualEdit = r.manualLabel ? 'true' : 'false';
-        // Prevent typing from triggering drag/resize of the box itself
-        label.onmousedown = (e) => {
+        // Single-click should just highlight/select the redaction; allow event to bubble to overlay
+        label.onclick = (e) => {
           e.stopPropagation();
-          selectRedaction(idx); // Make sure selecting the text also highlights the box
+          selectRedaction(idx);
         };
-        label.onclick = (e) => e.stopPropagation();
+
+        // Double-click enters edit mode for this label (no-op if already editing)
+        label.ondblclick = (e) => {
+          e.stopPropagation();
+          if (label.isContentEditable) return;
+          label.contentEditable = 'true';
+          label.focus();
+        };
 
         // As soon as the user types, treat this label as manual
         label.oninput = () => {
@@ -202,13 +219,14 @@
           }
         };
 
-        // Also persist on blur (in case of paste or last change)
+        // Also persist on blur (in case of paste or last change) and exit edit mode
         label.onblur = () => {
           if (state.redactions[idx]) {
             state.redactions[idx].labelText = label.textContent || '';
             state.redactions[idx].manualLabel = true;
             label.dataset.manualEdit = 'true';
           }
+          label.contentEditable = 'false';
         };
         
         overlay.appendChild(label);

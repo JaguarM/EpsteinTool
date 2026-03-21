@@ -21,48 +21,46 @@
       els.toggleSidebarBtn.addEventListener('click', () => {
         els.sidebar.classList.toggle('hidden');
         els.toggleSidebarBtn.classList.toggle('active');
-        setTimeout(() => applyRealZoomDebounced(), 300); // redraw canvas cleanly after flex resize
       });
 
       els.toggleToolsBtn.addEventListener('click', () => {
         els.toolsSidebar.classList.toggle('hidden');
         els.toggleToolsBtn.classList.toggle('active');
-        setTimeout(() => applyRealZoomDebounced(), 300);
       });
 
-      // Zoom commands
-      els.zoomInBtn.addEventListener('click', () => { state.currentZoom *= 1.1; applyZoom(); });
-      els.zoomOutBtn.addEventListener('click', () => { state.currentZoom /= 1.1; applyZoom(); });
-      els.zoomInputElem.addEventListener('change', (e) => {
-        let val = parseInt(e.target.value.replace('%', ''));
+      function triggerZoomCheck(mouseX = null, mouseY = null) {
+        let val = parseInt(els.zoomInputElem.value.replace('%', ''));
         if (!isNaN(val)) {
-          state.currentZoom = val / 100;
-          applyZoom();
+          const newZoom = val / 100;
+          processZoomFromText(newZoom, mouseX, mouseY);
         } else {
           updateZoomLevelText();
         }
+      }
+
+      // Zoom commands
+      els.zoomInBtn.addEventListener('click', () => { 
+        els.zoomInputElem.value = `${Math.round(state.currentZoom * 1.1 * 100)}%`;
+        triggerZoomCheck();
       });
+      els.zoomOutBtn.addEventListener('click', () => { 
+        els.zoomInputElem.value = `${Math.round(state.currentZoom / 1.1 * 100)}%`;
+        triggerZoomCheck();
+      });
+      els.zoomInputElem.addEventListener('change', () => triggerZoomCheck());
 
       // Ctrl+Wheel Zoom
       els.viewerContainer.addEventListener('wheel', (e) => {
         if (e.ctrlKey) {
           e.preventDefault();
-          const prevZoom = state.currentZoom;
-          state.currentZoom *= Math.pow(1.005, -e.deltaY);
-          state.currentZoom = Math.min(Math.max(state.currentZoom, state.minZoom), state.maxZoom);
-
-          // Keep mouse mounted zoom
+          const newZoom = state.currentZoom * Math.pow(1.005, -e.deltaY);
+          els.zoomInputElem.value = `${Math.round(newZoom * 100)}%`;
+          
           const rect = els.viewerContainer.getBoundingClientRect();
           const mouseX = e.clientX - rect.left;
           const mouseY = e.clientY - rect.top;
-
-          const docX = (els.viewerContainer.scrollLeft + mouseX) / prevZoom;
-          const docY = (els.viewerContainer.scrollTop + mouseY) / prevZoom;
-
-          updateCSSZoom();
-          els.viewerContainer.scrollLeft = (docX * state.currentZoom) - mouseX;
-          els.viewerContainer.scrollTop = (docY * state.currentZoom) - mouseY;
-          applyRealZoomDebounced();
+          
+          triggerZoomCheck(mouseX, mouseY);
         }
       }, { passive: false });
 
