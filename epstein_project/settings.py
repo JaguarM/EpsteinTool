@@ -126,4 +126,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'templates'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
