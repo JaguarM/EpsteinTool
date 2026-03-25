@@ -1,11 +1,12 @@
 import os
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 
 from .logic.ProcessRedactions import process_pdf, process_image
 from .logic.width_calculator import get_text_widths, get_available_fonts
+from .logic.extract_fonts import detect_dominant_font
 
 IMAGE_MIME_TYPES = {'image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/bmp', 'image/webp'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp'}
@@ -35,6 +36,16 @@ def analyze_pdf(request):
 
         if "error" in result:
             return JsonResponse({"detail": result["error"]}, status=500)
+
+        if not is_image:
+            font_info = detect_dominant_font(
+                result.get("spans", []),
+                get_available_fonts(),
+                pdf_declared_fonts=result.get("pdf_fonts", []),
+            )
+            result["suggested_font"] = font_info["font_file"]
+            result["suggested_size"] = font_info["font_size"]
+
         return JsonResponse(result)
     except Exception as e:
         return JsonResponse({"detail": str(e)}, status=500)

@@ -82,12 +82,22 @@ def process_pdf(pdf_bytes):
         print(f"Error opening PDF stream: {e}")
         return {"error": str(e), "redactions": [], "spans": []}
 
-    page_images = {}  # page_num -> base64 PNG, one per page
-    mask_images = {}  # page_num -> base64 mask PNG (or None)
+    page_images = {}      # page_num -> base64 PNG, one per page
+    mask_images = {}      # page_num -> base64 mask PNG (or None)
+    pdf_font_pages = {}   # basefont_name -> number of pages it appears on
 
     for page_index in range(len(doc)):
         page = doc[page_index]
         page_num = page_index + 1
+
+        # 0. Collect declared fonts for fallback detection (works even on image-only pages)
+        try:
+            for font_tuple in page.get_fonts(full=False):
+                basefont = font_tuple[3] if len(font_tuple) > 3 else ""
+                if basefont and basefont not in ("", "unknown"):
+                    pdf_font_pages[basefont] = pdf_font_pages.get(basefont, 0) + 1
+        except Exception as e:
+            print(f"Error collecting declared fonts on page {page_num}: {e}")
 
         # 1. Extract Text Spans for Font Detection
         try:
@@ -198,11 +208,15 @@ def process_pdf(pdf_bytes):
             median_size = sorted(font_sizes)[len(font_sizes) // 2]
             suggested_scale = round((median_size / 12.0) * (816 / 612) ** 2 * 100)
 
+    # Sort declared fonts by number of pages they appear on (most common first)
+    pdf_fonts = sorted(pdf_font_pages, key=pdf_font_pages.get, reverse=True)
+
     num_pages = len(doc)
     doc.close()
     return {
         "redactions": redactions,
         "spans": text_spans,
+        "pdf_fonts": pdf_fonts,
         "suggested_scale": suggested_scale,
         "page_images": [page_images.get(i + 1) for i in range(num_pages)],
         "mask_images": [mask_images.get(i + 1) for i in range(num_pages)],

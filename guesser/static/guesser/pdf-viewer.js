@@ -5,8 +5,20 @@
       that pixel space throughout.
       ========================================================= */
 
-async function handleFileUpload() {
-  const file = els.pdfFile.files[0] || (event.dataTransfer && event.dataTransfer.files[0]);
+// Maps a .ttf filename (from the server) to the CSS font family name used in
+// the Fabric text-annotation toolbar.  Only the four supported fonts.
+function ttfToFabricFont(ttfName) {
+  const map = {
+    'times.ttf':       'Times New Roman',
+    'courier_new.ttf': 'Courier New',
+    'arial.ttf':       'Arial',
+    'calibri.ttf':     'Calibri',
+  };
+  return map[ttfName] || null;
+}
+
+async function handleFileUpload(e) {
+  const file = els.pdfFile.files[0] || (e && e.dataTransfer && e.dataTransfer.files[0]);
   if (!file) return;
 
   const ext = (file.name || '').split('.').pop().toLowerCase();
@@ -46,27 +58,30 @@ async function handleFileUpload() {
     await goToPage(1);
     renderThumbnails();
 
-    // Auto-font detection
-    let autoScale = 178;
-    let autoSize = 12;
-    if (data.suggested_scale) {
-      autoScale = data.suggested_scale;
-      els.calcScale.value = autoScale;
-    }
-    if (data.spans && data.spans.length) {
-      const fontCounts = {};
-      data.spans.forEach(s => {
-        const k = `${s.font.matched_font}|${s.font.size}`;
-        fontCounts[k] = (fontCounts[k] || 0) + 1;
-      });
-      const dom = Object.entries(fontCounts).sort((a, b) => b[1] - a[1])[0];
-      if (dom) {
-        autoSize = 12;
-        els.size.value = 12;
+    // Auto-font detection from server
+    const autoScale = data.suggested_scale || 178;
+    const autoSize  = data.suggested_size  || 12;
+    const autoFont  = data.suggested_font  || null;
+
+    els.calcScale.value = autoScale;
+    els.size.value = autoSize;
+    if (autoFont) {
+      // Calculation font dropdown
+      const opt = Array.from(els.font.options).find(o => o.value === autoFont);
+      if (opt) els.font.value = autoFont;
+
+      // Text-annotation toolbar font dropdown
+      const fabricFont = ttfToFabricFont(autoFont);
+      if (fabricFont) {
+        const fabricSel = document.getElementById('fabric-font-family');
+        if (fabricSel && Array.from(fabricSel.options).find(o => o.value === fabricFont)) {
+          fabricSel.value = fabricFont;
+          if (typeof textOptions !== 'undefined') textOptions.fontFamily = fabricFont;
+        }
       }
     }
 
-    // Initialise each redaction with current DOM settings
+    // Initialise each redaction with the detected font settings
     state.redactions = data.redactions.map(r => ({
       ...r,
       settings: {
