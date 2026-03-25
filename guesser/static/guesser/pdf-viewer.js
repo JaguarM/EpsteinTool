@@ -211,6 +211,15 @@ function injectRedactionOverlays() {
     label.textContent = r.labelText || '';
     label.dataset.manualEdit = r.manualLabel ? 'true' : 'false';
 
+    // Set font styles immediately so zoom (via --scale-factor CSS var) works from the start
+    const basePx = r.settings.size * (r.settings.scale / 100);
+    label.style.fontFamily = getFontFamily(r.settings.font);
+    label.style.fontSize = `calc(${basePx}px * var(--scale-factor, 1))`;
+    label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
+    label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
+    label.style.textTransform = r.settings.upper ? 'uppercase' : 'none';
+    label.style.display = r.labelText ? 'flex' : 'none';
+
     label.onclick = (e) => {
       e.stopPropagation();
       selectRedaction(idx);

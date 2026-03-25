@@ -102,7 +102,7 @@ document.getElementById('fabric-font-size').addEventListener('change', (e) => {
 document.getElementById('fabric-font-scale').addEventListener('change', (e) => {
   textOptions.fontScale = Math.min(500, Math.max(10, parseInt(e.target.value) || 100));
   e.target.value = textOptions.fontScale;
-  const scale = (textOptions.fontScale / 100) * (4 / 3);
+  const scale = textOptions.fontScale / 100;
   const fc = activeFc(), obj = activeObj();
   if (fc && obj) { obj.set({ scaleX: scale, scaleY: scale }); obj.setCoords(); fc.renderAll(); }
 });
