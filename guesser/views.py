@@ -44,7 +44,10 @@ def analyze_pdf(request):
                 pdf_declared_fonts=result.get("pdf_fonts", []),
             )
             result["suggested_font"] = font_info["font_file"]
-            result["suggested_size"] = font_info["font_size"]
+            # Only use detect_dominant_font's size as fallback when process_pdf
+            # could not determine a body-text size.
+            if not result.get("suggested_size"):
+                result["suggested_size"] = font_info["font_size"]
 
         return JsonResponse(result)
     except Exception as e:

@@ -35,7 +35,8 @@ EpsteinTool/
 │   ├── logic/                      # Backend processing modules
 │   │   ├── BoxDetector.py          # Row-scan black box detection
 │   │   ├── SurroundingWordWidth.py # Refine box edges using nearby text positions
-│   │   ├── ProcessRedactions.py    # Orchestrator: PDF → boxes → refined redactions
+│   │   ├── ProcessRedactions.py    # Orchestrator: PDF → boxes → refined redactions + scale/size detection
+│   │   ├── extract_fonts.py        # Dominant font detection; maps PDF font names to .ttf files
 │   │   ├── width_calculator.py     # HarfBuzz text width measurement
 │   │   └── artifact_visualizer.py  # Grayscale mask PNG generation
 │   │
@@ -73,7 +74,9 @@ flowchart TD
     E --> F["Extract embedded page images\n(PyMuPDF)"]
     F --> G["BoxDetector\nfind_redaction_boxes_in_image()"]
     G --> H["SurroundingWordWidth\nestimate_widths_for_boxes()"]
-    H --> I["Return JSON:\nredactions + spans + page images"]
+    H --> I["Return JSON:\nredactions + spans + page images\n+ suggested_scale + suggested_size"]
+    E --> EF["extract_fonts.detect_dominant_font()\n→ suggested_font"]
+    EF --> I
 
     D --> G2["BoxDetector\nfind_redaction_boxes_in_image()"]
     G2 --> I2["Return JSON:\nredactions + page image"]

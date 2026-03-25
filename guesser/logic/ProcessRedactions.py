@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import base64
 import os, sys
+from collections import Counter
 from io import BytesIO
 from PIL import Image
 
@@ -85,6 +86,7 @@ def process_pdf(pdf_bytes):
     page_images = {}      # page_num -> base64 PNG, one per page
     mask_images = {}      # page_num -> base64 mask PNG (or None)
     pdf_font_pages = {}   # basefont_name -> number of pages it appears on
+    page_scale_ratio = None  # img_px / page_pt, determined from first placed image
 
     for page_index in range(len(doc)):
         page = doc[page_index]
@@ -152,6 +154,9 @@ def process_pdf(pdf_bytes):
                     image_rects = page.get_image_rects(xref)
                     if not image_rects: continue
                     img_rect = image_rects[0]
+
+                    if page_scale_ratio is None and img_rect.width > 0:
+                        page_scale_ratio = img_w / img_rect.width
                     
                     expected_widths = estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, img_bytes)
                     
@@ -198,15 +203,26 @@ def process_pdf(pdf_bytes):
     # Sort redactions: Top-to-bottom, Left-to-right
     redactions.sort(key=lambda b: (b["page"], b["y"], b["x"]))
 
-    # Calculate suggested scale for pixel-space width matching (816×1056 px coordinates).
-    # Width calculator outputs (advance/upem)*font_size*scale. To match pixel widths at 96 dpi
-    # the scale must include (96/72)² = (816/612)² ≈ 1.778 relative to a 12 pt baseline.
-    suggested_scale = 178
-    if text_spans:
-        font_sizes = [span["font"]["size"] for span in text_spans if span["font"]["size"] > 0]
-        if font_sizes:
-            median_size = sorted(font_sizes)[len(font_sizes) // 2]
-            suggested_scale = round((median_size / 12.0) * (816 / 612) ** 2 * 100)
+    # suggested_scale: converts font advances (in pt) to image pixel widths.
+    # Width calculator: pixel_width = (advance/upem) * font_size_pt * (scale/100)
+    # Actual pixel width in embedded image: (advance/upem) * font_size_pt * (img_px / page_pt)
+    # Therefore scale/100 = img_px / page_pt  →  scale = round(100 * img_px / page_pt)
+    # For standard 816 px / 612 pt letter pages this is 133.
+    ratio = page_scale_ratio if page_scale_ratio is not None else (816.0 / 612.0)
+    suggested_scale = round(100 * ratio)
+
+    # suggested_size: mode of body-text span sizes, rounded to nearest 0.5 pt.
+    # Filter to spans >= 20 chars to exclude headers, labels, page numbers;
+    # fall back to all spans when the PDF has only short word-level spans.
+    def _body_sizes(spans, min_len):
+        return [
+            round(s["font"]["size"] * 2) / 2
+            for s in spans
+            if len(s.get("text", "")) >= min_len and s["font"]["size"] > 0
+        ]
+
+    sizes = _body_sizes(text_spans, 20) or _body_sizes(text_spans, 1)
+    suggested_size = Counter(sizes).most_common(1)[0][0] if sizes else 12.0
 
     # Sort declared fonts by number of pages they appear on (most common first)
     pdf_fonts = sorted(pdf_font_pages, key=pdf_font_pages.get, reverse=True)
@@ -218,6 +234,7 @@ def process_pdf(pdf_bytes):
         "spans": text_spans,
         "pdf_fonts": pdf_fonts,
         "suggested_scale": suggested_scale,
+        "suggested_size": suggested_size,
         "page_images": [page_images.get(i + 1) for i in range(num_pages)],
         "mask_images": [mask_images.get(i + 1) for i in range(num_pages)],
         "page_image_type": "image/png",

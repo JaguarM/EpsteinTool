@@ -1,6 +1,8 @@
-# width_calculator.py Documentation
+# width_calculator.py
 
-[width_calculator.py](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/width_calculator.py) provides precision text width measurement for candidate name matching. It uses HarfBuzz for accurate OpenType shaping with full kerning and ligature support, falling back to Pillow if HarfBuzz is unavailable.
+[width_calculator.py](../../guesser/logic/width_calculator.py) provides precision text-width measurement for candidate name matching. It uses HarfBuzz for accurate OpenType shaping with full kerning and ligature support, falling back to Pillow if HarfBuzz is unavailable.
+
+---
 
 ## Functions
 
@@ -8,31 +10,37 @@
 
 Calculates pixel widths for a list of text strings.
 
-**Inputs:**
+**Parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `texts` | list[str] | — | Strings to measure |
 | `font_name` | str | `"times.ttf"` | Font filename |
-| `font_size` | int | `12` | Font size in points |
+| `font_size` | int/float | `12` | Font size in **points** |
 | `force_uppercase` | bool | `False` | Convert text to uppercase before measuring |
-| `scale_factor` | float | `1.35` | Multiplier applied to the raw width |
+| `scale_factor` | float | `1.35` | Multiplier applied to the raw advance width |
 | `kerning` | bool | `True` | Enable OpenType `kern` feature |
 | `ligatures` | bool | `True` | Enable `liga` and `clig` features |
 
 **Output:**
+
 ```python
 [{"text": "Jeffrey Epstein", "width": 89.472}, ...]
 ```
 
+---
+
 ### Font Resolution
 
 The font is searched in this order:
+
 1. Direct path (`font_name` as-is)
 2. `assets/fonts/{font_name}`
 3. `assets/fonts/{font_name}.ttf`
 
 System font directories are intentionally excluded to ensure consistent results across environments.
+
+---
 
 ### HarfBuzz Engine (Primary)
 
@@ -54,6 +62,7 @@ pixel_width = (total_advance / upem) * font_size * scale_factor
 ```
 
 **Features controlled:**
+
 | Feature | Enabled | Disabled |
 |---------|---------|----------|
 | `kern` | Default | `kerning=False` |
@@ -79,4 +88,35 @@ Used by the `/fonts-list` API endpoint to populate the frontend font dropdown.
 
 ## Scale Factor
 
-The `scale_factor` converts from typographic units to the pixel space used by the redaction box coordinates. The default `1.35` corresponds to the ratio needed for 12pt text at approximately 96 DPI. The frontend auto-calculates a `suggested_scale` of ~178 (i.e., `1.78`) based on the detected font size and page resolution ratio `(816/612)²`.
+`scale_factor` is the multiplier that converts a raw typographic advance (in font points) into the **image pixel width** used by the redaction overlay coordinates.
+
+### Formula
+
+```
+pixel_width = (advance / upem) × font_size_pt × scale_factor
+```
+
+For the width to match a redaction box measured in the 816 × 1056 px embedded page images:
+
+```
+scale_factor = img_width_px / page_width_pt
+             = 816 / 612
+             = 4/3
+             ≈ 1.3333
+```
+
+This is equivalent to converting from 72 dpi (PDF points) to 96 dpi (screen pixels): `96 / 72 = 4/3`.
+
+### How the frontend sets scale_factor
+
+The `/analyze-pdf` response includes `suggested_scale` (an integer percentage). `views.py` divides it by 100 before passing it to `get_text_widths()`:
+
+```python
+scale_factor = scale / 100.0   # e.g. 133 / 100 = 1.33
+```
+
+The auto-detected value `suggested_scale = 133` corresponds to `scale_factor ≈ 1.333`, which correctly maps 12 pt Times New Roman to its pixel width in the embedded page images.
+
+> **Note:** The function signature's default `scale_factor=1.35` is a legacy approximation of 4/3. In normal operation the frontend always supplies an explicit scale from the `suggested_scale` auto-detection, so the default is rarely used.
+
+For a full derivation of the correct scale value and why the old formula (`(median_size / 12) × (816/612)² × 100 ≈ 178`) was incorrect, see [Scale & Size Detection](scale-and-size-detection.md).
