@@ -129,12 +129,19 @@
       }).join('');
     }
 
-    function selectRedaction(idx) {
+    async function selectRedaction(idx) {
       if (!state.redactions[idx]) return;
+      const r = state.redactions[idx];
+
+      // Navigate to the redaction's page first if not already there
+      if (state.currentPage !== r.page) {
+        await goToPage(r.page);
+      }
+
       state.selectedRedactionIdx = idx;
 
       // Update the DOM right sidebar settings to match this redaction's specific settings
-      const s = state.redactions[idx].settings;
+      const s = r.settings;
       els.font.value = s.font;
       els.size.value = s.size;
       els.calcScale.value = s.scale;
@@ -155,7 +162,7 @@
       const el = document.getElementById(`redaction-idx-${idx}`);
       if (el) {
         el.classList.add('selected');
-        // Smooth scroll
+        // Scroll redaction into view within the viewer if needed
         const parentRect = els.viewerContainer.getBoundingClientRect();
         const targetRect = el.getBoundingClientRect();
         if (targetRect.top < parentRect.top || targetRect.bottom > parentRect.bottom) {
@@ -188,7 +195,7 @@
 
         const matches = state.candidates.filter(c => {
           const w = r.widths[c];
-          return w !== undefined && Math.abs(w - r.pts_width) <= tol;
+          return w !== undefined && Math.abs(w - r.width) <= tol;
         });
 
         if (matches.length) matchCount++;
@@ -218,8 +225,8 @@
               return `
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
             <td>${r.page}</td>
-            <td class="col-right">${r.pts_width.toFixed(2)}</td>
-            <td class="col-right">${r.pts_height.toFixed(2)}</td>
+            <td class="col-right">${r.width.toFixed(2)}</td>
+            <td class="col-right">${r.height.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;
@@ -242,8 +249,8 @@
         return `
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
             <td>${r.page}</td>
-            <td class="col-right">${r.pts_width.toFixed(2)}</td>
-            <td class="col-right">${r.pts_height.toFixed(2)}</td>
+            <td class="col-right">${r.width.toFixed(2)}</td>
+            <td class="col-right">${r.height.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;

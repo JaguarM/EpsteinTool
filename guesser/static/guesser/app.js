@@ -28,6 +28,30 @@
         els.toggleToolsBtn.classList.toggle('active');
       });
 
+      if (els.toggleWebglBtn) {
+        els.toggleWebglBtn.addEventListener('click', () => {
+          els.toggleWebglBtn.classList.toggle('active');
+          const isWebglActive = els.toggleWebglBtn.classList.contains('active');
+          
+          document.querySelectorAll('.webgl-overlay').forEach(canvas => {
+            canvas.style.display = isWebglActive ? 'block' : 'none';
+          });
+          
+          if (isWebglActive) {
+             if(els.webglOptionsBar) els.webglOptionsBar.classList.remove('hidden');
+             if(els.textOptionsBar) els.textOptionsBar.classList.add('hidden');
+             const fabBar = document.getElementById('fabric-options-bar');
+             if (fabBar) fabBar.classList.add('hidden');
+          } else {
+             if(els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
+             if(els.textOptionsBar) els.textOptionsBar.classList.remove('hidden');
+          }
+        });
+      }
+
+      if (els.maskColor) els.maskColor.addEventListener('input', () => { if (typeof updateWebGLUniforms === 'function') updateWebGLUniforms(); });
+      if (els.edgeSubtract) els.edgeSubtract.addEventListener('input', () => { if (typeof updateWebGLUniforms === 'function') updateWebGLUniforms(); });
+
       function triggerZoomCheck(mouseX = null, mouseY = null) {
         let val = parseInt(els.zoomInputElem.value.replace('%', ''));
         if (!isNaN(val)) {
@@ -70,9 +94,15 @@
       window.addEventListener('drop', (e) => {
         e.preventDefault();
         els.dragOverlay.classList.add('hidden');
-        if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].type === 'application/pdf') {
-          els.pdfFile.files = e.dataTransfer.files;
-          handleFileUpload();
+        if (e.dataTransfer.files.length > 0) {
+          const t = e.dataTransfer.files[0].type;
+          const name = e.dataTransfer.files[0].name.toLowerCase();
+          const accepted = t === 'application/pdf' || t.startsWith('image/') ||
+            /\.(pdf|png|jpe?g|tiff?|bmp|webp)$/.test(name);
+          if (accepted) {
+            els.pdfFile.files = e.dataTransfer.files;
+            handleFileUpload();
+          }
         }
       });
 
@@ -103,33 +133,14 @@
         })
       );
 
-      // Scroll Page sync
-      els.viewerContainer.addEventListener('scroll', () => {
-        if (!state.pdfDoc) return;
-        const containerMid = els.viewerContainer.scrollTop + (els.viewerContainer.clientHeight / 2);
-        let closestPage = 1, minDistance = Infinity;
-
-        for (let i = 1; i <= state.pdfDoc.numPages; i++) {
-          const pageContainer = document.getElementById(`pageContainer${i}`);
-          if (pageContainer) {
-            const rect = pageContainer.getBoundingClientRect();
-            const parentRect = els.viewerContainer.getBoundingClientRect();
-            const pageMid = rect.top - parentRect.top + els.viewerContainer.scrollTop + (rect.height / 2);
-            const dist = Math.abs(containerMid - pageMid);
-            if (dist < minDistance) { minDistance = dist; closestPage = i; }
-          }
-        }
-        els.pageInputElem.value = closestPage;
-      });
-
       // Jump to page
       els.pageInputElem.addEventListener('change', (e) => {
-        if (!state.pdfDoc) return;
+        if (!state.pageImages.length) return;
         let p = parseInt(e.target.value);
         if (isNaN(p) || p < 1) p = 1;
-        if (p > state.pdfDoc.numPages) p = state.pdfDoc.numPages;
+        if (p > state.numPages) p = state.numPages;
         e.target.value = p;
-        document.getElementById(`pageContainer${p}`)?.scrollIntoView({ behavior: 'smooth' });
+        goToPage(p);
       });
 
     })();

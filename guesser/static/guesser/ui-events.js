@@ -3,7 +3,11 @@ function updateZoomLevelText() { els.zoomInputElem.value = `${Math.round(state.c
 
 function updateCSSZoom() {
   els.viewer.style.setProperty('--scale-factor', state.currentZoom);
+  els.viewer.classList.toggle('zoom-in', state.currentZoom > 1.0);
   updateZoomLevelText();
+  if (typeof onZoomChange === 'function') {
+    onZoomChange(state.currentZoom);
+  }
 }
 
 function processZoomFromText(newZoom, mouseX = null, mouseY = null) {
@@ -22,23 +26,12 @@ function processZoomFromText(newZoom, mouseX = null, mouseY = null) {
     } else {
       updateCSSZoom();
     }
-    applyRealZoomDebounced(); // re-render high res paths
   } else {
-    // Zoom boundary reached or no change
     updateZoomLevelText();
   }
 }
 
-function applyRealZoomDebounced() {
-  clearTimeout(window.zoomDebounce);
-  window.zoomDebounce = setTimeout(() => {
-    if (!state.pdfDoc) return;
-    for (let i = 1; i <= state.pdfDoc.numPages; i++) {
-      const c = document.getElementById(`page${i}`);
-      if (c) renderPage(i, c);
-    }
-  }, 300);
-}
+// No canvas re-render needed — the page is a static <img> that scales via CSS.
 
 /* Resizing Redactions */
 function initResize(e, idx, edge) {
@@ -50,10 +43,10 @@ function initResize(e, idx, edge) {
   const r = state.redactions[idx];
   const startX = e.clientX;
   const startY = e.clientY;
-  const startPtsX = r.pts_x;
-  const startPtsY = r.pts_y;
-  const startPtsWidth = r.pts_width;
-  const startPtsHeight = r.pts_height;
+  const startPtsX = r.x;
+  const startPtsY = r.y;
+  const startPtsWidth = r.width;
+  const startPtsHeight = r.height;
   const scaleFactor = state.currentZoom;
 
   const tol = r.settings.tol || 0;
@@ -65,35 +58,35 @@ function initResize(e, idx, edge) {
     const dy = (moveEvent.clientY - startY) / scaleFactor;
 
     if (edge === 'r') {
-      r.pts_width = Math.max(1, startPtsWidth + dx);
+      r.width = Math.max(1, startPtsWidth + dx);
     } else if (edge === 'l') {
       const actualDx = Math.min(dx, startPtsWidth - 1);
-      r.pts_x = startPtsX + actualDx;
-      r.pts_width = startPtsWidth - actualDx;
+      r.x = startPtsX + actualDx;
+      r.width = startPtsWidth - actualDx;
     } else if (edge === 'b') {
-      r.pts_height = Math.max(1, startPtsHeight + dy);
+      r.height = Math.max(1, startPtsHeight + dy);
     } else if (edge === 't') {
       const actualDy = Math.min(dy, startPtsHeight - 1);
-      r.pts_y = startPtsY + actualDy;
-      r.pts_height = startPtsHeight - actualDy;
+      r.y = startPtsY + actualDy;
+      r.height = startPtsHeight - actualDy;
     }
 
     const overlay = document.getElementById(`redaction-idx-${idx}`);
     if (overlay) {
-      overlay.style.setProperty('--pts-x', `${r.pts_x}px`);
-      overlay.style.setProperty('--pts-y', `${r.pts_y}px`);
-      overlay.style.setProperty('--pts-width', `${r.pts_width}px`);
-      overlay.style.setProperty('--pts-height', `${r.pts_height}px`);
+      overlay.style.setProperty('--px-x',      `${r.x}px`);
+      overlay.style.setProperty('--px-y',      `${r.y}px`);
+      overlay.style.setProperty('--px-width',  `${r.width}px`);
+      overlay.style.setProperty('--px-height', `${r.height}px`);
     }
 
     const rowEl = document.getElementById(`match-row-${idx}`);
     if (rowEl) {
-      rowEl.children[1].textContent = r.pts_width.toFixed(2);
-      rowEl.children[2].textContent = r.pts_height.toFixed(2);
+      rowEl.children[1].textContent = r.width.toFixed(2);
+      rowEl.children[2].textContent = r.height.toFixed(2);
 
       const matches = state.candidates.filter(c => {
         const w = r.widths[c];
-        return w !== undefined && Math.abs(w - r.pts_width) <= tol;
+        return w !== undefined && Math.abs(w - r.width) <= tol;
       });
       const matchHtml = matches.length
         ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
@@ -131,7 +124,7 @@ function initResize(e, idx, edge) {
     // Re-evaluate matching candidates total count
     let matchCount = 0;
     state.redactions.forEach(rItem => {
-      if (state.candidates.some(c => rItem.widths && rItem.widths[c] !== undefined && Math.abs(rItem.widths[c] - rItem.pts_width) <= rItem.settings.tol)) {
+      if (state.candidates.some(c => rItem.widths && rItem.widths[c] !== undefined && Math.abs(rItem.widths[c] - rItem.width) <= rItem.settings.tol)) {
         matchCount++;
       }
     });
@@ -157,21 +150,21 @@ function initDragRedaction(e, idx) {
   const r = state.redactions[idx];
   const startX = e.clientX;
   const startY = e.clientY;
-  const startPtsX = r.pts_x;
-  const startPtsY = r.pts_y;
+  const startPtsX = r.x;
+  const startPtsY = r.y;
   const scaleFactor = state.currentZoom;
 
   function onMouseMove(moveEvent) {
     const dx = (moveEvent.clientX - startX) / scaleFactor;
     const dy = (moveEvent.clientY - startY) / scaleFactor;
 
-    r.pts_x = startPtsX + dx;
-    r.pts_y = startPtsY + dy;
+    r.x = startPtsX + dx;
+    r.y = startPtsY + dy;
 
     const overlay = document.getElementById(`redaction-idx-${idx}`);
     if (overlay) {
-      overlay.style.setProperty('--pts-x', `${r.pts_x}px`);
-      overlay.style.setProperty('--pts-y', `${r.pts_y}px`);
+      overlay.style.setProperty('--px-x', `${r.x}px`);
+      overlay.style.setProperty('--px-y', `${r.y}px`);
     }
   }
 
@@ -185,37 +178,29 @@ function initDragRedaction(e, idx) {
 }
 
 /* Thumbnails */
-async function renderThumbnails() {
+function renderThumbnails() {
   els.thumbnailView.innerHTML = '';
-  for (let i = 1; i <= state.pdfDoc.numPages; i++) {
-    const thumbCont = document.createElement('div');
-    thumbCont.className = 'thumbnail-container';
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'thumbnail';
+  for (let i = 1; i <= state.numPages; i++) {
+    const thumbCont = document.createElement('div');
+    thumbCont.className = 'thumbnail-container' + (i === state.currentPage ? ' active' : '');
+
+    const img = document.createElement('img');
+    img.src = state.pageImages[i - 1];
+    img.className = 'thumbnail';
+    img.draggable = false;
+    img.style.width = '180px';
+    img.style.height = 'auto';
+    img.style.display = 'block';
 
     const lbl = document.createElement('div');
     lbl.className = 'thumbnail-page-num';
     lbl.textContent = i;
 
-    thumbCont.appendChild(canvas);
+    thumbCont.appendChild(img);
     thumbCont.appendChild(lbl);
     els.thumbnailView.appendChild(thumbCont);
 
-    thumbCont.addEventListener('click', () => {
-      document.querySelectorAll('.thumbnail-container').forEach(c => c.classList.remove('active'));
-      thumbCont.classList.add('active');
-      document.getElementById(`pageContainer${i}`)?.scrollIntoView({ behavior: 'smooth' });
-      els.pageInputElem.value = i;
-    });
-
-    const page = await state.pdfDoc.getPage(i);
-    const vp = page.getViewport({ scale: 1 });
-    const scale = 180 / vp.width; // 180px thumbnails
-    const scaledVp = page.getViewport({ scale });
-
-    canvas.width = scaledVp.width;
-    canvas.height = scaledVp.height;
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaledVp }).promise;
+    thumbCont.addEventListener('click', () => goToPage(i));
   }
 }

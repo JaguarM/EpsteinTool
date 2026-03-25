@@ -325,10 +325,27 @@ html {
   height: calc(var(--page-height, 1056px) * var(--scale-factor, 1));
 }
 
-.page-container canvas {
+.page-container > canvas:not(.lower-canvas):not(.upper-canvas):not(.webgl-overlay),
+.page-container > img {
   display: block;
   width: 100%;
   height: 100%;
+  image-rendering: auto;
+}
+
+.webgl-overlay {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  mix-blend-mode: screen;
+}
+
+/* Switch to nearest-neighbour only when zoomed above 100% so pixels stay sharp
+   without the aliasing that pixelated causes when downscaling. */
+.pdfViewer.zoom-in .page-container > img {
+  image-rendering: pixelated;
 }
 
 /* ----------------- AI Unredactor Tools Sidebar (Right) ----------------- */
@@ -394,10 +411,10 @@ html {
   transition: background-color 0.2s;
   z-index: 10;
   /* CSS CALC MAGIC */
-  left: calc(var(--pts-x, 0) * var(--scale-factor, 1));
-  top: calc(var(--pts-y, 0) * var(--scale-factor, 1));
-  width: calc(var(--pts-width, 0) * var(--scale-factor, 1));
-  height: calc(var(--pts-height, 0) * var(--scale-factor, 1));
+  left:   calc(var(--px-x,      0) * var(--scale-factor, 1));
+  top:    calc(var(--px-y,      0) * var(--scale-factor, 1));
+  width:  calc(var(--px-width,  0) * var(--scale-factor, 1));
+  height: calc(var(--px-height, 0) * var(--scale-factor, 1));
 }
 
 .redaction-overlay:hover {
@@ -688,7 +705,9 @@ tr:last-child td {
 }
 
 /* ----------------- Sub-Toolbar ----------------- */
-#text-options-bar {
+#text-options-bar,
+#fabric-options-bar,
+#webgl-options-bar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -702,6 +721,11 @@ tr:last-child td {
   overflow-x: auto;
   flex-wrap: nowrap;
   white-space: nowrap;
+}
+
+#fabric-options-bar.hidden,
+#webgl-options-bar.hidden {
+  display: none;
 }
 
 .options-divider {
@@ -756,3 +780,4 @@ tr:last-child td {
 #tolerance::-webkit-outer-spin-button {
   -webkit-appearance: none;
 }
+

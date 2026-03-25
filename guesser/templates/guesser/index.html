@@ -13,11 +13,8 @@
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- PDF.js version 3.11.174 to exactly match user's ExampleViewer -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  </script>
+  <!-- Fabric.js v5 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 
   <link rel="stylesheet" href="{% static 'guesser/styles.css' %}">
 </head>
@@ -25,7 +22,7 @@
 <body>
   <!-- Drag and drop overlay -->
   <div id="drag-overlay" class="hidden">
-    <div class="drag-text">Drop PDF to Analyze</div>
+    <div class="drag-text">Drop PDF or Image to Analyze</div>
   </div>
 
   <div id="app-container">
@@ -58,6 +55,19 @@
 
         <div class="divider"></div>
 
+        <input type="file" id="pdf-file" accept="application/pdf,.pdf,image/png,image/jpeg,image/tiff,image/bmp,image/webp,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" style="display: none;">
+        <button id="upload-pdf-btn" class="icon-button" title="Upload PDF" onclick="document.getElementById('pdf-file').click()">
+          <span class="material-symbols-outlined">upload_file</span>
+        </button>
+
+        <button id="tool-text" class="icon-button" title="Add Text (T)">
+          <span class="material-symbols-outlined">text_fields</span>
+        </button>
+
+        <button id="toggle-webgl" class="icon-button" title="Toggle WebGL Mask">
+          <span class="material-symbols-outlined">layers</span>
+        </button>
+
         <button id="toggle-tools" class="icon-button active" title="Toggle AI Unredactor Tools">
           <span class="material-symbols-outlined">build</span>
         </button>
@@ -77,11 +87,11 @@
       <div class="options-divider"></div>
 
       <span class="options-label">Scale (%)</span>
-      <input type="number" id="calc-scale" value="133" min="1" step="1">
+      <input type="number" id="calc-scale" value="178" min="1" step="1">
 
       <div class="options-divider"></div>
 
-      <span class="options-label">Tolerance (pt)</span>
+      <span class="options-label">Tolerance (px)</span>
       <input type="number" id="tolerance" value="3" step="0.1">
 
       <div class="options-divider"></div>
@@ -89,6 +99,61 @@
       <label class="checkbox-lbl" style="color: #bdc1c6; margin-right: 8px;"><input type="checkbox" id="kerning" checked> Kerning</label>
       <label class="checkbox-lbl" style="color: #bdc1c6; margin-right: 8px;"><input type="checkbox" id="ligatures" checked> Ligatures</label>
       <label class="checkbox-lbl" style="color: #bdc1c6;"><input type="checkbox" id="force-uppercase"> Uppercase</label>
+    </div>
+
+    <!-- WebGL Options Bar -->
+    <div id="webgl-options-bar" class="hidden">
+      <span class="options-label">Mask Color</span>
+      <input type="color" id="mask-color" value="#000000" title="Mask color">
+      <div class="options-divider"></div>
+      <span class="options-label">Mask Opacity</span>
+      <input type="range" id="edge-subtract" min="0" max="255" step="1" value="255" title="Mask opacity">
+    </div>
+
+    <!-- Fabric Options Bar -->
+    <div id="fabric-options-bar" class="hidden">
+      <!-- Group 1: Font -->
+      <span class="options-label" style="margin-left: 8px;">Font:</span>
+      <select id="fabric-font-family">
+        <option value="Arial">Arial</option>
+        <option value="Times New Roman" selected>Times New Roman</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Verdana">Verdana</option>
+      </select>
+      <input type="number" id="fabric-font-size" value="12" min="4" max="400" title="Font size (px)">
+      <span class="options-label">px</span>
+      <span class="options-label" style="margin-left: 8px;">Scale:</span>
+      <input type="number" id="fabric-font-scale" value="100" min="10" max="500" step="1" title="Horizontal scale (%)">
+      <span class="options-label">%</span>
+
+      <div class="options-divider"></div>
+
+      <!-- Group 2: Basic formatting -->
+      <button id="fabric-bold"          class="icon-button options-toggle" title="Bold"><b style="font-family:serif;">B</b></button>
+      <button id="fabric-italic"        class="icon-button options-toggle" title="Italic"><em style="font-family:serif;">I</em></button>
+      <button id="fabric-underline"     class="icon-button options-toggle" title="Underline"><u style="font-family:serif;">U</u></button>
+      <button id="fabric-strikethrough" class="icon-button options-toggle" title="Strikethrough"><s style="font-family:serif;">S</s></button>
+
+      <div class="options-divider"></div>
+
+      <!-- Group 3: Spacing -->
+      <span class="options-label">Spacing:</span>
+      <input type="number" id="fabric-letter-spacing" value="0" min="-0.5" max="2" step="0.01" title="Letter spacing (em)">
+      <span class="options-label">em</span>
+
+      <div class="options-divider"></div>
+
+      <!-- Group 4: Color -->
+      <input type="color" id="fabric-color" value="#000000" title="Text color">
+
+      <!-- Group 5: Redact gap controls -->
+      <div id="redact-gap-controls" class="hidden" style="display:contents">
+        <div class="options-divider"></div>
+        <span class="options-label">Gap:</span>
+        <input type="range" id="redact-gap-slider" min="0" max="500" step="1" value="50" title="Redaction gap width">
+        <span id="redact-gap-display" class="options-label">50 px</span>
+      </div>
     </div>
 
     <!-- Main Content Area -->
@@ -113,20 +178,9 @@
       <!-- AI Tools Sidebar (Right) -->
       <aside id="tools-sidebar">
 
-        <!-- 1. Analyze PDF -->
+        <!-- 1. Candidates -->
         <div class="tool-card">
-          <h2><span class="step">1</span> Analysis</h2>
-          <div class="control-group">
-            <input type="file" id="pdf-file" accept="application/pdf, .pdf" style="display: none;">
-            <button id="analyze-btn" class="tool-btn" onclick="document.getElementById('pdf-file').click()">Select PDF
-              for Analysis</button>
-          </div>
-          <div id="pdf-status" class="status-msg">Waiting for file...</div>
-        </div>
-
-        <!-- 2. Candidates -->
-        <div class="tool-card">
-          <h2><span class="step">2</span> Candidates</h2>
+          <h2><span class="step">1</span> Candidates</h2>
 
           <div style="display: flex; gap: 4px; margin-bottom: 4px;">
             <input type="text" id="name-input" class="tool-input" placeholder="Type name..." style="flex:1;">
@@ -152,7 +206,7 @@
               <thead>
                 <tr>
                   <th onclick="setSort('name')">Name</th>
-                  <th class="col-right" onclick="setSort('width')">Width (pt) <span id="sort-icon"></span></th>
+                  <th class="col-right" onclick="setSort('width')">Width (px) <span id="sort-icon"></span></th>
                   <th class="col-del"></th>
                 </tr>
               </thead>
@@ -168,18 +222,18 @@
           </div>
         </div>
 
-        <!-- 3. All Matches Summary -->
+        <!-- 2. All Matches Summary -->
         <div class="tool-card" id="all-matches-card" style="display: none; border-color: #16a34a;">
           <h2 style="color: #16a34a;"><span class="step"
-              style="background:#202124; color:#16a34a; border: 1px solid #16a34a;">3</span> All Matches</h2>
+              style="background:#202124; color:#16a34a; border: 1px solid #16a34a;">2</span> All Matches</h2>
           <div id="all-matches-summary" style="font-size: 12px; color: #9aa0a6; margin-bottom: 8px;"></div>
           <div class="table-cont" style="max-height: 250px; overflow-y: auto;">
             <table>
               <thead>
                 <tr>
                   <th>Page</th>
-                  <th class="col-right">Width (pt)</th>
-                  <th class="col-right">Height (pt)</th>
+                  <th class="col-right">Width (px)</th>
+                  <th class="col-right">Height (px)</th>
                   <th>Matches</th>
                 </tr>
               </thead>
@@ -195,9 +249,11 @@
 
   <script src="{% static 'guesser/state.js' %}"></script>
   <script src="{% static 'guesser/api.js' %}"></script>
+  <script src="{% static 'guesser/webgl-mask.js' %}"></script>
   <script src="{% static 'guesser/pdf-viewer.js' %}"></script>
   <script src="{% static 'guesser/ui-events.js' %}"></script>
   <script src="{% static 'guesser/app.js' %}"></script>
+  <script src="{% static 'guesser/text-tool.js' %}"></script>
 </body>
 
 </html>
