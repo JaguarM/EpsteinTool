@@ -9,6 +9,9 @@ async function handleFileUpload() {
   const file = els.pdfFile.files[0] || (event.dataTransfer && event.dataTransfer.files[0]);
   if (!file) return;
 
+  const ext = (file.name || '').split('.').pop().toLowerCase();
+  state.hasPdf = (ext === 'pdf');
+
   els.titleElem.textContent = file.name;
   state.redactions = [];
   state.selectedRedactionIdx = null;
@@ -148,7 +151,7 @@ async function goToPage(pageNum) {
 
   els.viewer.appendChild(pageContainer);
 
-  if (typeof setupWebGLOverlay === 'function') {
+  if (typeof setupWebGLOverlay === 'function' && state.hasPdf) {
     setupWebGLOverlay(pageContainer, webglCanvas, pageNum);
   }
   if (typeof createPageOverlay === 'function') {
