@@ -56,7 +56,7 @@ async function initWebGLOverlay(canvas, pageNum) {
     } else {
       const res = await fetch(`/mask/${pageNum}`);
       if (!res.ok) {
-        canvas.remove();
+        canvas.style.display = 'none';
         webglContexts.delete(pageNum);
         return;
       }

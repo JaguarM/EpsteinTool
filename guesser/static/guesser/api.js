@@ -215,6 +215,8 @@
           ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
           : `<span class="no-match">No obvious matches</span>`;
 
+        const isSelected = state.selectedRedactionIdx === idx ? 'selected-row' : '';
+
         // Update the label on the PDF canvas itself
         const overlay = document.getElementById(`redaction-idx-${idx}`);
         if (overlay && (onlyIdx === null || onlyIdx === idx)) {
@@ -245,7 +247,6 @@
           }
         }
 
-        const isSelected = state.selectedRedactionIdx === idx ? 'selected-row' : '';
         return `
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
             <td>${r.page}</td>
