@@ -54,12 +54,14 @@ async function initWebGLOverlay(canvas, pageNum) {
     if (maskBlobCache.has(pageNum)) {
       blob = maskBlobCache.get(pageNum);
     } else {
-      const res = await fetch(`/mask/${pageNum}`);
-      if (!res.ok) {
+      // Use inline mask data from the initial upload response
+      const maskDataUrl = state.maskImages && state.maskImages[pageNum - 1];
+      if (!maskDataUrl) {
         canvas.style.display = 'none';
         webglContexts.delete(pageNum);
         return;
       }
+      const res = await fetch(maskDataUrl);
       blob = await res.blob();
       maskBlobCache.set(pageNum, blob);
     }

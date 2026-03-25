@@ -32,6 +32,9 @@ async function handleFileUpload() {
     state.pageImages = (data.page_images || []).map(b64 =>
       b64 ? `data:${imgType};base64,${b64}` : null
     );
+    state.maskImages = (data.mask_images || []).map(b64 =>
+      b64 ? `data:image/png;base64,${b64}` : null
+    );
     state.numPages   = data.num_pages  || state.pageImages.length || 1;
     state.pageWidth  = data.page_width  || 816;
     state.pageHeight = data.page_height || 1056;

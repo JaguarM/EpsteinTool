@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import base64
 import os, sys
+from io import BytesIO
+from PIL import Image
 
 try:
     from .BoxDetector import find_redaction_boxes_in_image
@@ -30,6 +32,38 @@ def extract_page_image_bytes(doc, page_index, image_index=0):
         print(f"Error extracting image {image_index} from page {page_index}: {e}")
     return None
 
+def _generate_mask_from_image(img_bytes, boxes, img_w, img_h):
+    """Generate a base64-encoded grayscale mask PNG from detected redaction boxes.
+    Returns base64 string or None if no boxes."""
+    if not boxes:
+        return None
+    try:
+        with Image.open(BytesIO(img_bytes)) as pil_img:
+            rendered = np.array(pil_img.convert("L"))
+        mask = np.zeros((img_h, img_w), dtype=np.uint8)
+        for (x1, y1, x2, y2) in boxes:
+            interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
+            mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
+            if y1 > 0:
+                shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
+                mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
+            if y2 < img_h:
+                shade = 255 - int(np.max(rendered[y2, x1:x2]))
+                mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
+            if x1 > 0:
+                shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
+                mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
+            if x2 < img_w:
+                shade = 255 - int(np.max(rendered[y1:y2, x2]))
+                mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
+        out_io = BytesIO()
+        Image.fromarray(mask, "L").save(out_io, format="PNG")
+        return base64.b64encode(out_io.getvalue()).decode()
+    except Exception as e:
+        print(f"Error generating mask: {e}")
+        return None
+
+
 def process_pdf(pdf_bytes):
     """
     Process a PDF file (bytes) to detect black bars and extract font info.
@@ -49,6 +83,7 @@ def process_pdf(pdf_bytes):
         return {"error": str(e), "redactions": [], "spans": []}
 
     page_images = {}  # page_num -> base64 PNG, one per page
+    mask_images = {}  # page_num -> base64 mask PNG (or None)
 
     for page_index in range(len(doc)):
         page = doc[page_index]
@@ -97,6 +132,11 @@ def process_pdf(pdf_bytes):
                         page_images[page_num] = base64.b64encode(img_bytes).decode()
 
                     boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
+
+                    # Generate mask for this page if not already done
+                    if page_num not in mask_images:
+                        mask_images[page_num] = _generate_mask_from_image(img_bytes, boxes, img_w, img_h)
+
                     if not boxes: continue
                     
                     image_rects = page.get_image_rects(xref)
@@ -165,6 +205,7 @@ def process_pdf(pdf_bytes):
         "spans": text_spans,
         "suggested_scale": suggested_scale,
         "page_images": [page_images.get(i + 1) for i in range(num_pages)],
+        "mask_images": [mask_images.get(i + 1) for i in range(num_pages)],
         "page_image_type": "image/png",
         "page_width": 816,
         "page_height": 1056,
