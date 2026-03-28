@@ -5,9 +5,9 @@ from PIL import Image
 import base64
 
 try:
-    from .BoxDetector import find_redaction_boxes_in_image
+    from guesser_core.logic.BoxDetector import find_redaction_boxes_in_image
 except ImportError:
-    # Standalone execution — add this directory to sys.path
+    # Standalone execution
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
 
@@ -148,6 +148,32 @@ def generate_mask_for_page(pdf_bytes, page_num):
     mask_pil = Image.fromarray(mask, "L")
     mask_pil.save(out_io, format="PNG")
     return out_io.getvalue()
+
+def generate_all_masks(pdf_bytes):
+    try:
+        import fitz
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as e:
+        print(f"Error opening PDF: {e}")
+        return []
+        
+    masks = []
+    for page_index in range(len(doc)):
+        img_bytes = extract_page_image_bytes(doc, page_index)
+        if not img_bytes:
+            masks.append(None)
+            continue
+            
+        boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
+        if not boxes:
+            masks.append(None)
+            continue
+            
+        mask_b64 = generate_mask_from_image(img_bytes, boxes, img_w, img_h)
+        masks.append(mask_b64)
+        
+    doc.close()
+    return masks
 
 def generate_mask_from_image(img_bytes, boxes, img_w, img_h):
     """Generate a base64-encoded grayscale mask PNG from detected redaction boxes.

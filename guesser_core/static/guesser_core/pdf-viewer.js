@@ -108,6 +108,9 @@ async function handleFileUpload(e) {
       updateAllMatchesView();
     }
 
+    if (typeof fetchMasksAsync === 'function') {
+      fetchMasksAsync(file);
+    }
   } catch (e) {
     console.error('Error analyzing PDF:', e.message);
   }

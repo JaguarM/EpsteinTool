@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class GuesserConfig(AppConfig):
-    name = 'guesser'
+    name = 'guesser_core'

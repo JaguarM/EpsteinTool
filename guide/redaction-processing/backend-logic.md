@@ -1,34 +1,53 @@
 # Redaction Processing — Backend Logic
 
-This folder documents the five Python modules in `guesser/logic/` that handle PDF analysis, redaction detection, width refinement, mask generation, and text measurement.
+This folder documents the core logic modules distributed across the **guesser_core**, **webgl_mask**, and **text_tool** Django apps.
 
 ## Module Pipeline
 
 ```mermaid
-flowchart LR
-    PDF["PDF Bytes"] --> PR["ProcessRedactions"]
-    PR --> BD["BoxDetector"]
-    PR --> SW["SurroundingWordWidth"]
-    PDF --> AV["artifact_visualizer"]
-    AV --> BD
-    WC["width_calculator"] -.- PR
+flowchart TD
+    subgraph guesser_core
+        PR["ProcessRedactions"]
+        BD["BoxDetector"]
+        SW["SurroundingWordWidth"]
+    end
+    
+    subgraph webgl_mask
+        AV["artifact_visualizer"]
+    end
+    
+    subgraph text_tool
+        WC["width_calculator"]
+        EF["extract_fonts"]
+    end
 
+    PDF["PDF Bytes"] --> PR
+    PR --> BD
+    PR --> SW
+    
+    PDF --> AV
+    AV -.->|"depends on core logic"| BD
+    
+    EF -.- PR
+    
+    style PR fill:#2d333b,stroke:#81c995
     style BD fill:#2d333b,stroke:#8ab4f8
     style SW fill:#2d333b,stroke:#f28b82
-    style PR fill:#2d333b,stroke:#81c995
     style AV fill:#2d333b,stroke:#fdd663
     style WC fill:#2d333b,stroke:#c58af9
+    style EF fill:#2d333b,stroke:#c58af9
 ```
 
 ## Module Reference
 
-| Module | Main Functions | Description |
-|--------|---------------|-------------|
-| [BoxDetector](BoxDetector_Documentation.md) | `find_redaction_boxes_in_image()` | Row-scan detection of black rectangular boxes |
-| [SurroundingWordWidth](SurroundingWordWidth_documentation.md) | `estimate_widths_for_boxes()` | Refine box edges using positions of nearby words |
-| [ProcessRedactions](process_redactions_docs.md) | `process_pdf()`, `process_image()`, `extract_page_image_bytes()` | Orchestrator: coordinates detection + refinement, returns JSON |
-| [artifact_visualizer](artifact_visualizer_documentation.md) | `generate_mask_for_page()`, `create_redaction_masks()` | Generates grayscale mask PNGs for WebGL overlay |
-| [width_calculator](width_calculator_documentation.md) | `get_text_widths()`, `get_available_fonts()` | HarfBuzz text shaping for candidate name width measurement |
+| App | Module | Description |
+|-----|--------|-------------|
+| **guesser_core** | [BoxDetector](BoxDetector_Documentation.md) | Row-scan detection of black rectangular boxes |
+| **guesser_core** | [SurroundingWordWidth](SurroundingWordWidth_documentation.md) | Refine box edges using positions of nearby words |
+| **guesser_core** | [ProcessRedactions](process_redactions_docs.md) | Orchestrator: coordinates detection + refinement |
+| **webgl_mask** | [artifact_visualizer](artifact_visualizer_documentation.md) | Async generation of grayscale mask PNGs |
+| **text_tool** | [width_calculator](width_calculator_documentation.md)| HarfBuzz text shaping for width measurement |
+| **text_tool** | [extract_fonts](extract_fonts.md) | Dominant font detection and mapping |
 
 ## Processing Order
 

@@ -1,13 +1,17 @@
 # WebGL Mask — `webgl-mask.js`
 
-[webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/webgl-mask.js) renders GPU-accelerated redaction mask overlays using WebGL. It fetches grayscale mask PNGs from the backend and composites them over PDF pages using custom shaders and `mix-blend-mode: screen`.
+[webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays using WebGL. It fetches grayscale mask PNGs from the backend asynchronously and composites them over PDF pages using custom shaders and `mix-blend-mode: screen`.
 
 ## Architecture
 
 ```
-GET /mask/{page_num}
+POST /webgl/masks
     ↓
-Fetch mask PNG (or 404 → destroy canvas)
+`state.maskImages` populated with all base64 masks
+    ↓
+`refreshWebGLCanvases()`
+    ↓
+`initWebGLOverlay()` (for visible pages)
     ↓
 Load as LUMINANCE texture (NEAREST filtering)
     ↓
@@ -18,13 +22,14 @@ CSS mix-blend-mode: screen → composited over PDF
 
 ## Functions
 
+### `fetchMasksAsync(file, isDefault)`
+Asynchronously requests all masks for the current document from the `/webgl/masks` endpoint. Once received, it stores them in `state.maskImages` and calls `refreshWebGLCanvases()`.
+
 ### `setupWebGLOverlay(pageContainer, canvas, pageNum)`
-
-**Lazy instantiation strategy** to respect browser WebGL context limits (~16 per tab):
-
-1. Fetches `GET /mask/{pageNum}` before creating any WebGL context
-2. If response is `404` (no redactions) → removes the canvas element entirely
-3. Only if a mask exists → initializes WebGL, loads shaders, uploads texture
+Registers a page container with the `IntersectionObserver`. When a page becomes visible:
+1. `initWebGLOverlay(canvas, pageNum)` is called.
+2. If `state.maskImages[pageNum-1]` exists, the texture is loaded.
+3. If no mask data exists yet (still loading), the canvas remains hidden until `refreshWebGLCanvases()` triggers.
 
 **Texture setup:**
 - Format: `gl.LUMINANCE` (single-channel grayscale)

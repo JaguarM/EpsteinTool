@@ -1,6 +1,6 @@
 # ProcessRedactions.py
 
-[ProcessRedactions.py](../../guesser/logic/ProcessRedactions.py) is the main orchestrator for PDF and image analysis. It opens the uploaded file, extracts embedded page images, runs redaction box detection, refines box boundaries using surrounding text, generates grayscale mask overlays, and collects font metadata — returning everything the frontend needs in a single JSON-serialisable dict.
+[ProcessRedactions.py](../../guesser_core/logic/ProcessRedactions.py) is the main orchestrator for PDF and image analysis. It opens the uploaded file, extracts embedded page images, runs redaction box detection, refines box boundaries using surrounding text, and collects font metadata — returning the core structural data the frontend needs in a single JSON-serialisable dict.
 
 ---
 
@@ -20,7 +20,6 @@ The primary entry point for PDF files. Accepts raw bytes from the uploaded file 
 | `suggested_scale` | int | Recommended "Scale %" for the width calculator (see [Scale & Size Detection](scale-and-size-detection.md)) |
 | `suggested_size` | float | Detected dominant body-text size in points (see [Scale & Size Detection](scale-and-size-detection.md)) |
 | `page_images` | list | Base64-encoded PNG string for each page (one per page, `null` if none found) |
-| `mask_images` | list | Base64-encoded grayscale mask PNG for each page (`null` if no redactions on that page) |
 | `page_image_type` | str | MIME type — always `"image/png"` |
 | `page_width` | int | Fixed pixel width — `816` |
 | `page_height` | int | Fixed pixel height — `1056` |
@@ -59,7 +58,7 @@ Coordinates are in the pixel space of the embedded 816 × 1056 px page image.
 
 ### `process_image(image_bytes, mime_type)`
 
-Handles raw image uploads (PNG, JPEG, TIFF, …). Runs the same box detection pipeline but skips text-span extraction, font detection, and mask generation.
+Handles raw image uploads (PNG, JPEG, TIFF, …). Runs the same box detection pipeline but skips text-span extraction and font detection.
 
 Returns the same structure as `process_pdf()` with:
 - `spans` always `[]`
@@ -68,9 +67,7 @@ Returns the same structure as `process_pdf()` with:
 
 ---
 
-### `_generate_mask_from_image(img_bytes, boxes, img_w, img_h)`
 
-Internal helper. Builds a grayscale PNG mask where each detected redaction box is filled with a shade inversely proportional to the darkness of the underlying pixels (bright = heavily redacted, dark = lightly obscured). Returns a base64-encoded string or `None` if `boxes` is empty.
 
 ---
 
@@ -90,7 +87,6 @@ fitz.open()  ──► per-page loop
                         │
                         ├─ doc.extract_image()               → raw PNG/TIFF bytes
                         ├─ find_redaction_boxes_in_image()   → pixel-space boxes
-                        ├─ _generate_mask_from_image()       → grayscale mask PNG
                         ├─ page.get_image_rects()            → placement rect in PDF pts
                         │     └─ captures page_scale_ratio = img_px / page_pts
                         └─ estimate_widths_for_boxes()       → refined x1/x2 from text context
@@ -142,5 +138,4 @@ else:
 | `BoxDetector.find_redaction_boxes_in_image()` | Raw black-box detection in pixel space |
 | `SurroundingWordWidth.estimate_widths_for_boxes()` | Context-aware x1/x2 refinement |
 | `fitz` (PyMuPDF) | PDF parsing, text span extraction, image extraction |
-| `PIL` / `numpy` | Mask image generation |
 | `collections.Counter` | Mode calculation for `suggested_size` |

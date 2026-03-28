@@ -19,5 +19,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('guesser.urls')),
+    path('', include('guesser_core.urls')),
+    path('', include('webgl_mask.urls')),
+    path('', include('text_tool.urls')),
 ]

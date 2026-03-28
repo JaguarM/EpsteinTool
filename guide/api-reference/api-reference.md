@@ -1,17 +1,32 @@
 # API Reference
 
-The Django backend exposes four HTTP endpoints. All are served from the root URL path via the `guesser` app.
+The Django backend exposes several HTTP endpoints organized into modular apps.
 
 > **Note:** All POST endpoints use `@csrf_exempt` — no CSRF token is required. There is no authentication.
 
 ## Endpoints
 
+### `guesser_core` (Base Viewer)
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Serves the single-page application |
 | `POST` | `/analyze-pdf` | Upload a PDF or image for redaction analysis |
+| `GET` | `/analyze-default` | Processes the bundled default PDF |
+
+### `text_tool` (Typography Plugin)
+
+| Method | Path | Description |
+|--------|------|-------------|
 | `POST` | `/widths` | Calculate pixel widths for candidate text strings |
 | `GET` | `/fonts-list` | List available font files |
+
+### `webgl_mask` (GPU Visualization Plugin)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/webgl/masks` | Generate all redaction masks for an uploaded PDF |
+| `GET` | `/webgl/masks?default=true` | Generate all masks for the default PDF |
 
 ---
 
@@ -58,7 +73,6 @@ Supported formats:
   "suggested_size": 12.0,
   "suggested_font": "times.ttf",
   "page_images": ["base64-encoded-PNG-string", null, "..."],
-  "mask_images": ["base64-encoded-PNG-string", null, "..."],
   "page_image_type": "image/png",
   "page_width": 816,
   "page_height": 1056,
@@ -75,7 +89,6 @@ Supported formats:
 | `suggested_size` | float | Dominant body-text font size in points, detected from text spans. `12.0` when unknown. |
 | `suggested_font` | str \| null | `.ttf` filename of the dominant font (e.g. `"times.ttf"`). `null` if the font could not be matched to an available file. |
 | `page_images` | array | Base64-encoded PNG for each page (one per page, `null` if no embedded image found on that page) |
-| `mask_images` | array | Base64-encoded grayscale mask PNG for each page (`null` if no redactions on that page) |
 | `page_image_type` | string | MIME type of the page images — always `"image/png"` |
 | `page_width` / `page_height` | int | Pixel dimensions of the page images (816 × 1056 for standard PDFs; actual image dimensions for raw image uploads) |
 | `num_pages` | int | Total number of pages |
@@ -149,3 +162,41 @@ Returns a JSON array of available `.ttf` font filenames from `assets/fonts/`.
 ```json
 ["times.ttf", "arial.ttf", "courier_new.ttf", "calibri.ttf"]
 ```
+
+---
+
+## `POST /webgl/masks`
+
+Asynchronously generates redaction masks for an entire document. This is separated from `/analyze-pdf` to improve response times for the main layout.
+
+### Request
+
+- **Content-Type:** `multipart/form-data`
+- **Body:** Form field `file` containing the same PDF previously sent to `/analyze-pdf`.
+
+### Response — `200 OK`
+
+```json
+{
+  "mask_images": [
+    "base64-encoded-PNG-mask-string",
+    null,
+    "base64-encoded-PNG-mask-string"
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mask_images` | array | Array of base64-encoded grayscale PNG masks (one per page). `null` suggests no redactions on that page. |
+
+---
+
+## `GET /webgl/masks?default=true`
+
+Utility endpoint to fetch masks for the bundled default demonstration PDF.
+
+### Response — `200 OK`
+
+Returns the same schema as `POST /webgl/masks`.
+

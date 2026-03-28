@@ -10,13 +10,11 @@ from PIL import Image
 try:
     from .BoxDetector import find_redaction_boxes_in_image
     from .SurroundingWordWidth import estimate_widths_for_boxes
-    from .artifact_visualizer import generate_mask_from_image
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
     from SurroundingWordWidth import estimate_widths_for_boxes
-    from artifact_visualizer import generate_mask_from_image
 
 
 
@@ -42,7 +40,6 @@ def process_pdf(pdf_bytes):
         return {"error": str(e), "redactions": [], "spans": []}
 
     page_images = {}      # page_num -> base64 PNG, one per page
-    mask_images = {}      # page_num -> base64 mask PNG (or None)
     pdf_font_pages = {}   # basefont_name -> number of pages it appears on
     page_scale_ratio = None  # img_px / page_pt, determined from first placed image
 
@@ -119,9 +116,7 @@ def process_pdf(pdf_bytes):
 
                     boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
 
-                    # Generate mask for this page if not already done
-                    if page_num not in mask_images:
-                        mask_images[page_num] = generate_mask_from_image(img_bytes, boxes, img_w, img_h)
+
 
                     if not boxes: continue
                     
@@ -210,7 +205,6 @@ def process_pdf(pdf_bytes):
         "suggested_scale": suggested_scale,
         "suggested_size": suggested_size,
         "page_images": [page_images.get(i + 1) for i in range(num_pages)],
-        "mask_images": [mask_images.get(i + 1) for i in range(num_pages)],
         "page_image_type": "image/png",
         "page_width": 816,
         "page_height": 1056,

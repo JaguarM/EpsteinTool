@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Epstein Unredactor - PDF Viewer</title>
-  <link rel="icon" href="{% static 'guesser/favicon.ico' %}">
+  <link rel="icon" href="{% static 'guesser_core/favicon.ico' %}">
 
   <!-- Material Symbols Outlined for Chrome-like icons -->
   <link rel="stylesheet"
@@ -16,7 +16,7 @@
   <!-- Fabric.js v5 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 
-  <link rel="stylesheet" href="{% static 'guesser/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'guesser_core/styles.css' %}">
 </head>
 
 <body>
@@ -60,13 +60,13 @@
           <span class="material-symbols-outlined">upload_file</span>
         </button>
 
-        <button id="tool-text" class="icon-button" title="Add Text (T)">
-          <span class="material-symbols-outlined">text_fields</span>
-        </button>
+        {% if 'text_tool' in active_plugins %}
+        {% include 'text_tool/toolbar_button.html' %}
+        {% endif %}
 
-        <button id="toggle-webgl" class="icon-button" title="Toggle WebGL Mask">
-          <span class="material-symbols-outlined">layers</span>
-        </button>
+        {% if 'webgl_mask' in active_plugins %}
+        {% include 'webgl_mask/toolbar_button.html' %}
+        {% endif %}
 
         <button id="toggle-tools" class="icon-button active" title="Toggle AI Unredactor Tools">
           <span class="material-symbols-outlined">build</span>
@@ -74,86 +74,13 @@
       </div>
     </header>
 
-    <!-- Font Secondary Toolbar -->
-    <div id="text-options-bar">
-      <span class="options-label">Font</span>
-      <select id="font"></select>
+    {% if 'text_tool' in active_plugins %}
+    {% include 'text_tool/options_bar.html' %}
+    {% endif %}
 
-      <div class="options-divider"></div>
-
-      <span class="options-label">Size (pt)</span>
-      <input type="number" id="size" value="12" step="1">
-
-      <div class="options-divider"></div>
-
-      <span class="options-label">Scale (%)</span>
-      <input type="number" id="calc-scale" value="178" min="1" step="1">
-
-      <div class="options-divider"></div>
-
-      <span class="options-label">Tolerance (px)</span>
-      <input type="number" id="tolerance" value="3" step="0.1">
-
-      <div class="options-divider"></div>
-
-      <label class="checkbox-lbl" style="color: #bdc1c6; margin-right: 8px;"><input type="checkbox" id="kerning" checked> Kerning</label>
-      <label class="checkbox-lbl" style="color: #bdc1c6; margin-right: 8px;"><input type="checkbox" id="ligatures" checked> Ligatures</label>
-      <label class="checkbox-lbl" style="color: #bdc1c6;"><input type="checkbox" id="force-uppercase"> Uppercase</label>
-    </div>
-
-    <!-- WebGL Options Bar -->
-    <div id="webgl-options-bar" class="hidden">
-      <span class="options-label">Mask Color</span>
-      <input type="color" id="mask-color" value="#000000" title="Mask color">
-      <div class="options-divider"></div>
-      <span class="options-label">Mask Opacity</span>
-      <input type="range" id="edge-subtract" min="0" max="255" step="1" value="255" title="Mask opacity">
-    </div>
-
-    <!-- Fabric Options Bar -->
-    <div id="fabric-options-bar" class="hidden">
-      <!-- Group 1: Font -->
-      <span class="options-label" style="margin-left: 8px;">Font:</span>
-      <select id="fabric-font-family">
-        <option value="Arial">Arial</option>
-        <option value="Calibri">Calibri</option>
-        <option value="Courier New">Courier New</option>
-        <option value="Times New Roman" selected>Times New Roman</option>
-      </select>
-      <input type="number" id="fabric-font-size" value="12" min="4" max="400" title="Font size (px)">
-      <span class="options-label">px</span>
-      <span class="options-label" style="margin-left: 8px;">Scale:</span>
-      <input type="number" id="fabric-font-scale" value="100" min="10" max="500" step="1" title="Horizontal scale (%)">
-      <span class="options-label">%</span>
-
-      <div class="options-divider"></div>
-
-      <!-- Group 2: Basic formatting -->
-      <button id="fabric-bold"          class="icon-button options-toggle" title="Bold"><b style="font-family:serif;">B</b></button>
-      <button id="fabric-italic"        class="icon-button options-toggle" title="Italic"><em style="font-family:serif;">I</em></button>
-      <button id="fabric-underline"     class="icon-button options-toggle" title="Underline"><u style="font-family:serif;">U</u></button>
-      <button id="fabric-strikethrough" class="icon-button options-toggle" title="Strikethrough"><s style="font-family:serif;">S</s></button>
-
-      <div class="options-divider"></div>
-
-      <!-- Group 3: Spacing -->
-      <span class="options-label">Spacing:</span>
-      <input type="number" id="fabric-letter-spacing" value="0" min="-0.5" max="2" step="0.01" title="Letter spacing (em)">
-      <span class="options-label">em</span>
-
-      <div class="options-divider"></div>
-
-      <!-- Group 4: Color -->
-      <input type="color" id="fabric-color" value="#000000" title="Text color">
-
-      <!-- Group 5: Redact gap controls -->
-      <div id="redact-gap-controls" class="hidden" style="display:contents">
-        <div class="options-divider"></div>
-        <span class="options-label">Gap:</span>
-        <input type="range" id="redact-gap-slider" min="0" max="500" step="1" value="50" title="Redaction gap width">
-        <span id="redact-gap-display" class="options-label">50 px</span>
-      </div>
-    </div>
+    {% if 'webgl_mask' in active_plugins %}
+    {% include 'webgl_mask/options_bar.html' %}
+    {% endif %}
 
     <!-- Main Content Area -->
     <div id="main-content">
@@ -246,12 +173,14 @@
     </div>
   </div>
 
-  <script src="{% static 'guesser/state.js' %}"></script>
-  <script src="{% static 'guesser/api.js' %}"></script>
-  <script src="{% static 'guesser/webgl-mask.js' %}"></script>
-  <script src="{% static 'guesser/pdf-viewer.js' %}"></script>
-  <script src="{% static 'guesser/ui-events.js' %}"></script>
-  <script src="{% static 'guesser/app.js' %}"></script>
+  <script src="{% static 'guesser_core/state.js' %}"></script>
+  <script src="{% static 'guesser_core/api.js' %}"></script>
+  {% if 'webgl_mask' in active_plugins %}
+  <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
+  {% endif %}
+  <script src="{% static 'guesser_core/pdf-viewer.js' %}"></script>
+  <script src="{% static 'guesser_core/ui-events.js' %}"></script>
+  <script src="{% static 'guesser_core/app.js' %}"></script>
   
   <!-- Polyfill for Fabric.js v5 using 'alphabetical' textBaseline which causes browser warnings -->
   <script>
@@ -267,7 +196,9 @@
     }
   </script>
 
-  <script src="{% static 'guesser/text-tool.js' %}"></script>
+  {% if 'text_tool' in active_plugins %}
+  <script src="{% static 'text_tool/text-tool.js' %}"></script>
+  {% endif %}
 </body>
 
 </html>

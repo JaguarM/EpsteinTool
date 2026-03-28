@@ -6,14 +6,15 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 
 from .logic.ProcessRedactions import process_pdf, process_image
-from .logic.width_calculator import get_text_widths, get_available_fonts
-from .logic.extract_fonts import detect_dominant_font
 
 IMAGE_MIME_TYPES = {'image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/bmp', 'image/webp'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp'}
 
+from django.conf import settings
+
 def index(request):
-    return render(request, 'guesser/index.html')
+    context = {'active_plugins': settings.INSTALLED_APPS}
+    return render(request, 'guesser_core/index.html', context)
 
 @csrf_exempt
 def analyze_pdf(request):
@@ -38,52 +39,13 @@ def analyze_pdf(request):
         if "error" in result:
             return JsonResponse({"detail": result["error"]}, status=500)
 
-        if not is_image:
-            font_info = detect_dominant_font(
-                result.get("spans", []),
-                get_available_fonts(),
-                pdf_declared_fonts=result.get("pdf_fonts", []),
-            )
-            result["suggested_font"] = font_info["font_file"]
-            # Only use detect_dominant_font's size as fallback when process_pdf
-            # could not determine a body-text size.
-            if not result.get("suggested_size"):
-                result["suggested_size"] = font_info["font_size"]
+
 
         return JsonResponse(result)
     except Exception as e:
         return JsonResponse({"detail": str(e)}, status=500)
 
-@csrf_exempt
-def calculate_widths(request):
-    if request.method != 'POST':
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-        
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON"}, status=400)
 
-    texts = data.get('strings', [])
-    font_name = data.get('font', 'times.ttf')
-    font_size = data.get('size', 12)
-    force_uppercase = data.get('force_uppercase', False)
-    scale = data.get('scale', 135)
-    kerning = data.get('kerning', True)
-    ligatures = data.get('ligatures', True)
-    
-    try:
-        # Convert scale percentage to multiplier (135 -> 1.35)
-        scale_factor = scale / 100.0
-        widths = get_text_widths(texts, font_name, font_size, force_uppercase, scale_factor, kerning, ligatures)
-        return JsonResponse({"results": widths})
-    except Exception as e:
-        return JsonResponse({"detail": str(e)}, status=500)
-
-
-
-def list_fonts(request):
-    return JsonResponse(get_available_fonts(), safe=False)
 
 
 # ---------------------------------------------------------------------------
@@ -108,14 +70,7 @@ def analyze_default(request):
         if "error" in result:
             return JsonResponse({"detail": result["error"]}, status=500)
 
-        font_info = detect_dominant_font(
-            result.get("spans", []),
-            get_available_fonts(),
-            pdf_declared_fonts=result.get("pdf_fonts", []),
-        )
-        result["suggested_font"] = font_info["font_file"]
-        if not result.get("suggested_size"):
-            result["suggested_size"] = font_info["font_size"]
+
 
         result["default_filename"] = _DEFAULT_PDF.name
         return JsonResponse(result)

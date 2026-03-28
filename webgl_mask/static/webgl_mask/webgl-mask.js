@@ -57,7 +57,7 @@ async function initWebGLOverlay(canvas, pageNum) {
       // Use inline mask data from the initial upload response
       const maskDataUrl = state.maskImages && state.maskImages[pageNum - 1];
       if (!maskDataUrl) {
-        canvas.style.display = 'none';
+        // May still be loading asynchronously
         webglContexts.delete(pageNum);
         return;
       }
@@ -180,5 +180,49 @@ function updateWebGLUniforms(specificPage = null) {
     gl.uniform3fv(uColorLoc, rgb);
     gl.uniform1f(uOpacityLoc, opacity);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+  });
+}
+
+async function fetchMasksAsync(file, isDefault = false) {
+  try {
+    let resp;
+    if (isDefault) {
+      resp = await fetch('/webgl/masks?default=true');
+    } else {
+      const fd = new FormData();
+      fd.append('file', file);
+      resp = await fetch('/webgl/masks', { method: 'POST', body: fd });
+    }
+    
+    if (resp.ok) {
+      const data = await resp.json();
+      state.maskImages = (data.mask_images || []).map(b64 =>
+        b64 ? `data:image/png;base64,${b64}` : null
+      );
+      refreshWebGLCanvases();
+    }
+  } catch (e) {
+    console.error("Async mask fetch failed:", e);
+  }
+}
+
+function refreshWebGLCanvases() {
+  const webglActive = els.toggleWebglBtn && els.toggleWebglBtn.classList.contains('active');
+  if (!webglActive) return;
+
+  document.querySelectorAll('.page-container').forEach(pageContainer => {
+    const pageNum = parseInt(pageContainer.dataset.pageNum);
+    const canvas = pageContainer.querySelector('.webgl-overlay');
+    if (!canvas) return;
+    
+    // Only attempt initialization if the canvas is currently in DOM and intersecting
+    // We already have 'webglObserver' which triggered but maybe skipped because masks were missing.
+    if (!webglContexts.has(pageNum)) {
+      initWebGLOverlay(canvas, pageNum);
+      const maskDataUrl = state.maskImages && state.maskImages[pageNum - 1];
+      if (maskDataUrl) {
+          canvas.style.display = 'block';
+      }
+    }
   });
 }

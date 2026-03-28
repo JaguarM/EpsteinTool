@@ -1,6 +1,6 @@
 # width_calculator.py
 
-[width_calculator.py](../../guesser/logic/width_calculator.py) provides precision text-width measurement for candidate name matching. It uses HarfBuzz for accurate OpenType shaping with full kerning and ligature support, falling back to Pillow if HarfBuzz is unavailable.
+[width_calculator.py](../../text_tool/logic/width_calculator.py) provides precision text-width measurement for candidate name matching.
 
 ---
 

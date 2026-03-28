@@ -2,7 +2,7 @@
 
 The WebGL mask system provides a high-performance 60FPS overlay for visualizing redactions dynamically over the PDF. This document explains the full pipeline from the Python backend all the way to the GPU shader.
 
-## 1. Backend: Mask Generation (`logic/artifact_visualizer.py`)
+## 1. Backend: Mask Generation (`webgl_mask/logic/artifact_visualizer.py`)
 
 The pipeline begins by analyzing the raw PDF bytes for a specific page using `fitz` (PyMuPDF).
 
@@ -14,11 +14,13 @@ The pipeline begins by analyzing the raw PDF bytes for a specific page using `fi
   - **Anti-aliasing:** A precise 1-pixel border along the edge of each box samples inverted pixels from the newly rendered PDF image to ensure smooth edges mapping perfectly against the source text.
 - **Sparse Optimization:** Crucially, if the detection algorithm finds zero redactions on a page, the function immediately returns `None` instead of heavily generating an empty, all-black PNG.
 
-## 2. API Layer (`views.py`)
+## 2. API Layer (`webgl_mask/views.py`)
 
-The Django backend exposes a route to serve these masks: `GET /mask/<page_num>`.
-- **In-Memory Caching:** When a PDF is initially uploaded, its file bytes are held in `_store['pdf_bytes']` so the backend does not repeatedly read from the disk.
-- **Resource Conservation:** The `/mask` endpoint calls `generate_mask_for_page`. If it returns `None` (indicating zero redactions), the route responds with an HTTP `404 Not Found`. Otherwise, it returns the generated mask immediately as a lightweight `image/png`.
+The Django backend exposes routes to serve these masks, notably `POST /webgl/masks`.
+- **Asynchronous Processing:** When a PDF is initially uploaded, the main `/analyze-pdf` response returns immediately. A second concurrent request is fired from the browser to the `/webgl/masks` endpoint.
+- **Batch Generation:** The backend calculates masks for all pages in a single pass using `generate_all_masks(file_bytes)` and returns a JSON object containing an array of base64-encoded PNGs.
+- **Resource Conservation:** If no redactions are found on a page, the array contains `null` for that index, instructing the frontend to skip WebGL instantiation for that page.
+
 
 ## 3. Frontend: GPU Rendering (`webgl-mask.js`)
 
@@ -27,10 +29,11 @@ The legacy HTML `div` and Fabric.js canvas overlays were completely stripped out
 ### Lazy Instantiation and Context Limits
 Modern browsers enforce a strict hard limit (often ~16) on the total number of simultaneous WebGL contexts permitted per browser tab. Because large PDFs might have dozens of pages, spinning up a WebGL context for *unredacted* pages would needlessly burn through these slots and cause a `CONTEXT_LOST_WEBGL` system crash.
 
-To fix this, `setupWebGLOverlay` utilizes a **Lazy Instantiation Strategy**:
-1. Before requesting a WebGL context, Javascript fires a `fetch` directly to the `/mask/<page_num>` API.
-2. If the API returns a `404` (no redactions on this page), the script immediately destroys the `webgl-overlay` canvas element entirely.
-3. This guarantees that WebGL contexts are strictly allocated *only* for pages containing verifiable redactions, drastically saving GPU memory.
+To fix this, `webgl_mask.js` utilizes an **Async Integration Strategy**:
+1. When a document finishes analyzing, `fetchMasksAsync` is called to request all masks from `/webgl/masks`.
+2. Pages already visible (monitored by `IntersectionObserver`) check if their mask data has arrived.
+3. Once the async response populates `state.maskImages`, `refreshWebGLCanvases()` is triggered to initialize WebGL contexts only for the pages where a mask was successfully generated.
+4. This guarantees that WebGL contexts are strictly allocated *only* for pages containing verifiable redactions, drastically saving GPU memory.
 
 ### Shaders and Blending
 When a mask PNG is successfully loaded, WebGL kicks in:

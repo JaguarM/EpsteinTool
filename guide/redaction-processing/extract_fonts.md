@@ -1,6 +1,6 @@
 # extract_fonts — Font Detection Module
 
-**File:** `guesser/logic/extract_fonts.py`
+**File:** `text_tool/logic/extract_fonts.py`
 
 Detects the dominant font used in a PDF and maps it to one of the `.ttf` files
 available in `assets/fonts/`. The result is returned to the frontend as
@@ -15,7 +15,7 @@ pre-configured on every PDF load.
 POST /analyze-pdf
   └── process_pdf()              # ProcessRedactions.py
         └── extracts text_spans  # PyMuPDF span data, one entry per text run
-  └── detect_dominant_font()     # extract_fonts.py   ← this module
+  └── detect_dominant_font()     # text_tool.logic.extract_fonts   ← this module
         └── returns font_file, font_size, pdf_font_name
   └── JsonResponse
         ├── suggested_font       # e.g. "times.ttf"
@@ -54,8 +54,8 @@ most body-text characters in the document.
 **Example**
 
 ```python
-from guesser.logic.extract_fonts import detect_dominant_font
-from guesser.logic.width_calculator import get_available_fonts
+from text_tool.logic.extract_fonts import detect_dominant_font
+from text_tool.logic.width_calculator import get_available_fonts
 
 result = detect_dominant_font(spans, get_available_fonts())
 # {"font_file": "times.ttf", "font_size": 12.0, "pdf_font_name": "TimesNewRomanPSMT"}
@@ -113,7 +113,7 @@ The module doubles as a CLI tool for auditing font metadata across a local
 directory tree. Run directly with Python:
 
 ```bash
-python guesser/logic/extract_fonts.py
+python text_tool/logic/extract_fonts.py
 ```
 
 The `base_directory` and `target_directories` at the bottom of the file control

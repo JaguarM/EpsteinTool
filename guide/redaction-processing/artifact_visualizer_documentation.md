@@ -1,6 +1,6 @@
 # Artifact Visualizer — Documentation
 
-`logic/artifact_visualizer.py`
+`webgl_mask/logic/artifact_visualizer.py`
 
 ---
 
@@ -12,7 +12,7 @@ The artifact visualizer detects black redaction boxes embedded in PDF pages and 
 
 ```
 PDF bytes
-  └─ extract_page_image_bytes()     ← ProcessRedactions.py
+  └─ generate_all_masks()           ← webgl_mask views.py
        └─ find_redaction_boxes_in_image()   ← detect pure-black rectangles
             └─ build mask array + edge borders
                  └─ returned as bytes (web) or saved to disk (CLI)
@@ -125,13 +125,14 @@ CLI entry point. Processes every page of a PDF file and saves mask PNGs to disk.
 
 ---
 
-## `generate_mask_for_page(pdf_bytes, page_num)`
+The mask construction logic is identical to `generate_mask_from_image`.
 
-Web API entry point. Accepts PDF bytes and a 1-based page number, returns mask PNG bytes.
+---
 
-Returns `None` if the page has no redactions, the page number is out of range, or the image cannot be extracted.
+## `generate_all_masks(pdf_bytes)`
 
-The mask construction logic is identical to `create_redaction_masks`.
+Batch processes an entire PDF and returns an array of base64-encoded mask strings (or `null` for pages without redactions). Used by the `/webgl/masks` endpoint for async frontend loading.
+
 
 ---
 
@@ -175,7 +176,7 @@ The WebGL fragment shader reads `maskVal` (0.0–1.0) directly as the alpha fact
 
 ## WebGL Integration
 
-The mask PNG is served by the Django backend at `/mask/{page_num}` and loaded as a `LUMINANCE` texture in [webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/webgl-mask.js).
+The mask PNG is served by the Django backend at `/webgl/masks` and loaded as a `LUMINANCE` texture in [webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/webgl_mask/static/webgl_mask/webgl-mask.js).
 
 Fragment shader reads:
 ```glsl
@@ -195,7 +196,7 @@ The `uOpacity` uniform is driven by the "Mask Opacity" slider (0–255 → 0.0�
 ## CLI Usage
 
 ```bash
-python logic/artifact_visualizer.py
+python webgl_mask/logic/artifact_visualizer.py
 ```
 
 Reads `PDF.pdf` from the working directory and writes one PNG per page that contains redactions.

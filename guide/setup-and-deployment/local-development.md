@@ -70,7 +70,7 @@ Common fonts to add:
 
 ## Collecting Static Files
 
-During development, Django's `staticfiles` app serves files directly from `guesser/static/`. For production, run:
+During development, Django's `staticfiles` app serves files directly from the `static/` folders of each app (`guesser_core`, `webgl_mask`, `text_tool`). For production, run:
 
 ```bash
 python manage.py collectstatic --noinput
@@ -85,4 +85,4 @@ cd tests/
 python -m pytest test_app.py
 ```
 
-> **Note:** `test_app.py` currently tests against the Flask `app.py`. To test the Django views, use `python manage.py test guesser`.
+> **Note:** `test_app.py` currently tests against the legacy Flask `app.py`. To test the Django views, use `python manage.py test guesser_core`.

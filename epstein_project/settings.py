@@ -42,7 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'guesser',
+    'guesser_core',
+    'webgl_mask',
+    'text_tool',
 ]
 
 MIDDLEWARE = [

@@ -1,6 +1,6 @@
 # Epstein Unredactor — Architecture Overview
 
-A Django web application that analyzes scanned PDF documents to detect black redaction bars, measures their pixel widths, and helps users identify which names could fit under each redaction by matching text widths.
+A Django web application that analyzes scanned PDF documents to detect black redaction bars, measures their pixel widths, and helps users identify which names could fit under each redaction by matching text widths. The project uses a multi-app "Plugin" architecture to isolate different features.
 
 ## Technology Stack
 
@@ -24,34 +24,36 @@ EpsteinTool/
 ├── run_app.sh / run_app.bat        # Local dev launchers
 │
 ├── epstein_project/                # Django project config
-│   ├── settings.py                 # INSTALLED_APPS, STATIC, DB, upload limits
-│   ├── urls.py                     # Root URL conf → includes guesser.urls
+│   ├── settings.py                 # INSTALLED_APPS (registers the 3 apps below)
+│   ├── urls.py                     # Root URL conf
 │   ├── wsgi.py / asgi.py
 │
-├── guesser/                        # Main Django app
-│   ├── views.py                    # API endpoints (analyze-pdf, widths, mask, fonts)
-│   ├── urls.py                     # App URL routes
-│   │
-│   ├── logic/                      # Backend processing modules
+├── guesser_core/                   # Core App (Base Viewer & Redaction Processing)
+│   ├── views.py                    # Root /, /analyze-pdf
+│   ├── urls.py                     
+│   ├── logic/                      
 │   │   ├── BoxDetector.py          # Row-scan black box detection
 │   │   ├── SurroundingWordWidth.py # Refine box edges using nearby text positions
-│   │   ├── ProcessRedactions.py    # Orchestrator: PDF → boxes → refined redactions + scale/size detection
-│   │   ├── extract_fonts.py        # Dominant font detection; maps PDF font names to .ttf files
-│   │   ├── width_calculator.py     # HarfBuzz text width measurement
-│   │   └── artifact_visualizer.py  # Grayscale mask PNG generation
-│   │
-│   ├── templates/guesser/
-│   │   └── index.html              # Single-page app (Django template)
-│   │
-│   └── static/guesser/             # Frontend assets
-│       ├── styles.css              # Full CSS design system
-│       ├── state.js                # Global state + DOM element cache
-│       ├── api.js                  # Candidate management + width matching logic
-│       ├── pdf-viewer.js           # File upload, page navigation, redaction overlays
-│       ├── ui-events.js            # Zoom, resize, drag, thumbnails
-│       ├── app.js                  # Initialization + event wiring
-│       ├── text-tool.js            # Fabric.js text overlay tool
-│       └── webgl-mask.js           # WebGL mask rendering pipeline
+│   │   └── ProcessRedactions.py    # Orchestrator: PDF → boxes → refined redactions
+│   ├── templates/                  # Base index.html (dynamic hooks for plugins)
+│   └── static/guesser_core/        # Base UI JS (pdf-viewer.js, app.js, api.js)
+│
+├── text_tool/                      # Plugin App (Font logic & Typography)
+│   ├── views.py                    # /widths, /fonts-list
+│   ├── urls.py
+│   ├── logic/
+│   │   ├── width_calculator.py     # HarfBuzz width measurement
+│   │   └── extract_fonts.py        # Dominant font detection
+│   ├── templates/                  # Toolbars injected into guesser_core UI
+│   └── static/text_tool/           # text-tool.js (Fabric.js canvas wrapper)
+│
+├── webgl_mask/                     # Plugin App (Visual GPU Masks)
+│   ├── views.py                    # /webgl/masks
+│   ├── urls.py
+│   ├── logic/
+│   │   └── artifact_visualizer.py  # OpenCV -> grayscale mask PNG generator
+│   ├── templates/                  # Toolbars injected into guesser_core UI
+│   └── static/webgl_mask/          # webgl-mask.js (WebGL renderer)
 │
 ├── assets/
 │   ├── fonts/                      # .ttf font files for width calculation
@@ -66,7 +68,7 @@ EpsteinTool/
 
 ```mermaid
 flowchart TD
-    A["User uploads PDF/Image"] --> B["POST /analyze-pdf"]
+    A["User uploads PDF"] --> B["POST /analyze-pdf (guesser_core)"]
     B --> C{"Is image?"}
     C -->|Yes| D["process_image()"]
     C -->|No| E["process_pdf()"]
@@ -74,67 +76,71 @@ flowchart TD
     E --> F["Extract embedded page images\n(PyMuPDF)"]
     F --> G["BoxDetector\nfind_redaction_boxes_in_image()"]
     G --> H["SurroundingWordWidth\nestimate_widths_for_boxes()"]
-    H --> I["Return JSON:\nredactions + spans + page images\n+ suggested_scale + suggested_size"]
-    E --> EF["extract_fonts.detect_dominant_font()\n→ suggested_font"]
-    EF --> I
+    H --> I["Return JSON:\nredactions + page images"]
 
     D --> G2["BoxDetector\nfind_redaction_boxes_in_image()"]
     G2 --> I2["Return JSON:\nredactions + page image"]
 
-    I --> J["Frontend renders pages\n+ redaction overlays"]
+    I --> J["Frontend (pdf-viewer.js) renders pages"]
     I2 --> J
+    
+    J --> Y["Frontend calls async fetchMasksAsync()"]
+    Y --> O["POST /webgl/masks (webgl_mask)"]
+    O --> P["artifact_visualizer\ngenerate_all_masks()"]
+    P --> Q["webgl-mask.js renders mask tint on canvas"]
 
     J --> K["User adds candidate names"]
-    K --> L["POST /widths\n(HarfBuzz text shaping)"]
+    K --> L["POST /widths (text_tool)\n(HarfBuzz text shaping)"]
     L --> M["Compare widths vs\nredaction box widths"]
     M --> N["Highlight matching names"]
-
-    J --> O["GET /mask/page_num"]
-    O --> P["artifact_visualizer\ngenerate_mask_for_page()"]
-    P --> Q["WebGL overlay renders\nmask tint on canvas"]
 ```
 
 ## Module Dependencies
 
 ```mermaid
 graph TD
-    subgraph "Django Layer"
-        views["views.py"]
-        urls["urls.py"]
+    subgraph "Django Project"
+        urls["epstein_project/urls.py"]
     end
 
-    subgraph "Logic Layer"
+    subgraph "guesser_core (Core App)"
         PR["ProcessRedactions.py"]
         BD["BoxDetector.py"]
         SW["SurroundingWordWidth.py"]
-        AV["artifact_visualizer.py"]
-        WC["width_calculator.py"]
-    end
-
-    subgraph "Frontend"
+        core_views["views.py"]
         HTML["index.html"]
-        APP["app.js"]
-        PDF["pdf-viewer.js"]
-        API["api.js"]
-        UI["ui-events.js"]
-        ST["state.js"]
-        TT["text-tool.js"]
-        WGL["webgl-mask.js"]
+        APP["app.js / pdf-viewer.js / api.js"]
     end
 
-    views --> PR
-    views --> WC
-    views --> AV
+    subgraph "webgl_mask (Plugin)"
+        WGL_V["views.py"]
+        AV["artifact_visualizer.py"]
+        WGL_JS["webgl-mask.js"]
+        WGL_T["templates"]
+    end
+
+    subgraph "text_tool (Plugin)"
+        TXT_V["views.py"]
+        WC["width_calculator.py"]
+        TXT_JS["text-tool.js"]
+        TXT_T["templates"]
+    end
+
+    urls --> core_views
+    urls --> WGL_V
+    urls --> TXT_V
+
+    core_views --> PR
     PR --> BD
     PR --> SW
-    AV --> BD
-    AV --> PR
+    
+    WGL_V --> AV
+    AV -.->|"reads from core"| BD
 
-    APP --> PDF
-    APP --> API
-    APP --> UI
-    PDF --> API
-    PDF --> WGL
-    PDF --> TT
-    API --> ST
-    UI --> ST
+    TXT_V --> WC
+
+    HTML -.->|"dynamically includes"| WGL_T
+    HTML -.->|"dynamically includes"| TXT_T
+    APP -.->|"depends on"| WGL_JS
+    APP -.->|"depends on"| TXT_JS
+```

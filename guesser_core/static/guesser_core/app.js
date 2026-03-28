@@ -220,6 +220,10 @@
           } else {
             updateAllMatchesView();
           }
+          
+          if (typeof fetchMasksAsync === 'function') {
+            fetchMasksAsync(null, true);
+          }
         }
       } catch (e) {
         console.warn('Auto-load of default PDF failed:', e.message);
