@@ -9,10 +9,10 @@
 // the Fabric text-annotation toolbar.  Only the four supported fonts.
 function ttfToFabricFont(ttfName) {
   const map = {
-    'times.ttf':       'Times New Roman',
+    'times.ttf': 'Times New Roman',
     'courier_new.ttf': 'Courier New',
-    'arial.ttf':       'Arial',
-    'calibri.ttf':     'Calibri',
+    'arial.ttf': 'Arial',
+    'calibri.ttf': 'Calibri',
   };
   return map[ttfName] || null;
 }
@@ -47,8 +47,8 @@ async function handleFileUpload(e) {
     state.maskImages = (data.mask_images || []).map(b64 =>
       b64 ? `data:image/png;base64,${b64}` : null
     );
-    state.numPages   = data.num_pages  || state.pageImages.length || 1;
-    state.pageWidth  = data.page_width  || 816;
+    state.numPages = data.num_pages || state.pageImages.length || 1;
+    state.pageWidth = data.page_width || 816;
     state.pageHeight = data.page_height || 1056;
 
     els.pageCountElem.textContent = `/ ${state.numPages}`;
@@ -60,8 +60,8 @@ async function handleFileUpload(e) {
 
     // Auto-font detection from server
     const autoScale = data.suggested_scale || 178;
-    const autoSize  = data.suggested_size  || 12;
-    const autoFont  = data.suggested_font  || null;
+    const autoSize = data.suggested_size || 12;
+    const autoFont = data.suggested_font || null;
 
     els.calcScale.value = autoScale;
     els.size.value = autoSize;
@@ -140,7 +140,7 @@ async function goToPage(pageNum) {
   const pageContainer = document.createElement('div');
   pageContainer.className = 'page-container';
   pageContainer.id = `pageContainer${pageNum}`;
-  pageContainer.style.setProperty('--page-width',  `${state.pageWidth}px`);
+  pageContainer.style.setProperty('--page-width', `${state.pageWidth}px`);
   pageContainer.style.setProperty('--page-height', `${state.pageHeight}px`);
 
   // Original embedded image as the page background
@@ -161,7 +161,7 @@ async function goToPage(pageNum) {
   webglCanvas.style.top = '0';
   webglCanvas.style.left = '0';
   webglCanvas.style.pointerEvents = 'none';
-  webglCanvas.width  = state.pageWidth;
+  webglCanvas.width = state.pageWidth;
   webglCanvas.height = state.pageHeight;
   const webglActive = els.toggleWebglBtn && els.toggleWebglBtn.classList.contains('active');
   webglCanvas.style.display = webglActive ? 'block' : 'none';
@@ -195,9 +195,9 @@ function injectRedactionOverlays() {
     overlay.id = `redaction-idx-${idx}`;
 
     // Pixel-space coordinates; CSS multiplies by --scale-factor for zoom
-    overlay.style.setProperty('--px-x',      `${r.x}px`);
-    overlay.style.setProperty('--px-y',      `${r.y}px`);
-    overlay.style.setProperty('--px-width',  `${r.width}px`);
+    overlay.style.setProperty('--px-x', `${r.x}px`);
+    overlay.style.setProperty('--px-y', `${r.y}px`);
+    overlay.style.setProperty('--px-width', `${r.width}px`);
     overlay.style.setProperty('--px-height', `${r.height}px`);
 
     overlay.onclick = (e) => {

@@ -2,15 +2,31 @@ import os, sys
 import numpy as np
 from io import BytesIO
 from PIL import Image
+import base64
 
 try:
     from .BoxDetector import find_redaction_boxes_in_image
-    from .ProcessRedactions import extract_page_image_bytes
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
-    from ProcessRedactions import extract_page_image_bytes
+
+def extract_page_image_bytes(doc, page_index, image_index=0):
+    """
+    Locates images and extracts their raw bytes using doc.get_page_images(page_index).
+    Returns the image bytes of the specified image index, or None if not found.
+    """
+    try:
+        image_list = doc.get_page_images(page_index)
+        if not image_list or image_index >= len(image_list):
+            return None
+        xref = image_list[image_index][0]
+        base_image = doc.extract_image(xref)
+        if base_image:
+            return base_image["image"]
+    except Exception as e:
+        print(f"Error extracting image {image_index} from page {page_index}: {e}")
+    return None
 
 import fitz
 
@@ -132,6 +148,37 @@ def generate_mask_for_page(pdf_bytes, page_num):
     mask_pil = Image.fromarray(mask, "L")
     mask_pil.save(out_io, format="PNG")
     return out_io.getvalue()
+
+def generate_mask_from_image(img_bytes, boxes, img_w, img_h):
+    """Generate a base64-encoded grayscale mask PNG from detected redaction boxes.
+    Returns base64 string or None if no boxes."""
+    if not boxes:
+        return None
+    try:
+        with Image.open(BytesIO(img_bytes)) as pil_img:
+            rendered = np.array(pil_img.convert("L"))
+        mask = np.zeros((img_h, img_w), dtype=np.uint8)
+        for (x1, y1, x2, y2) in boxes:
+            interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
+            mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
+            if y1 > 0:
+                shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
+                mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
+            if y2 < img_h:
+                shade = 255 - int(np.max(rendered[y2, x1:x2]))
+                mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
+            if x1 > 0:
+                shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
+                mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
+            if x2 < img_w:
+                shade = 255 - int(np.max(rendered[y1:y2, x2]))
+                mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
+        out_io = BytesIO()
+        Image.fromarray(mask, "L").save(out_io, format="PNG")
+        return base64.b64encode(out_io.getvalue()).decode()
+    except Exception as e:
+        print(f"Error generating mask: {e}")
+        return None
 
 
 if __name__ == "__main__":

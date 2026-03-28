@@ -3,14 +3,14 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
-# I don't know what any of these do, but I'm too scared to delete them
 # PDF and workspace files
-*.pdf
+#*.pdf
 *.code-workspace 
 run_app.bat
 TROUBLESHOOT.md
 TROUBLESHOOTING.md
 out.txt
+.claude/
 
 # User-specific files
 *.rsuser

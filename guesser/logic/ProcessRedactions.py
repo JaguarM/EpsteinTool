@@ -10,59 +10,17 @@ from PIL import Image
 try:
     from .BoxDetector import find_redaction_boxes_in_image
     from .SurroundingWordWidth import estimate_widths_for_boxes
+    from .artifact_visualizer import generate_mask_from_image
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
     from SurroundingWordWidth import estimate_widths_for_boxes
+    from artifact_visualizer import generate_mask_from_image
 
-def extract_page_image_bytes(doc, page_index, image_index=0):
-    """
-    Locates images and extracts their raw bytes using doc.get_page_images(page_index).
-    Returns the image bytes of the specified image index, or None if not found.
-    """
-    try:
-        image_list = doc.get_page_images(page_index)
-        if not image_list or image_index >= len(image_list):
-            return None
-        xref = image_list[image_index][0]
-        base_image = doc.extract_image(xref)
-        if base_image:
-            return base_image["image"]
-    except Exception as e:
-        print(f"Error extracting image {image_index} from page {page_index}: {e}")
-    return None
 
-def _generate_mask_from_image(img_bytes, boxes, img_w, img_h):
-    """Generate a base64-encoded grayscale mask PNG from detected redaction boxes.
-    Returns base64 string or None if no boxes."""
-    if not boxes:
-        return None
-    try:
-        with Image.open(BytesIO(img_bytes)) as pil_img:
-            rendered = np.array(pil_img.convert("L"))
-        mask = np.zeros((img_h, img_w), dtype=np.uint8)
-        for (x1, y1, x2, y2) in boxes:
-            interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
-            mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
-            if y1 > 0:
-                shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
-                mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
-            if y2 < img_h:
-                shade = 255 - int(np.max(rendered[y2, x1:x2]))
-                mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
-            if x1 > 0:
-                shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
-                mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
-            if x2 < img_w:
-                shade = 255 - int(np.max(rendered[y1:y2, x2]))
-                mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
-        out_io = BytesIO()
-        Image.fromarray(mask, "L").save(out_io, format="PNG")
-        return base64.b64encode(out_io.getvalue()).decode()
-    except Exception as e:
-        print(f"Error generating mask: {e}")
-        return None
+
+
 
 
 def process_pdf(pdf_bytes):
@@ -139,6 +97,22 @@ def process_pdf(pdf_bytes):
                     img_bytes = base_image["image"]
 
 
+                    # Crop excess bottom pixels based on the explicitly expected 8.5x11 page ratio
+                    try:
+                        with Image.open(BytesIO(img_bytes)) as pil_img:
+                            if pil_img.mode not in ("RGB", "RGBA", "L"):
+                                pil_img = pil_img.convert("RGB")
+                            w, h = pil_img.size
+                            # Enforce standard 8.5x11 (1056/816) aspect ratio for the embedded images
+                            expected_h = int(round(w * (1056.0 / 816.0)))
+                            if h > expected_h:
+                                pil_img = pil_img.crop((0, 0, w, expected_h))
+                                out_io = BytesIO()
+                                pil_img.save(out_io, format="PNG")
+                                img_bytes = out_io.getvalue()
+                    except Exception as e:
+                        print(f"Error checking/cropping image dimensions on page {page_num}: {e}")
+
                     # Capture the first valid image on each page
                     if page_num not in page_images:
                         page_images[page_num] = base64.b64encode(img_bytes).decode()
@@ -147,7 +121,7 @@ def process_pdf(pdf_bytes):
 
                     # Generate mask for this page if not already done
                     if page_num not in mask_images:
-                        mask_images[page_num] = _generate_mask_from_image(img_bytes, boxes, img_w, img_h)
+                        mask_images[page_num] = generate_mask_from_image(img_bytes, boxes, img_w, img_h)
 
                     if not boxes: continue
                     

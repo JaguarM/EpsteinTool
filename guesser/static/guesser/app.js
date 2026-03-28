@@ -143,4 +143,86 @@
         goToPage(p);
       });
 
+      // 3. Auto-load the default PDF on startup
+      try {
+        const resp = await fetch('/analyze-default');
+        if (resp.ok) {
+          const data = await resp.json();
+          state.hasPdf = true;
+          els.titleElem.textContent = data.default_filename || 'efta00018586.pdf';
+          state.redactions = [];
+          state.selectedRedactionIdx = null;
+          state.pageImages = [];
+          state.numPages = 0;
+          els.allMatchesCard.style.display = 'none';
+          if (typeof resetFabricCanvases === 'function') resetFabricCanvases();
+
+          const imgType = data.page_image_type || 'image/png';
+          state.pageImages = (data.page_images || []).map(b64 =>
+            b64 ? `data:${imgType};base64,${b64}` : null
+          );
+          state.maskImages = (data.mask_images || []).map(b64 =>
+            b64 ? `data:image/png;base64,${b64}` : null
+          );
+          state.numPages = data.num_pages || state.pageImages.length || 1;
+          state.pageWidth = data.page_width || 816;
+          state.pageHeight = data.page_height || 1056;
+
+          els.pageCountElem.textContent = `/ ${state.numPages}`;
+          els.pageInputElem.value = 1;
+          els.pageInputElem.max = state.numPages;
+
+          await goToPage(1);
+          renderThumbnails();
+
+          const autoScale = data.suggested_scale || 178;
+          const autoSize = data.suggested_size || 12;
+          const autoFont = data.suggested_font || null;
+
+          els.calcScale.value = autoScale;
+          els.size.value = autoSize;
+          if (autoFont) {
+            const opt = Array.from(els.font.options).find(o => o.value === autoFont);
+            if (opt) els.font.value = autoFont;
+
+            const fabricFont = ttfToFabricFont(autoFont);
+            if (fabricFont) {
+              const fabricSel = document.getElementById('fabric-font-family');
+              if (fabricSel && Array.from(fabricSel.options).find(o => o.value === fabricFont)) {
+                fabricSel.value = fabricFont;
+                if (typeof textOptions !== 'undefined') textOptions.fontFamily = fabricFont;
+              }
+            }
+          }
+
+          state.redactions = data.redactions.map(r => ({
+            ...r,
+            settings: {
+              font: els.font.value,
+              size: autoSize,
+              scale: autoScale,
+              tol: parseFloat(els.tol.value) || 0,
+              kern: els.kern.checked,
+              lig: els.lig.checked,
+              upper: els.upper.checked
+            },
+            widths: {},
+            labelText: '',
+            manualLabel: false
+          }));
+
+          await calculateAllWidths();
+          injectRedactionOverlays();
+
+          if (state.redactions.length > 0) {
+            updateAllMatchesView();
+            selectRedaction(0);
+          } else {
+            updateAllMatchesView();
+          }
+        }
+      } catch (e) {
+        console.warn('Auto-load of default PDF failed:', e.message);
+      }
+
     })();

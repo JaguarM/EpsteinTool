@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -83,3 +84,40 @@ def calculate_widths(request):
 
 def list_fonts(request):
     return JsonResponse(get_available_fonts(), safe=False)
+
+
+# ---------------------------------------------------------------------------
+# Default PDF auto-load
+# ---------------------------------------------------------------------------
+_DEFAULT_PDF = Path(__file__).resolve().parent.parent / 'assets' / 'pdfs' / 'times' / 'efta00018586.pdf'
+
+def analyze_default(request):
+    """GET endpoint that processes the bundled default PDF and returns the
+    same JSON payload as /analyze-pdf, allowing the frontend to auto-load
+    on startup without a user file-upload."""
+    if request.method != 'GET':
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not _DEFAULT_PDF.exists():
+        return JsonResponse({"detail": f"Default PDF not found: {_DEFAULT_PDF}"}, status=404)
+
+    try:
+        file_bytes = _DEFAULT_PDF.read_bytes()
+        result = process_pdf(file_bytes)
+
+        if "error" in result:
+            return JsonResponse({"detail": result["error"]}, status=500)
+
+        font_info = detect_dominant_font(
+            result.get("spans", []),
+            get_available_fonts(),
+            pdf_declared_fonts=result.get("pdf_fonts", []),
+        )
+        result["suggested_font"] = font_info["font_file"]
+        if not result.get("suggested_size"):
+            result["suggested_size"] = font_info["font_size"]
+
+        result["default_filename"] = _DEFAULT_PDF.name
+        return JsonResponse(result)
+    except Exception as e:
+        return JsonResponse({"detail": str(e)}, status=500)
