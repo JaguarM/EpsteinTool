@@ -20,6 +20,18 @@
 </head>
 
 <body>
+  <!-- Disclaimer Modal -->
+  <div id="disclaimer-overlay">
+    <div id="disclaimer">
+      <h3>Work in Progress</h3>
+      <p>This tool is <strong>unfinished</strong> and actively being developed. Features may be incomplete, broken, or produce incorrect results.</p>
+      <p>EpsteinTool is a <strong>research tool</strong> provided as-is for educational and exploratory purposes only. It produces probabilistic guesses based on font detection, width matching, and heuristic scoring. <strong>Any given result may be completely wrong.</strong></p>
+      <p>This tool is <strong>not intended for use in legal proceedings, journalism, or law enforcement</strong>, or any context where unverified information could cause harm. <strong>Do not use this tool to circumvent lawful redactions, violate privacy, or break any applicable laws.</strong> You are solely responsible for how you use it.</p>
+      <p>The author makes no claims of accuracy, completeness, or fitness for any particular purpose, and accepts no liability for misuse or any consequences arising from use of this tool.</p>
+      <button id="disclaimer-accept">I Understand &amp; Accept</button>
+    </div>
+  </div>
+
   <!-- Drag and drop overlay -->
   <div id="drag-overlay" class="hidden">
     <div class="drag-text">Drop PDF or Image to Analyze</div>
@@ -199,6 +211,12 @@
   {% if 'text_tool' in active_plugins %}
   <script src="{% static 'text_tool/text-tool.js' %}"></script>
   {% endif %}
+
+  <script>
+    document.getElementById('disclaimer-accept').addEventListener('click', function () {
+      document.getElementById('disclaimer-overlay').classList.add('hidden');
+    });
+  </script>
 </body>
 
 </html>
