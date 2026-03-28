@@ -1,0 +1,42 @@
+export const redirects = JSON.parse("{}")
+
+export const routes = Object.fromEntries([
+  ["/", { loader: () => import(/* webpackChunkName: "index.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/README.md"), meta: {"title":"Epstein Unredactor Documentation"} }],
+  ["/api-reference/api-reference.html", { loader: () => import(/* webpackChunkName: "api-reference_api-reference.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/api-reference/api-reference.md"), meta: {"title":"API Reference"} }],
+  ["/architecture/architecture-overview.html", { loader: () => import(/* webpackChunkName: "architecture_architecture-overview.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/architecture/architecture-overview.md"), meta: {"title":"Epstein Unredactor — Architecture Overview"} }],
+  ["/frontend/api-and-logic.html", { loader: () => import(/* webpackChunkName: "frontend_api-and-logic.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/api-and-logic.md"), meta: {"title":"API & Candidate Logic — api.js"} }],
+  ["/frontend/JavaScript%20module-reference.html", { loader: () => import(/* webpackChunkName: "frontend_JavaScript module-reference.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/JavaScript module-reference.md"), meta: {"title":"Frontend — JavaScript Module Reference"} }],
+  ["/frontend/pdf-viewer.html", { loader: () => import(/* webpackChunkName: "frontend_pdf-viewer.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/pdf-viewer.md"), meta: {"title":"PDF Viewer — pdf-viewer.js"} }],
+  ["/frontend/state-management.html", { loader: () => import(/* webpackChunkName: "frontend_state-management.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/state-management.md"), meta: {"title":"State Management — state.js"} }],
+  ["/frontend/text-tool.html", { loader: () => import(/* webpackChunkName: "frontend_text-tool.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/text-tool.md"), meta: {"title":"Text Tool — text-tool.js"} }],
+  ["/frontend/ui-events.html", { loader: () => import(/* webpackChunkName: "frontend_ui-events.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/ui-events.md"), meta: {"title":"UI Events — ui-events.js"} }],
+  ["/frontend/webgl-mask.html", { loader: () => import(/* webpackChunkName: "frontend_webgl-mask.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/frontend/webgl-mask.md"), meta: {"title":"WebGL Mask — webgl-mask.js"} }],
+  ["/redaction-processing/artifact_visualizer_documentation.html", { loader: () => import(/* webpackChunkName: "redaction-processing_artifact_visualizer_documentation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/artifact_visualizer_documentation.md"), meta: {"title":"Artifact Visualizer — Documentation"} }],
+  ["/redaction-processing/backend-logic.html", { loader: () => import(/* webpackChunkName: "redaction-processing_backend-logic.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/backend-logic.md"), meta: {"title":"Redaction Processing — Backend Logic"} }],
+  ["/redaction-processing/boxdetector.html", { loader: () => import(/* webpackChunkName: "redaction-processing_boxdetector.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/boxdetector.md"), meta: {"title":"BoxDetector.py Documentation"} }],
+  ["/redaction-processing/extract_fonts.html", { loader: () => import(/* webpackChunkName: "redaction-processing_extract_fonts.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/extract_fonts.md"), meta: {"title":"extract_fonts — Font Detection Module"} }],
+  ["/redaction-processing/process_redactions_docs.html", { loader: () => import(/* webpackChunkName: "redaction-processing_process_redactions_docs.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/process_redactions_docs.md"), meta: {"title":"ProcessRedactions.py"} }],
+  ["/redaction-processing/scale-and-size-detection.html", { loader: () => import(/* webpackChunkName: "redaction-processing_scale-and-size-detection.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/scale-and-size-detection.md"), meta: {"title":"Scale & Size Detection"} }],
+  ["/redaction-processing/surrounding-word-width.html", { loader: () => import(/* webpackChunkName: "redaction-processing_surrounding-word-width.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/surrounding-word-width.md"), meta: {"title":"SurroundingWordWidth.py Documentation"} }],
+  ["/redaction-processing/width_calculator_documentation.html", { loader: () => import(/* webpackChunkName: "redaction-processing_width_calculator_documentation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/width_calculator_documentation.md"), meta: {"title":"width_calculator.py"} }],
+  ["/web-pdf-viewer/design.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_design.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/design.md"), meta: {"title":"Chrome Native PDF Viewer Replication"} }],
+  ["/web-pdf-viewer/webgl_mask_implementation.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_webgl_mask_implementation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/webgl_mask_implementation.md"), meta: {"title":"WebGL Redaction Mask: Implementation Overview"} }],
+  ["/setup-and-deployment/local-development.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_local-development.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/local-development.md"), meta: {"title":"Local Development"} }],
+  ["/setup-and-deployment/production-deployment.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_production-deployment.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/production-deployment.md"), meta: {"title":"Production Deployment"} }],
+  ["/setup-and-deployment/setup-deployment.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_setup-deployment.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/setup-deployment.md"), meta: {"title":"Setup & Deployment"} }],
+  ["/setup-and-deployment/TROUBLESHOOTING.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_TROUBLESHOOTING.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/TROUBLESHOOTING.md"), meta: {"title":"Server Troubleshooting Guide"} }],
+  ["/404.html", { loader: () => import(/* webpackChunkName: "404.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/.vuepress/.temp/pages/404.html.vue"), meta: {"title":""} }],
+]);
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot.accept()
+  __VUE_HMR_RUNTIME__.updateRoutes?.(routes)
+  __VUE_HMR_RUNTIME__.updateRedirects?.(redirects)
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept((m) => {
+    __VUE_HMR_RUNTIME__.updateRoutes?.(m.routes)
+    __VUE_HMR_RUNTIME__.updateRedirects?.(m.redirects)
+  })
+}

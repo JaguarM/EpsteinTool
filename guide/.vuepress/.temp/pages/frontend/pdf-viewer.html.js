@@ -1,0 +1,3 @@
+import comp from "C:/Users/yanni/Desktop/EpsteinTool/guide/.vuepress/.temp/pages/frontend/pdf-viewer.html.vue"
+const data = JSON.parse("{\"path\":\"/frontend/pdf-viewer.html\",\"title\":\"PDF Viewer — pdf-viewer.js\",\"lang\":\"en-US\",\"frontmatter\":{},\"git\":{\"updatedTime\":1774437245000,\"contributors\":[{\"name\":\"JaguarM\",\"username\":\"JaguarM\",\"email\":\"39597011+JaguarM@users.noreply.github.com\",\"commits\":1,\"url\":\"https://github.com/JaguarM\"}],\"changelog\":[{\"hash\":\"f7330e85197db34564e6215e1d272b22e506e24e\",\"time\":1774437245000,\"email\":\"39597011+JaguarM@users.noreply.github.com\",\"author\":\"JaguarM\",\"message\":\"Add redaction detection backend and docs\"}]},\"filePathRelative\":\"frontend/pdf-viewer.md\"}")
+export { comp, data }

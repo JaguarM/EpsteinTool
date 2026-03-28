@@ -42,8 +42,8 @@ flowchart TD
 
 | App | Module | Description |
 |-----|--------|-------------|
-| **guesser_core** | [BoxDetector](BoxDetector_Documentation.md) | Row-scan detection of black rectangular boxes |
-| **guesser_core** | [SurroundingWordWidth](SurroundingWordWidth_documentation.md) | Refine box edges using positions of nearby words |
+| **guesser_core** | [BoxDetector](boxdetector.md) | Row-scan detection of black rectangular boxes |
+| **guesser_core** | [SurroundingWordWidth](surrounding-word-width.md) | Refine box edges using positions of nearby words |
 | **guesser_core** | [ProcessRedactions](process_redactions_docs.md) | Orchestrator: coordinates detection + refinement |
 | **webgl_mask** | [artifact_visualizer](artifact_visualizer_documentation.md) | Async generation of grayscale mask PNGs |
 | **text_tool** | [width_calculator](width_calculator_documentation.md)| HarfBuzz text shaping for width measurement |

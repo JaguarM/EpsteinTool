@@ -1,0 +1,33 @@
+{
+  "name": "epsteintool",
+  "version": "1.0.0",
+  "description": "A tool that analyzes scanned PDF documents to detect black redaction bars and guesses which names could fit underneath by matching text widths.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs:dev": "vuepress dev guide",
+    "docs:build": "vuepress build guide"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JaguarM/EpsteinTool.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JaguarM/EpsteinTool/issues"
+  },
+  "homepage": "https://github.com/JaguarM/EpsteinTool#readme",
+  "devDependencies": {
+    "@vuepress/bundler-vite": "^2.0.0-rc.26",
+    "@vuepress/theme-default": "^2.0.0-rc.126",
+    "sass-embedded": "^1.98.0",
+    "vue": "^3.5.31",
+    "vuepress": "^2.0.0-rc.26"
+  }
+}
