@@ -19,24 +19,11 @@ export const routes = Object.fromEntries([
   ["/redaction-processing/scale-and-size-detection.html", { loader: () => import(/* webpackChunkName: "redaction-processing_scale-and-size-detection.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/scale-and-size-detection.md"), meta: {"title":"Scale & Size Detection"} }],
   ["/redaction-processing/surrounding-word-width.html", { loader: () => import(/* webpackChunkName: "redaction-processing_surrounding-word-width.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/surrounding-word-width.md"), meta: {"title":"SurroundingWordWidth.py Documentation"} }],
   ["/redaction-processing/width_calculator_documentation.html", { loader: () => import(/* webpackChunkName: "redaction-processing_width_calculator_documentation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/redaction-processing/width_calculator_documentation.md"), meta: {"title":"width_calculator.py"} }],
-  ["/web-pdf-viewer/design.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_design.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/design.md"), meta: {"title":"Chrome Native PDF Viewer Replication"} }],
-  ["/web-pdf-viewer/webgl_mask_implementation.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_webgl_mask_implementation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/webgl_mask_implementation.md"), meta: {"title":"WebGL Redaction Mask: Implementation Overview"} }],
   ["/setup-and-deployment/local-development.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_local-development.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/local-development.md"), meta: {"title":"Local Development"} }],
   ["/setup-and-deployment/production-deployment.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_production-deployment.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/production-deployment.md"), meta: {"title":"Production Deployment"} }],
   ["/setup-and-deployment/setup-deployment.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_setup-deployment.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/setup-deployment.md"), meta: {"title":"Setup & Deployment"} }],
   ["/setup-and-deployment/TROUBLESHOOTING.html", { loader: () => import(/* webpackChunkName: "setup-and-deployment_TROUBLESHOOTING.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/setup-and-deployment/TROUBLESHOOTING.md"), meta: {"title":"Server Troubleshooting Guide"} }],
+  ["/web-pdf-viewer/design.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_design.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/design.md"), meta: {"title":"Chrome Native PDF Viewer Replication"} }],
+  ["/web-pdf-viewer/webgl_mask_implementation.html", { loader: () => import(/* webpackChunkName: "web-pdf-viewer_webgl_mask_implementation.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/web-pdf-viewer/webgl_mask_implementation.md"), meta: {"title":"WebGL Redaction Mask: Implementation Overview"} }],
   ["/404.html", { loader: () => import(/* webpackChunkName: "404.html" */"C:/Users/yanni/Desktop/EpsteinTool/guide/.vuepress/.temp/pages/404.html.vue"), meta: {"title":""} }],
 ]);
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot.accept()
-  __VUE_HMR_RUNTIME__.updateRoutes?.(routes)
-  __VUE_HMR_RUNTIME__.updateRedirects?.(redirects)
-}
-
-if (import.meta.hot) {
-  import.meta.hot.accept((m) => {
-    __VUE_HMR_RUNTIME__.updateRoutes?.(m.routes)
-    __VUE_HMR_RUNTIME__.updateRedirects?.(m.redirects)
-  })
-}

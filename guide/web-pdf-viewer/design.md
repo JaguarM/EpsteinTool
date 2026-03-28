@@ -24,8 +24,8 @@ A browser subagent verified the visual layout and interactivity.
 
 ### Initial Load
 The UI matches Chrome, the layout is styled correctly, and the pagination inputs reflect the document length.
-![Initial Load](/C:/Users/yanni/.gemini/antigravity/brain/cec433e3-29db-4ab4-99b2-20a80f6f13db/pdf_viewer_initial_load_1773589830869.png)
+![Initial Load](/assets/images/pdf_viewer_initial_load_1773589830869.png)
 
 ### Zoom Interactivity
 The document can be zoomed up to 800%. The debounced re-rendering ensures text stays incredibly sharp even after zoom state modifications.
-![Zoomed In](/C:/Users/yanni/.gemini/antigravity/brain/cec433e3-29db-4ab4-99b2-20a80f6f13db/pdf_viewer_zoomed_in_1773589966202.png)
+![Zoomed In](/assets/images/pdf_viewer_zoomed_in_1773589966202.png)
