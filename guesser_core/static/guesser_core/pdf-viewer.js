@@ -98,14 +98,14 @@ async function handleFileUpload(e) {
       manualLabel: false
     }));
 
-    await calculateAllWidths();
+    if (typeof calculateAllWidths === 'function') await calculateAllWidths();
     injectRedactionOverlays();
 
     if (state.redactions.length > 0) {
-      updateAllMatchesView();
-      selectRedaction(0);
+      if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
+      if (typeof selectRedaction === 'function') selectRedaction(0);
     } else {
-      updateAllMatchesView();
+      if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
     }
 
     if (typeof fetchMasksAsync === 'function') {
@@ -205,7 +205,7 @@ function injectRedactionOverlays() {
 
     overlay.onclick = (e) => {
       e.stopPropagation();
-      selectRedaction(idx);
+      if (typeof selectRedaction === 'function') selectRedaction(idx);
     };
 
     overlay.onmousedown = (e) => {
@@ -222,49 +222,9 @@ function injectRedactionOverlays() {
       overlay.appendChild(resizer);
     });
 
-    const label = document.createElement('div');
-    label.className = 'redaction-label';
-    label.contentEditable = 'false';
-    label.spellcheck = false;
-    label.textContent = r.labelText || '';
-    label.dataset.manualEdit = r.manualLabel ? 'true' : 'false';
-
-    // Set font styles immediately so zoom (via --scale-factor CSS var) works from the start
-    const basePx = r.settings.size * (r.settings.scale / 100);
-    label.style.fontFamily = getFontFamily(r.settings.font);
-    label.style.fontSize = `calc(${basePx}px * var(--scale-factor, 1))`;
-    label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
-    label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
-    label.style.textTransform = r.settings.upper ? 'uppercase' : 'none';
-    label.style.display = r.labelText ? 'flex' : 'none';
-
-    label.onclick = (e) => {
-      e.stopPropagation();
-      selectRedaction(idx);
-    };
-    label.ondblclick = (e) => {
-      e.stopPropagation();
-      if (label.isContentEditable) return;
-      label.contentEditable = 'true';
-      label.focus();
-    };
-    label.oninput = () => {
-      if (state.redactions[idx]) {
-        state.redactions[idx].labelText = label.textContent || '';
-        state.redactions[idx].manualLabel = true;
-        label.dataset.manualEdit = 'true';
-      }
-    };
-    label.onblur = () => {
-      if (state.redactions[idx]) {
-        state.redactions[idx].labelText = label.textContent || '';
-        state.redactions[idx].manualLabel = true;
-        label.dataset.manualEdit = 'true';
-      }
-      label.contentEditable = 'false';
-    };
-
-    overlay.appendChild(label);
+    if (typeof injectMatchingLabel === 'function') {
+      injectMatchingLabel(overlay, r, idx);
+    }
 
     if (idx === state.selectedRedactionIdx) overlay.classList.add('selected');
 

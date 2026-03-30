@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'guesser_core',
     'webgl_mask',
     'text_tool',
+    'redaction_matching',
 ]
 
 MIDDLEWARE = [
