@@ -22,6 +22,10 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+## Documentation
+Look at the incoplete documenation at [github.io](https://jaguarm.github.io/EpsteinTool/)!
+
+
 ## License
 
 See [LICENSE](LICENSE).
