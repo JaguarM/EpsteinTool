@@ -110,24 +110,24 @@
       els.pdfFile.addEventListener('change', handleFileUpload);
 
       // Candidate events
-      els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
-      [els.font, els.size, els.calcScale, els.kern, els.lig, els.upper, els.tol].forEach(el =>
-        el.addEventListener('change', () => { 
+      if (els.nameInput) els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
+      [els.font, els.size, els.calcScale, els.kern, els.lig, els.upper, els.tol].filter(Boolean).forEach(el =>
+        el.addEventListener('change', () => {
           if (state.selectedRedactionIdx !== null && state.redactions[state.selectedRedactionIdx]) {
             const r = state.redactions[state.selectedRedactionIdx];
-            r.settings.font = els.font.value;
-            r.settings.size = parseFloat(els.size.value) || 12;
-            r.settings.scale = parseFloat(els.calcScale.value) || 100;
-            r.settings.tol = parseFloat(els.tol.value) || 0;
-            r.settings.kern = els.kern.checked;
-            r.settings.lig = els.lig.checked;
-            r.settings.upper = els.upper.checked;
+            r.settings.font = els.font?.value ?? r.settings.font;
+            r.settings.size = parseFloat(els.size?.value) || r.settings.size || 12;
+            r.settings.scale = parseFloat(els.calcScale?.value) || r.settings.scale || 100;
+            r.settings.tol = parseFloat(els.tol?.value) || 0;
+            r.settings.kern = els.kern?.checked ?? r.settings.kern;
+            r.settings.lig = els.lig?.checked ?? r.settings.lig;
+            r.settings.upper = els.upper?.checked ?? r.settings.upper;
 
             if (el === els.tol) {
               // Tolerance doesn't need re-fetch, just re-filter for the selected redaction
-              updateAllMatchesView(state.selectedRedactionIdx);
+              if (typeof updateAllMatchesView === 'function') updateAllMatchesView(state.selectedRedactionIdx);
             } else {
-              calculateWidthsForRedaction(state.selectedRedactionIdx);
+              if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(state.selectedRedactionIdx);
             }
           }
         })
@@ -154,7 +154,7 @@
           state.selectedRedactionIdx = null;
           state.pageImages = [];
           state.numPages = 0;
-          els.allMatchesCard.style.display = 'none';
+          if (els.allMatchesCard) els.allMatchesCard.style.display = 'none';
           if (typeof resetFabricCanvases === 'function') resetFabricCanvases();
 
           const imgType = data.page_image_type || 'image/png';
@@ -179,9 +179,9 @@
           const autoSize = data.suggested_size || 12;
           const autoFont = data.suggested_font || null;
 
-          els.calcScale.value = autoScale;
-          els.size.value = autoSize;
-          if (autoFont) {
+          if (els.calcScale) els.calcScale.value = autoScale;
+          if (els.size) els.size.value = autoSize;
+          if (autoFont && els.font) {
             const opt = Array.from(els.font.options).find(o => o.value === autoFont);
             if (opt) els.font.value = autoFont;
 
@@ -198,27 +198,27 @@
           state.redactions = data.redactions.map(r => ({
             ...r,
             settings: {
-              font: els.font.value,
+              font: els.font?.value ?? 'times.ttf',
               size: autoSize,
               scale: autoScale,
-              tol: parseFloat(els.tol.value) || 0,
-              kern: els.kern.checked,
-              lig: els.lig.checked,
-              upper: els.upper.checked
+              tol: parseFloat(els.tol?.value) || 0,
+              kern: els.kern?.checked ?? false,
+              lig: els.lig?.checked ?? false,
+              upper: els.upper?.checked ?? false
             },
             widths: {},
             labelText: '',
             manualLabel: false
           }));
 
-          await calculateAllWidths();
+          if (typeof calculateAllWidths === 'function') await calculateAllWidths();
           injectRedactionOverlays();
 
           if (state.redactions.length > 0) {
-            updateAllMatchesView();
-            selectRedaction(0);
+            if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
+            if (typeof selectRedaction === 'function') selectRedaction(0);
           } else {
-            updateAllMatchesView();
+            if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
           }
           
           if (typeof fetchMasksAsync === 'function') {

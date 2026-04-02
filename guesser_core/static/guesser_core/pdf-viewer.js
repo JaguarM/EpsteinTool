@@ -29,7 +29,7 @@ async function handleFileUpload(e) {
   state.selectedRedactionIdx = null;
   state.pageImages = [];
   state.numPages = 0;
-  els.allMatchesCard.style.display = 'none';
+  if (els.allMatchesCard) els.allMatchesCard.style.display = 'none';
   if (typeof resetFabricCanvases === 'function') resetFabricCanvases();
 
   try {
@@ -63,9 +63,9 @@ async function handleFileUpload(e) {
     const autoSize = data.suggested_size || 12;
     const autoFont = data.suggested_font || null;
 
-    els.calcScale.value = autoScale;
-    els.size.value = autoSize;
-    if (autoFont) {
+    if (els.calcScale) els.calcScale.value = autoScale;
+    if (els.size) els.size.value = autoSize;
+    if (autoFont && els.font) {
       // Calculation font dropdown
       const opt = Array.from(els.font.options).find(o => o.value === autoFont);
       if (opt) els.font.value = autoFont;
@@ -85,13 +85,13 @@ async function handleFileUpload(e) {
     state.redactions = data.redactions.map(r => ({
       ...r,
       settings: {
-        font: els.font.value,
+        font: els.font?.value ?? 'times.ttf',
         size: autoSize,
         scale: autoScale,
-        tol: parseFloat(els.tol.value) || 0,
-        kern: els.kern.checked,
-        lig: els.lig.checked,
-        upper: els.upper.checked
+        tol: parseFloat(els.tol?.value) || 0,
+        kern: els.kern?.checked ?? false,
+        lig: els.lig?.checked ?? false,
+        upper: els.upper?.checked ?? false
       },
       widths: {},
       labelText: '',

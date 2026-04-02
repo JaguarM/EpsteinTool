@@ -16,10 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('guesser_core.urls')),
-    path('', include('webgl_mask.urls')),
-    path('', include('text_tool.urls')),
 ]
+
+if 'text_tool' in settings.INSTALLED_APPS:
+    urlpatterns += [path('', include('text_tool.urls'))]
+
+if 'webgl_mask' in settings.INSTALLED_APPS:
+    urlpatterns += [path('', include('webgl_mask.urls'))]
