@@ -17,14 +17,7 @@ function ttfToFabricFont(ttfName) {
   return map[ttfName] || null;
 }
 
-async function handleFileUpload(e) {
-  const file = els.pdfFile.files[0] || (e && e.dataTransfer && e.dataTransfer.files[0]);
-  if (!file) return;
-
-  const ext = (file.name || '').split('.').pop().toLowerCase();
-  state.hasPdf = (ext === 'pdf');
-
-  els.titleElem.textContent = file.name;
+async function loadDocument(data, file) {
   state.redactions = [];
   state.selectedRedactionIdx = null;
   state.pageImages = [];
@@ -32,85 +25,79 @@ async function handleFileUpload(e) {
   if (els.allMatchesCard) els.allMatchesCard.style.display = 'none';
   if (typeof resetFabricCanvases === 'function') resetFabricCanvases();
 
+  const imgType = data.page_image_type || 'image/png';
+  state.pageImages = (data.page_images || []).map(b64 => b64 ? `data:${imgType};base64,${b64}` : null);
+  state.maskImages = (data.mask_images || []).map(b64 => b64 ? `data:image/png;base64,${b64}` : null);
+  state.numPages = data.num_pages || state.pageImages.length || 1;
+  state.pageWidth = data.page_width || 816;
+  state.pageHeight = data.page_height || 1056;
+
+  els.pageCountElem.textContent = `/ ${state.numPages}`;
+  els.pageInputElem.value = 1;
+  els.pageInputElem.max = state.numPages;
+
+  await goToPage(1);
+  renderThumbnails();
+
+  const autoScale = data.suggested_scale || 178;
+  const autoSize = data.suggested_size || 12;
+  const autoFont = data.suggested_font || null;
+
+  if (els.calcScale) els.calcScale.value = autoScale;
+  if (els.size) els.size.value = autoSize;
+  if (autoFont && els.font) {
+    const opt = Array.from(els.font.options).find(o => o.value === autoFont);
+    if (opt) els.font.value = autoFont;
+    const fabricFont = ttfToFabricFont(autoFont);
+    if (fabricFont) {
+      const fabricSel = document.getElementById('fabric-font-family');
+      if (fabricSel && Array.from(fabricSel.options).find(o => o.value === fabricFont)) {
+        fabricSel.value = fabricFont;
+        if (typeof textOptions !== 'undefined') textOptions.fontFamily = fabricFont;
+      }
+    }
+  }
+
+  state.redactions = data.redactions.map(r => ({
+    ...r,
+    settings: {
+      font: els.font?.value ?? 'times.ttf',
+      size: autoSize,
+      scale: autoScale,
+      tol: parseFloat(els.tol?.value) || 0,
+      kern: els.kern?.checked ?? false,
+      lig: els.lig?.checked ?? false,
+      upper: els.upper?.checked ?? false
+    },
+    widths: {},
+    labelText: '',
+    manualLabel: false
+  }));
+
+  if (typeof calculateAllWidths === 'function') await calculateAllWidths();
+  injectRedactionOverlays();
+
+  if (typeof fetchMasksAsync === 'function') await fetchMasksAsync(file, !file);
+
+  if (state.redactions.length > 0) {
+    if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
+    if (typeof selectRedaction === 'function') selectRedaction(0);
+  } else {
+    if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
+  }
+}
+
+async function handleFileUpload(e) {
+  const file = els.pdfFile.files[0] || (e && e.dataTransfer && e.dataTransfer.files[0]);
+  if (!file) return;
+  state.hasPdf = (file.name || '').split('.').pop().toLowerCase() === 'pdf';
+  els.titleElem.textContent = file.name;
   try {
     const fd = new FormData();
     fd.append('file', file);
-
     const resp = await fetch('/analyze-pdf', { method: 'POST', body: fd });
     if (!resp.ok) throw new Error((await resp.json()).detail);
-    const data = await resp.json();
-
-    const imgType = data.page_image_type || 'image/png';
-    state.pageImages = (data.page_images || []).map(b64 =>
-      b64 ? `data:${imgType};base64,${b64}` : null
-    );
-    state.maskImages = (data.mask_images || []).map(b64 =>
-      b64 ? `data:image/png;base64,${b64}` : null
-    );
-    state.numPages = data.num_pages || state.pageImages.length || 1;
-    state.pageWidth = data.page_width || 816;
-    state.pageHeight = data.page_height || 1056;
-
-    els.pageCountElem.textContent = `/ ${state.numPages}`;
-    els.pageInputElem.value = 1;
-    els.pageInputElem.max = state.numPages;
-
-    await goToPage(1);
-    renderThumbnails();
-
-    // Auto-font detection from server
-    const autoScale = data.suggested_scale || 178;
-    const autoSize = data.suggested_size || 12;
-    const autoFont = data.suggested_font || null;
-
-    if (els.calcScale) els.calcScale.value = autoScale;
-    if (els.size) els.size.value = autoSize;
-    if (autoFont && els.font) {
-      // Calculation font dropdown
-      const opt = Array.from(els.font.options).find(o => o.value === autoFont);
-      if (opt) els.font.value = autoFont;
-
-      // Text-annotation toolbar font dropdown
-      const fabricFont = ttfToFabricFont(autoFont);
-      if (fabricFont) {
-        const fabricSel = document.getElementById('fabric-font-family');
-        if (fabricSel && Array.from(fabricSel.options).find(o => o.value === fabricFont)) {
-          fabricSel.value = fabricFont;
-          if (typeof textOptions !== 'undefined') textOptions.fontFamily = fabricFont;
-        }
-      }
-    }
-
-    // Initialise each redaction with the detected font settings
-    state.redactions = data.redactions.map(r => ({
-      ...r,
-      settings: {
-        font: els.font?.value ?? 'times.ttf',
-        size: autoSize,
-        scale: autoScale,
-        tol: parseFloat(els.tol?.value) || 0,
-        kern: els.kern?.checked ?? false,
-        lig: els.lig?.checked ?? false,
-        upper: els.upper?.checked ?? false
-      },
-      widths: {},
-      labelText: '',
-      manualLabel: false
-    }));
-
-    if (typeof calculateAllWidths === 'function') await calculateAllWidths();
-    injectRedactionOverlays();
-
-    if (typeof fetchMasksAsync === 'function') {
-      await fetchMasksAsync(file);
-    }
-
-    if (state.redactions.length > 0) {
-      if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-      if (typeof selectRedaction === 'function') selectRedaction(0);
-    } else {
-      if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-    }
+    await loadDocument(await resp.json(), file);
   } catch (e) {
     console.error('Error analyzing PDF:', e.message);
   }
