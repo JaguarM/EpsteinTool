@@ -32,12 +32,13 @@
         els.toggleWebglBtn.addEventListener('click', () => {
           els.toggleWebglBtn.classList.toggle('active');
           const isWebglActive = els.toggleWebglBtn.classList.contains('active');
-          
+
           document.querySelectorAll('.webgl-overlay').forEach(canvas => {
             canvas.style.display = isWebglActive ? 'block' : 'none';
           });
-          
+
           if (isWebglActive) {
+             if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
              if(els.webglOptionsBar) els.webglOptionsBar.classList.remove('hidden');
              if(els.textOptionsBar) els.textOptionsBar.classList.add('hidden');
              const fabBar = document.getElementById('fabric-options-bar');
@@ -214,15 +215,15 @@
           if (typeof calculateAllWidths === 'function') await calculateAllWidths();
           injectRedactionOverlays();
 
+          if (typeof fetchMasksAsync === 'function') {
+            await fetchMasksAsync(null, true);
+          }
+
           if (state.redactions.length > 0) {
             if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
             if (typeof selectRedaction === 'function') selectRedaction(0);
           } else {
             if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-          }
-          
-          if (typeof fetchMasksAsync === 'function') {
-            fetchMasksAsync(null, true);
           }
         }
       } catch (e) {
