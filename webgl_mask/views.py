@@ -6,7 +6,7 @@ from .logic.artifact_visualizer import generate_all_masks
 import os
 from pathlib import Path
 
-_DEFAULT_PDF = Path(__file__).resolve().parent.parent.parent / 'assets' / 'pdfs' / 'times' / 'efta00018586.pdf'
+_DEFAULT_PDF = Path(__file__).resolve().parent.parent / 'assets' / 'pdfs' / 'times' / 'efta00018586.pdf'
 
 @csrf_exempt
 def generate_masks(request):

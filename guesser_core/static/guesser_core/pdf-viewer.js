@@ -101,15 +101,15 @@ async function handleFileUpload(e) {
     if (typeof calculateAllWidths === 'function') await calculateAllWidths();
     injectRedactionOverlays();
 
+    if (typeof fetchMasksAsync === 'function') {
+      await fetchMasksAsync(file);
+    }
+
     if (state.redactions.length > 0) {
       if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
       if (typeof selectRedaction === 'function') selectRedaction(0);
     } else {
       if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-    }
-
-    if (typeof fetchMasksAsync === 'function') {
-      fetchMasksAsync(file);
     }
   } catch (e) {
     console.error('Error analyzing PDF:', e.message);
@@ -180,6 +180,8 @@ async function goToPage(pageNum) {
   }
 
   injectRedactionOverlays();
+
+  if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
 }
 
 /* Rendering Redaction Overlays inside Document Pages */
