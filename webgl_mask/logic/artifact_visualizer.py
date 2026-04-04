@@ -1,8 +1,10 @@
 import os, sys
 import numpy as np
+import cv2
 from io import BytesIO
 from PIL import Image
 import base64
+import fitz
 
 try:
     from guesser_core.logic.BoxDetector import find_redaction_boxes_in_image
@@ -11,29 +13,163 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
 
-def extract_page_image_bytes(doc, page_index, image_index=0):
+# You can edit the source PDF path here
+SOURCE_PDF = "efta00018586.pdf"
+
+PAGE_W, PAGE_H = 816, 1056
+
+
+
+def get_grayscale_image_bytes(doc, page_index, image_index=0):
     """
-    Locates images and extracts their raw bytes using doc.get_page_images(page_index).
-    Returns the image bytes of the specified image index, or None if not found.
+    Extracts the base image natively as a grayscale PNG, bypassing ICC profile
+    issues that occur with PIL's loading of raw embedded JPEGs, and bypassing
+    PDF page scaling offsets.
     """
     try:
         image_list = doc.get_page_images(page_index)
         if not image_list or image_index >= len(image_list):
             return None
         xref = image_list[image_index][0]
-        base_image = doc.extract_image(xref)
-        if base_image:
-            return base_image["image"]
+        pix = fitz.Pixmap(doc, xref)
+        
+        # Force strict 8-bit grayscale to avoid any ICC color shifts later
+        if pix.n > 1 or (pix.colorspace and pix.colorspace.name != fitz.csGRAY.name):
+            try:
+                gray_pix = fitz.Pixmap(fitz.csGRAY, pix)
+                pix = gray_pix
+            except Exception:
+                pass # fallback if csGRAY conversion fails
+
+        image_bytes = pix.tobytes("png")
+        return image_bytes
     except Exception as e:
         print(f"Error extracting image {image_index} from page {page_index}: {e}")
     return None
 
-import fitz
+def dilate(m):
+    """Expand a boolean mask by 1 pixel in all 4 directions."""
+    d = m.copy()
+    d[1:] |= m[:-1]
+    d[:-1] |= m[1:]
+    d[:, 1:] |= m[:, :-1]
+    d[:, :-1] |= m[:, 1:]
+    return d
 
-# You can edit the source PDF path here
-SOURCE_PDF = "efta00018586.pdf"
 
-PAGE_W, PAGE_H = 816, 1056
+def remove_circles(rendered, black_mask):
+    """
+    Runs Hough Circle Transform on the rendered grayscale to detect hole punches
+    and zeroes out those regions in black_mask.
+    """
+    blurred = cv2.GaussianBlur(rendered, (9, 9), 2)
+    circles = cv2.HoughCircles(
+        blurred,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=30,
+        param1=100,  # upper Canny threshold
+        param2=30,   # accumulator threshold — lower = more sensitive
+        minRadius=8,
+        maxRadius=20,
+    )
+    if circles is None:
+        return black_mask
+
+    reject = np.zeros(rendered.shape, dtype=np.uint8)
+    for cx, cy, r in np.round(circles[0]).astype(int):
+        cv2.circle(reject, (cx, cy), r + 2, 1, thickness=cv2.FILLED)
+    return black_mask & (reject == 0)
+
+
+def filter_components(black_mask):
+    """
+    Uses OpenCV contours to remove thin lines (bbox width < 17 or height < 10).
+    Circle removal is handled separately via Hough before this step.
+    """
+    img = black_mask.astype(np.uint8) * 255
+
+    # Remove thin text protrusions from redaction edges
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    result = np.zeros_like(img)
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w < 17 or h < 10:
+            continue
+
+        # Reject thin strokes (lines, border outlines) regardless of overall shape.
+        # area/perimeter ≈ thickness/2 for any thin shape; solid redaction blocks
+        # have a much higher ratio. Threshold of 5 ≈ rejects anything < ~10px thick.
+        area = cv2.contourArea(cnt)
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter > 0 and area / perimeter < 2:
+            continue
+
+        cv2.drawContours(result, [cnt], -1, 255, thickness=cv2.FILLED)
+
+    return result.astype(bool)
+
+
+def build_mask_array(rendered):
+    """
+    Given a grayscale uint8 numpy array, returns a uint8
+    mask: 255 = redacted interior, 0 = clear, mid-gray = border indicator.
+    Returns None if no redactions are found after filtering.
+    """
+    black_mask = rendered <= 0
+    black_mask = remove_circles(rendered, black_mask)
+    black_mask = filter_components(black_mask)
+    if not np.any(black_mask):
+        return None
+
+    border = dilate(black_mask) & ~black_mask
+
+    m = np.zeros(rendered.shape, dtype=np.uint8)
+    m[black_mask] = 255
+    _apply_edge_lines(m, border, black_mask, rendered)
+    return m
+
+
+def _apply_edge_lines(m, border, black_mask, rendered):
+    """
+    Splits the border ring into horizontal-edge pixels (black above/below) and
+    vertical-edge pixels (black left/right), then scans each set independently.
+    Each contiguous run gets one uniform value: 255 - max(rendered[run]).
+    No pixel is touched by both scans, so uniformity is preserved.
+    """
+    # Pixels where the redaction is directly above or below → top/bottom edges
+    h_border = border & (
+        np.roll(black_mask, 1, axis=0) | np.roll(black_mask, -1, axis=0)
+    )
+    # Everything else (left/right edges + pure diagonal corners) → vertical scan
+    v_border = border & ~h_border
+
+    # Horizontal scan on h_border
+    for y in range(h_border.shape[0]):
+        row = h_border[y]
+        if not np.any(row):
+            continue
+        padded = np.concatenate(([False], row, [False]))
+        diff = np.diff(padded.astype(np.int8))
+        for sx, ex in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
+            val = 255 - int(rendered[y, sx:ex].max())
+            m[y, sx:ex] = val
+
+    # Vertical scan on v_border
+    for x in range(v_border.shape[1]):
+        col = v_border[:, x]
+        if not np.any(col):
+            continue
+        padded = np.concatenate(([False], col, [False]))
+        diff = np.diff(padded.astype(np.int8))
+        for sy, ey in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
+            val = 255 - int(rendered[sy:ey, x].max())
+            m[sy:ey, x] = val
+
 
 def create_redaction_masks(pdf_path):
     print(f"\n--- Creating Redaction Masks for {os.path.basename(pdf_path)} ---")
@@ -49,44 +185,19 @@ def create_redaction_masks(pdf_path):
     for page_index in range(len(doc)):
         page_num = page_index + 1
 
-        # Use extracted image from PDF instead of rendering
-        img_bytes = extract_page_image_bytes(doc, page_index)
+        img_bytes = get_grayscale_image_bytes(doc, page_index)
         if not img_bytes:
             continue
 
-        boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
-        if not boxes:
-            continue
-
-        # Rendered grayscale as numpy array for sampling edge pixels
         with Image.open(BytesIO(img_bytes)) as pil_img:
             rendered = np.array(pil_img.convert("L"))
 
-        # Black canvas: 0 = unredacted, 255 = redacted, gray = partial edge
-        mask = np.zeros((img_h, img_w), dtype=np.uint8)
-
-        for (x1, y1, x2, y2) in boxes:
-            # Interior: uniform shade = 255 - lightest pixel inside box (box is black ~0, so ~255)
-            interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
-            mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
-
-            # 1-px border: same logic — 255 - lightest pixel on that edge strip
-            if y1 > 0:
-                shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
-                mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
-            if y2 < img_h:
-                shade = 255 - int(np.max(rendered[y2, x1:x2]))
-                mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
-            if x1 > 0:
-                shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
-                mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
-            if x2 < img_w:
-                shade = 255 - int(np.max(rendered[y1:y2, x2]))
-                mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
+        mask = build_mask_array(rendered)
+        if mask is None:
+            continue
 
         out_path = f"{base}_mask_p{page_num}.png"
-        mask_pil = Image.fromarray(mask, "L")
-        mask_pil.save(out_path)
+        Image.fromarray(mask, "L").save(out_path)
         print(f"Saved mask for page {page_num} → {out_path}")
         found_any = True
 
@@ -94,6 +205,7 @@ def create_redaction_masks(pdf_path):
         print("No redactions found.")
 
     doc.close()
+
 
 def generate_mask_for_page(pdf_bytes, page_num):
     """
@@ -107,98 +219,62 @@ def generate_mask_for_page(pdf_bytes, page_num):
         return None
 
     if page_num < 1 or page_num > len(doc):
+        doc.close()
         return None
 
-    img_bytes = extract_page_image_bytes(doc, page_num - 1)
+    img_bytes = get_grayscale_image_bytes(doc, page_num - 1)
 
     if not img_bytes:
         doc.close()
         return None
 
-    boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
-
-    if not boxes:
-        doc.close()
-        return None
-
-    mask = np.zeros((img_h, img_w), dtype=np.uint8)
-
     with Image.open(BytesIO(img_bytes)) as pil_img:
         rendered = np.array(pil_img.convert("L"))
 
-    for (x1, y1, x2, y2) in boxes:
-        interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
-        mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
-        if y1 > 0:
-            shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
-            mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
-        if y2 < img_h:
-            shade = 255 - int(np.max(rendered[y2, x1:x2]))
-            mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
-        if x1 > 0:
-            shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
-            mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
-        if x2 < img_w:
-            shade = 255 - int(np.max(rendered[y1:y2, x2]))
-            mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
+    mask = build_mask_array(rendered)
 
     doc.close()
 
+    if mask is None:
+        return None
+
     out_io = BytesIO()
-    mask_pil = Image.fromarray(mask, "L")
-    mask_pil.save(out_io, format="PNG")
+    Image.fromarray(mask, "L").save(out_io, format="PNG")
     return out_io.getvalue()
+
 
 def generate_all_masks(pdf_bytes):
     try:
-        import fitz
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     except Exception as e:
         print(f"Error opening PDF: {e}")
         return []
-        
+
     masks = []
     for page_index in range(len(doc)):
-        img_bytes = extract_page_image_bytes(doc, page_index)
+        img_bytes = get_grayscale_image_bytes(doc, page_index)
         if not img_bytes:
             masks.append(None)
             continue
-            
-        boxes, img_w, img_h = find_redaction_boxes_in_image(img_bytes)
-        if not boxes:
-            masks.append(None)
-            continue
-            
-        mask_b64 = generate_mask_from_image(img_bytes, boxes, img_w, img_h)
+
+        mask_b64 = generate_mask_from_image(img_bytes)
         masks.append(mask_b64)
-        
+
     doc.close()
     return masks
 
-def generate_mask_from_image(img_bytes, boxes, img_w, img_h):
-    """Generate a base64-encoded grayscale mask PNG from detected redaction boxes.
-    Returns base64 string or None if no boxes."""
-    if not boxes:
-        return None
+
+def generate_mask_from_image(img_bytes):
+    """Generate a base64-encoded grayscale mask PNG from an extracted page image.
+    Returns base64 string or None if no redactions found."""
     try:
         with Image.open(BytesIO(img_bytes)) as pil_img:
             rendered = np.array(pil_img.convert("L"))
-        mask = np.zeros((img_h, img_w), dtype=np.uint8)
-        for (x1, y1, x2, y2) in boxes:
-            interior_shade = 255 - int(np.max(rendered[y1:y2, x1:x2]))
-            mask[y1:y2, x1:x2] = np.maximum(mask[y1:y2, x1:x2], interior_shade)
-            if y1 > 0:
-                shade = 255 - int(np.max(rendered[y1 - 1, x1:x2]))
-                mask[y1 - 1, x1:x2] = np.maximum(mask[y1 - 1, x1:x2], shade)
-            if y2 < img_h:
-                shade = 255 - int(np.max(rendered[y2, x1:x2]))
-                mask[y2, x1:x2] = np.maximum(mask[y2, x1:x2], shade)
-            if x1 > 0:
-                shade = 255 - int(np.max(rendered[y1:y2, x1 - 1]))
-                mask[y1:y2, x1 - 1] = np.maximum(mask[y1:y2, x1 - 1], shade)
-            if x2 < img_w:
-                shade = 255 - int(np.max(rendered[y1:y2, x2]))
-                mask[y1:y2, x2] = np.maximum(mask[y1:y2, x2], shade)
+
+        mask = build_mask_array(rendered)
+        if mask is None:
+            return None
+
         out_io = BytesIO()
         Image.fromarray(mask, "L").save(out_io, format="PNG")
         return base64.b64encode(out_io.getvalue()).decode()
