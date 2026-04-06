@@ -95,16 +95,37 @@ async function handleFileUpload(e) {
   state.hasPdf = (file.name || '').split('.').pop().toLowerCase() === 'pdf';
   state.currentFile = file;
   els.titleElem.textContent = file.name;
+
+  // Premium: Show loader and hide placeholder icons
+  const placeholder = document.getElementById('viewer-placeholder');
+  const loader = document.getElementById('analysis-loader');
+  const placeholderIcon = placeholder?.querySelector('.material-symbols-outlined');
+  const placeholderText = document.getElementById('placeholder-text');
+  
+  if (loader) loader.classList.remove('hidden');
+  if (placeholderText) placeholderText.classList.add('hidden');
+  if (placeholderIcon) placeholderIcon.classList.add('hidden');
+
   try {
     const fd = new FormData();
     fd.append('file', file);
     const resp = await fetch('/analyze-pdf', { method: 'POST', body: fd });
     if (!resp.ok) throw new Error((await resp.json()).detail);
     await loadDocument(await resp.json(), file);
+    
+    // Hide placeholder entirely once loaded
+    if (placeholder) placeholder.classList.add('hidden');
   } catch (e) {
     console.error('Error analyzing PDF:', e.message);
+    if (loader) loader.classList.add('hidden');
+    if (placeholderText) {
+      placeholderText.textContent = `Error: ${e.message}`;
+      placeholderText.classList.remove('hidden', 'error');
+      placeholderText.style.color = '#f28b82';
+    }
   }
 }
+
 
 async function goToPage(pageNum) {
   if (!state.pageImages.length) return;

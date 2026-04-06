@@ -7,19 +7,24 @@
             <button class="tool-btn" style="width: auto;" onclick="addName()">Add</button>
           </div>
 
-          <details id="paste-details" style="display:none; margin-bottom:8px;">
-            <textarea id="paste-input" class="tool-input" style="height: 80px; resize:vertical;"
-              placeholder="Paste names..."></textarea>
-            <button class="tool-btn secondary" style="margin-top:4px;" onclick="processPaste()">Import List</button>
-          </details>
-
-          <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-            <a href="#" style="color:#8ab4f8; font-size:11px; text-decoration:none;"
-              onclick="document.getElementById('paste-details').style.display = document.getElementById('paste-details').style.display === 'none' ? 'block' : 'none'; return false;">Paste
-              Mode</a>
-            <a href="#" style="color:#f28b82; font-size:11px; text-decoration:none;"
-              onclick="clearAll(); return false;">Clear All</a>
+          <div id="paste-area" style="display:none; margin-bottom:12px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px; border: 1px dashed rgba(255,255,255,0.1);">
+            <textarea id="paste-input" class="tool-input" style="height: 120px; resize:vertical; background: transparent; border: none; font-family: monospace;"
+              placeholder="Paste a list of names (one per line)..."></textarea>
+            <div style="display: flex; gap: 4px; margin-top: 8px;">
+              <button class="tool-btn" style="flex:1;" onclick="processPaste()">Import Names</button>
+              <button class="tool-btn secondary" style="width: auto;" onclick="document.getElementById('paste-area').style.display='none'">Cancel</button>
+            </div>
           </div>
+
+          <div style="display:flex; justify-content:space-between; margin-bottom: 8px; padding: 0 2px;">
+            <a href="#" style="color:#8ab4f8; font-size:11px; text-decoration:none; display: flex; align-items: center; gap: 4px;"
+              onclick="document.getElementById('paste-area').style.display = document.getElementById('paste-area').style.display === 'none' ? 'block' : 'none'; return false;">
+              <span class="material-symbols-outlined" style="font-size: 14px;">content_paste</span> Paste Mode</a>
+            <a href="#" style="color:#f28b82; font-size:11px; text-decoration:none; display: flex; align-items: center; gap: 4px;"
+              onclick="clearAll(); return false;">
+              <span class="material-symbols-outlined" style="font-size: 14px;">delete_sweep</span> Clear List</a>
+          </div>
+
 
           <div class="table-cont">
             <table>
@@ -43,9 +48,13 @@
         </div>
 
         <!-- 2. All Matches Summary -->
-        <div class="tool-card" id="all-matches-card" style="display: none; border-color: #16a34a;">
-          <h2 style="color: #16a34a;"><span class="step"
-              style="background:#202124; color:#16a34a; border: 1px solid #16a34a;">2</span> All Matches</h2>
+        <div class="tool-card" id="all-matches-card" style="display: none; border: 1px solid #16a34a; background: rgba(22, 163, 74, 0.05);">
+          <h2 style="color: #16a34a; margin-bottom: 4px;"><span class="step"
+              style="background:#16a34a; color:#202124;">2</span> All Matches</h2>
+          <div id="match-progress-container" style="height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-bottom: 8px; overflow: hidden;">
+            <div id="match-progress-bar" style="height: 100%; width: 0%; background: #16a34a; transition: width 0.5s ease;"></div>
+          </div>
+
           <div id="all-matches-summary" style="font-size: 12px; color: #9aa0a6; margin-bottom: 8px;"></div>
           <div class="table-cont" style="max-height: 250px; overflow-y: auto;">
             <table>

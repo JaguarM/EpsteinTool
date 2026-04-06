@@ -218,6 +218,26 @@ html {
   border-radius: 4px;
 }
 
+/* Premium Loading Spinner */
+.premium-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(138, 180, 248, 0.1);
+  border-left-color: #8ab4f8;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none !important;
+}
+
+
 /* ----------------- Main Content Area ----------------- */
 #main-content {
   display: flex;

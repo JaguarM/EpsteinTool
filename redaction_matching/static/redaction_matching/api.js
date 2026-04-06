@@ -15,8 +15,10 @@
       lines.forEach(l => { if (!state.candidates.includes(l)) { state.candidates.push(l); added++; } });
       if (added > 0) calculateAllWidths();
       els.pasteInput.value = '';
-      document.getElementById('paste-details').style.display = 'none';
+      document.getElementById('paste-area').style.display = 'none';
+      if (added > 0) console.log(`%c[Premium] Imported ${added} names!`, "color: #8ab4f8; font-weight: bold;");
     }
+
     function clearAll() {
       if (confirm('Clear names?')) { state.candidates = []; calculateAllWidths(); }
     }
@@ -117,17 +119,24 @@
 
       els.tableBody.innerHTML = slice.map(n => {
         const w = r.widths[n];
+        const isMatch = w !== undefined && Math.abs(w - r.width) <= r.settings.tol;
         const esc = n.replace(/'/g, "&apos;");
         const disp = isUpper ? n.toUpperCase() : n;
+        const rowClass = isMatch ? 'best-match' : '';
+        
         return `
-          <tr>
-            <td style="font-family:${r.settings.fontFamily || 'inherit'};">${disp}</td>
+          <tr class="${rowClass}">
+            <td style="font-family:${r.settings.fontFamily || 'inherit'};">
+              ${isMatch ? '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; color:#81c995; margin-right:4px;">check_circle</span>' : ''}
+              ${disp}
+            </td>
             <td class="col-right">${w !== undefined ? w.toFixed(2) : '-'}</td>
             <td class="col-del"><button class="btn-del" onclick="removeName('${esc.replace(/'/g, "\\'")}')">&times;</button></td>
           </tr>
         `;
       }).join('');
     }
+
 
     async function selectRedaction(idx) {
       if (!state.redactions[idx]) return;
@@ -256,8 +265,16 @@
 
             label.style.display = 'flex';
             label.textContent = r.labelText || '';
+            
+            // Premium: Add class for glow effect if we have a match
+            if (matches.length > 0) {
+              overlay.classList.add('has-match');
+            } else {
+              overlay.classList.remove('has-match');
+            }
           }
         }
+
 
         return `
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
@@ -269,7 +286,12 @@
       }).join('');
 
       els.allMatchesSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+      
+      const progress = state.redactions.length ? (matchCount / state.redactions.length) * 100 : 0;
+      const progressBar = document.getElementById('match-progress-bar');
+      if (progressBar) progressBar.style.width = `${progress}%`;
     }
+
 
     document.addEventListener('text-format-changed', (e) => {
       const { element, styles } = e.detail;

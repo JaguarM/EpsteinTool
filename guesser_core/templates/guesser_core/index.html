@@ -131,10 +131,16 @@
       <main id="viewer-container">
         <div id="viewer" class="pdfViewer">
           <!-- Canvas items go here -->
-          <div style="margin-top: 100px; color: #9aa0a6; text-align: center;">
+          <!-- Initial State / Loading -->
+          <div id="viewer-placeholder" style="margin-top: 100px; color: #9aa0a6; text-align: center;">
             <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.5;">description</span>
-            <p>Upload a PDF document to begin.</p>
+            <p id="placeholder-text">Upload a PDF document to begin.</p>
+            <div id="analysis-loader" class="hidden" style="margin-top: 20px;">
+              <div class="premium-spinner"></div>
+              <p style="margin-top: 16px; color: #8ab4f8; font-weight: 500;">Analyzing Redactions...</p>
+            </div>
           </div>
+
         </div>
       </main>
 
