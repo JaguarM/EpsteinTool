@@ -117,18 +117,18 @@ function initResize(e, idx, edge) {
     }
 
     const rowEl = document.getElementById(`match-row-${idx}`);
-    if (rowEl) {
+    if (rowEl && rowEl.children.length >= 3) {
       rowEl.children[1].textContent = r.width.toFixed(2);
-      rowEl.children[2].textContent = r.height.toFixed(2);
 
       const matches = state.candidates.filter(c => {
-        const w = r.widths[c];
+        const w = (r.widths && r.widths[c] !== undefined) ? r.widths[c] : undefined;
         return w !== undefined && Math.abs(w - r.width) <= tol;
       });
       const matchHtml = matches.length
         ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
         : `<span class="no-match">No obvious matches</span>`;
-      rowEl.children[3].innerHTML = matchHtml;
+      rowEl.children[2].innerHTML = matchHtml;
+      
       const label = overlay.querySelector('.redaction-label');
       if (label) {
         // If the user is actively editing this label, do not touch its text or styling
@@ -151,21 +151,32 @@ function initResize(e, idx, edge) {
             r.labelText = '';
           }
         }
-
         label.textContent = r.labelText || '';
+        
+        // Premium: Toggle glow class during live resize
+        if (matches.length > 0) { overlay.classList.add('has-match'); }
+        else { overlay.classList.remove('has-match'); }
       }
-
     }
 
     // Re-evaluate matching candidates total count
     let matchCount = 0;
     state.redactions.forEach(rItem => {
-      if (state.candidates.some(c => rItem.widths && rItem.widths[c] !== undefined && Math.abs(rItem.widths[c] - rItem.width) <= rItem.settings.tol)) {
-        matchCount++;
-      }
+      const hasMatch = state.candidates.some(c => 
+        rItem.widths && rItem.widths[c] !== undefined && 
+        Math.abs(rItem.widths[c] - rItem.width) <= (rItem.settings.tol || 0)
+      );
+      if (hasMatch) matchCount++;
     });
-    els.allMatchesSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+    
+    if (els.allMatchesSummary) {
+      els.allMatchesSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+    }
+    const progress = state.redactions.length ? (matchCount / state.redactions.length) * 100 : 0;
+    const progressBar = document.getElementById('match-progress-bar');
+    if (progressBar) progressBar.style.width = `${progress}%`;
   }
+
 
   function onMouseUp() {
     window.removeEventListener('mousemove', onMouseMove);

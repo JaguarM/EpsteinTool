@@ -35,9 +35,8 @@ td {
   color: #e8eaed;
 }
 
-tr {
-  transition: background-color 0.15s ease;
-}
+
+
 
 tr:hover td {
   background-color: rgba(255, 255, 255, 0.04);
@@ -142,9 +141,8 @@ tr:last-child td {
 }
 
 /* Redaction Labels & Overlays */
-.redaction-overlay {
-  transition: box-shadow 0.2s ease, transform 0.1s ease;
-}
+
+
 
 /* High Confidence Match Glow */
 .redaction-overlay.has-match::after {
@@ -189,9 +187,9 @@ tr:last-child td {
   justify-content: flex-start;
   overflow: visible;
   z-index: 10;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.5);
-  transition: all 0.2s ease;
 }
+
+
 
 
 .redaction-label:focus {

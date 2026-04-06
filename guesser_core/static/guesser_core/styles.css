@@ -431,9 +431,9 @@ html {
   background-color: rgba(253, 224, 71, 0.4);
   border: 1px solid rgba(234, 179, 8, 0.8);
   cursor: pointer;
-  transition: background-color 0.2s;
   z-index: 10;
   /* CSS CALC MAGIC */
+
   left:   calc(var(--px-x,      0) * var(--scale-factor, 1));
   top:    calc(var(--px-y,      0) * var(--scale-factor, 1));
   width:  calc(var(--px-width,  0) * var(--scale-factor, 1));
