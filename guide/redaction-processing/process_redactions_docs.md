@@ -34,7 +34,8 @@ The primary entry point for PDF files. Accepts raw bytes from the uploaded file 
   "y": 438.0,
   "width": 121.53,
   "height": 16.0,
-  "area": 1944.48
+  "area": 1944.48,
+  "lineId": "1_12"
 }
 ```
 
@@ -46,6 +47,7 @@ Coordinates are in the pixel space of the embedded 816 × 1056 px page image.
 {
   "page": 1,
   "text": "Confidential",
+  "bbox": [100.0, 438.0, 200.0, 454.0],
   "font": {
     "size": 12.0,
     "flags": 0,
@@ -94,6 +96,8 @@ fitz.open()  ──► per-page loop
 
   ▼
 Post-loop calculations
+  ├─ _snap_redactions_to_text()       → vertical alignment & lineId assignment
+  │     └─ exclusion: skip if height > 2.5 × line_height
   ├─ suggested_scale  = round(100 × page_scale_ratio)   [133 for standard 816 px / 612 pt pages]
   └─ suggested_size   = mode of body-text span sizes, rounded to 0.5 pt
                         (spans ≥ 20 chars preferred; falls back to all spans)

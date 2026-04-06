@@ -1,6 +1,6 @@
 # SurroundingWordWidth.py Documentation
 
-[SurroundingWordWidth.py](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/SurroundingWordWidth.py) refines the horizontal edges of detected redaction boxes by using the positions of surrounding text words extracted from the PDF. This allows the system to report a more accurate redaction width than what the raw pixel detection alone provides.
+[SurroundingWordWidth.py](../../guesser_core/logic/SurroundingWordWidth.py) refines the horizontal edges of detected redaction boxes...
 
 ## Core Function
 

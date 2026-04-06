@@ -1,6 +1,6 @@
 # WebGL Mask — `webgl-mask.js`
 
-[webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays using WebGL. It fetches grayscale mask PNGs from the backend asynchronously and composites them over PDF pages using custom shaders and `mix-blend-mode: screen`.
+[webgl-mask.js](../../webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays...
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # PDF Viewer — `pdf-viewer.js`
 
-[pdf-viewer.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/pdf-viewer.js) handles file uploads, page rendering, and redaction overlay injection. It does **not** use PDF.js — pages are rendered from server-extracted base64 PNG images.
+[pdf-viewer.js](../../guesser_core/static/guesser_core/pdf-viewer.js) handles file uploads, page rendering, and redaction overlay injection. It does **not** use PDF.js — pages are rendered from server-extracted base64 PNG images.
 
 ## Functions
 
@@ -50,3 +50,22 @@ div.redaction-overlay (id="redaction-idx-{idx}")
 - **Edge drag** → resize redaction (`initResize`)
 - **Double-click label** → make label editable (`contentEditable`)
 - **Label edit** → sets `manualLabel: true` to prevent auto-override
+
+---
+
+## Unified Options Bar
+
+The viewer features a centralized text formatting toolbar (`#unified-options-bar-container`). This bar is shared between the **Redaction Matcher** and the **Embedded Text Viewer**. 
+
+Settings modified in this bar (Font, Size, Scale, etc.) are applied to the currently focused element, whether it is a redaction label or an ETV text span.
+
+## Add Box to Line Tool
+
+The viewer includes a manual redaction tool accessible via the `add_box` icon in the top toolbar.
+
+**How it works:**
+1. Click the tool to activate `state.activeTool = 'add-box'`.
+2. Click anywhere on the PDF page.
+3. The viewer calls `findNearestETVLine()` to search for a text line within 2x height proximity.
+4. If a line is found, the new redaction inherits that line's `y`, `height`, and `lineId`.
+5. If no line is found, a default redaction is created at the click location.

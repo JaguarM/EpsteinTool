@@ -1,47 +1,61 @@
-# Text Tool — `text-tool.js`
+# Formatting Bridge — `text-tool.js`
 
-[text-tool.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/text-tool.js) provides a Fabric.js-based text overlay system for placing editable text on top of PDF pages. It is used to visually type text into redacted regions.
+[text-tool.js](../../embedded_text_viewer/static/embedded_text_viewer/text-tool.js) manages the **Unified Options Bar** and acts as a formatting bridge between the **Redaction Matcher** and the **Embedded Text Viewer (ETV)**.
 
-## Core Functions
+It ensures that rich text properties (Bold, Italic, Color, etc.) are synchronized across all interactive text elements in the viewer.
 
-### `createPageOverlay(pageContainer, pageNum)`
-Creates a Fabric.js canvas overlay on top of a page container. The canvas matches the page dimensions and is positioned absolutely.
+---
 
-**Canvas setup:**
-- Transparent background
-- Selection disabled by default
-- Mouse events wired for text insertion
+## Unified Options Bar
 
-### `resetFabricCanvases()`
-Disposes all active Fabric.js canvas instances. Called when a new file is uploaded.
+The viewer features a centralized formatting toolbar (`#unified-options-bar-container`) located and shared between the core and the plugins.
 
-### `onZoomChange(newZoom)`
-Called by `updateCSSZoom()` when the zoom level changes. Adjusts Fabric canvas dimensions to match the new zoom scale so that objects remain properly positioned.
-
-## Text Placement
-
-When the text tool is active (toggle button in toolbar):
-- **Click on page** → creates a new `fabric.IText` object at the click position
-- Text properties are read from the Fabric options bar: font family, font size, scale, bold/italic/underline/strikethrough, letter spacing, and color
-
-## Fabric Options Bar
-
-The `#fabric-options-bar` provides controls for:
+### Shared Controls
 
 | Control | ID | Description |
 |---------|-----|-------------|
-| Font family | `fabric-font-family` | Dropdown: Arial, Times New Roman, Courier New, Georgia, Verdana |
-| Font size | `fabric-font-size` | Number input (px) |
-| Horizontal scale | `fabric-font-scale` | Percentage (affects `scaleX`) |
-| Bold | `fabric-bold` | Toggle button |
-| Italic | `fabric-italic` | Toggle button |
-| Underline | `fabric-underline` | Toggle button |
-| Strikethrough | `fabric-strikethrough` | Toggle button |
-| Letter spacing | `fabric-letter-spacing` | Number input (em units) |
-| Text color | `fabric-color` | Color picker |
+| Font Family | `font` | Dropdown: Arial, Times New Roman, Calibri, Courier New |
+| Font Size | `size` | Global font size in points |
+| Scale % | `calc-scale` | Width scaling for HarfBuzz measurements |
+| Bold | `btn-bold` | Toggle for `font-weight: bold` |
+| Italic | `btn-italic` | Toggle for `font-style: italic` |
+| Underline | `btn-underline` | Toggle for `text-decoration: underline` |
+| Text Color | `color-picker` | Color applied to labels and spans |
 
-## Redaction Gap Controls
+---
 
-The `#redact-gap-controls` section appears when relevant:
-- **Gap slider** (`redact-gap-slider`): adjusts the width of spaces between text elements to match the gap patterns in the source document
-- Displayed as `{value} px` next to the slider
+## The Formatting Bridge
+
+`text-tool.js` tracks the currently focused element via the `document.activeElement`. It listens for changes on any of the toolbar inputs and broadcasts them.
+
+### `text-format-changed` Event
+
+When a formatting property is changed in the toolbar, `text-tool.js` dispatches a `CustomEvent` to the focused element.
+
+**Example Payload:**
+```javascript
+{
+  detail: {
+    element: HTMLElement,
+    styles: {
+      fontWeight: "bold",
+      fontStyle: "italic",
+      color: "#ff0000",
+      ...
+    }
+  }
+}
+```
+
+**Participating Modules:**
+- **Redaction Matching**: `api.js` listens for this event to update the `state.redactions[idx].settings` so that formatting persists during re-renders.
+- **Embedded Text Viewer**: Automatically applies styles to the underlying PDF text layer.
+
+---
+
+## Selection Management
+
+The bridge automatically detects when a `.redaction-label` or an `.etv-span` gains focus. It then:
+1. Reads the current styles of the element.
+2. Updates the toolbar buttons (e.g., highlighting the "B" button if the text is bold).
+3. Ensures the toolbar remains visible and active for as long as a text element is being manipulated.

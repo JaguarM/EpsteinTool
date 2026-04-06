@@ -55,6 +55,16 @@ EpsteinTool/
 │   ├── templates/                  # Toolbars injected into guesser_core UI
 │   └── static/webgl_mask/          # webgl-mask.js (WebGL renderer)
 │
+├── embedded_text_viewer/           # Plugin App (Standalone Inline Text Overlay)
+│   ├── views.py                    # /embedded-text-viewer/, /embedded-text-viewer/api/analyze
+│   ├── urls.py
+│   ├── logic/
+│   │   ├── dependency/             # PyMuPDF span text extraction
+│   │   └── data/                   # Formatting and Text overlay visualization
+│   ├── templates/                  # Toolbar link and Standalone index preview
+│   └── static/
+│       └── embedded_text_viewer/   # UI app.js and CSS
+│
 ├── assets/
 │   ├── fonts/                      # .ttf font files for width calculation
 │   ├── names/                      # Pre-built candidate name lists
@@ -126,9 +136,17 @@ graph TD
         TXT_T["templates"]
     end
 
+    subgraph "embedded_text_viewer (Plugin)"
+        ETV_V["views.py"]
+        ETV_L["PyMuPDF logic"]
+        ETV_JS["app.js"]
+        ETV_T["templates"]
+    end
+
     urls --> core_views
     urls --> WGL_V
     urls --> TXT_V
+    urls --> ETV_V
 
     core_views --> PR
     PR --> BD
@@ -139,8 +157,11 @@ graph TD
 
     TXT_V --> WC
 
+    ETV_V --> ETV_L
+
     HTML -.->|"dynamically includes"| WGL_T
     HTML -.->|"dynamically includes"| TXT_T
+    HTML -.->|"dynamically includes"| ETV_T
     APP -.->|"depends on"| WGL_JS
     APP -.->|"depends on"| TXT_JS
 ```

@@ -3,7 +3,7 @@
 I have created a custom frontend web PDF Viewer that perfectly mimics Chrome's native PDF Viewer UI and functionality.
 
 ## Implementation Details
-I opted to build a fresh, highly performant UI using standard HTML/CSS/JS and the `pdf.js` rendering engine rather than reverse-engineering the massive, extension-specific [pdf_viewer_wrapper.js](file:///c:/Users/yanni/Desktop/PDF%20Editor/Chome%20Example/pdf_viewer_wrapper.js) from the original Chrome files. 
+I opted to build a fresh, highly performant UI using standard HTML/CSS/JS and the `pdf.js` rendering engine rather than reverse-engineering the massive, extension-specific [pdf_viewer_wrapper.js](../../guesser_core/static/guesser_core/pdf-viewer.js) from the original Chrome files. 
 
 ### 1. UI Layout ([index.html](file:///c:/Users/yanni/Desktop/PDF%20Editor/index.html) & [viewer.css](file:///c:/Users/yanni/Desktop/PDF%20Editor/viewer.css))
 - **Top Toolbar**: I implemented the `#323639` dark-themed top bar exactly matching Chrome's layout.

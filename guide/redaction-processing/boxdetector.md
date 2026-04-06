@@ -1,9 +1,9 @@
 # BoxDetector.py Documentation
 
-The [BoxDetector.py](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/BoxDetector.py) script is designed to rapidly process an image in memory, isolate purely black shapes, and extract standard rectangular redaction boxes while gracefully handling overlapping artifacts and non-rectangular shapes.
+The [BoxDetector.py](../../guesser_core/logic/BoxDetector.py) script is designed to rapidly process an image...
 
 ## Core Function
-### [find_redaction_boxes_in_image(image_bytes)](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/BoxDetector.py#4-135)
+### [find_redaction_boxes_in_image(image_bytes)](../../guesser_core/logic/BoxDetector.py)
 
 This is the primary entry point of the script. It consumes an image (provided as raw byte data) and returns a deduplicated list of detected black rectangular boxes.
 
@@ -11,7 +11,7 @@ This is the primary entry point of the script. It consumes an image (provided as
 - `image_bytes` *(bytes)*: Raw byte data of an image, typically read directly from a file (e.g., PNG, JPEG).
 
 **Outputs:**
-- `final_boxes` *(list of tuples)*: A list containing tuples of [(x, y, width, height)](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/BoxDetector.py#110-130) representing the coordinates and dimensions of valid redaction boxes.
+- `final_boxes` *(list of tuples)*: A list containing tuples of (x, y, width, height) representing the coordinates and dimensions of valid redaction boxes.
 - `width` *(int)*: The overall width of the decoded image.
 - `height` *(int)*: The overall height of the decoded image.
 

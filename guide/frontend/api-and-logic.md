@@ -1,6 +1,6 @@
 # API & Candidate Logic — `api.js`
 
-[api.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/api.js) manages the candidate name list, sends width calculation requests to the backend, renders the candidates table, and matches candidate widths against redaction box widths.
+[api.js](../../redaction_matching/static/redaction_matching/api.js) manages the candidate name list, sends width calculation requests to the backend, renders the candidates table, and matches candidate widths against redaction box widths.
 
 ## Candidate Management
 

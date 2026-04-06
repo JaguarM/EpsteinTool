@@ -1,6 +1,6 @@
 # State Management — `state.js`
 
-[state.js](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/static/guesser/state.js) defines two global objects used by all other frontend modules.
+[state.js](../../guesser_core/static/guesser_core/state.js) defines two global objects used by all other frontend modules.
 
 ## `state` — Application State
 
@@ -27,7 +27,8 @@ const state = {
   page: 1,
   perPage: 15,
   sortBy: 'name',         // 'name' or 'width'
-  sortDir: 'asc'
+  sortDir: 'asc',
+  activeTool: null,        // 'add-box' or null
 };
 ```
 
@@ -43,6 +44,7 @@ Each item in `state.redactions` is created by `handleFileUpload()`:
   width: 121.53,         // pixel width
   height: 16.0,          // pixel height
   area: 1944.48,         // width × height
+  lineId: "1_12",        // ID for linking to ETV text lines
 
   settings: {            // per-redaction font/matching settings
     font: "times.ttf",
@@ -67,7 +69,7 @@ All DOM elements are cached at load time to avoid repeated `getElementById` call
 | Group | Elements |
 |-------|----------|
 | **Viewer** | `dragOverlay`, `viewerContainer`, `viewer`, `titleElem`, `pageCountElem`, `pageInputElem`, `zoomInputElem`, `zoomInBtn`, `zoomOutBtn`, `sidebar`, `toggleSidebarBtn`, `thumbnailView` |
-| **Tools** | `toolsSidebar`, `toggleToolsBtn`, `toggleWebglBtn`, `webglOptionsBar`, `textOptionsBar`, `maskColor`, `edgeSubtract` |
+| **Tools** | `toolsSidebar`, `toggleToolsBtn`, `toolAddBoxBtn`, `toggleWebglBtn`, `webglOptionsBar`, `textOptionsBar`, `maskColor`, `edgeSubtract` |
 | **Settings** | `font`, `size`, `calcScale`, `tol`, `kern`, `lig`, `upper` |
 | **Data** | `pdfFile`, `nameInput`, `pasteInput`, `tableBody`, `pageInfo` |
 | **Matches** | `allMatchesCard`, `allMatchesSummary`, `allMatchesBody` |
