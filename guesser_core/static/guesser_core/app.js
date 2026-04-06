@@ -28,6 +28,18 @@
         els.toggleToolsBtn.classList.toggle('active');
       });
 
+      if (els.toolAddBoxBtn) {
+        els.toolAddBoxBtn.addEventListener('click', () => {
+          if (state.activeTool === 'add-box') {
+            state.activeTool = null;
+            els.toolAddBoxBtn.classList.remove('active');
+          } else {
+            state.activeTool = 'add-box';
+            els.toolAddBoxBtn.classList.add('active');
+          }
+        });
+      }
+
       if (els.toggleWebglBtn) {
         els.toggleWebglBtn.addEventListener('click', () => {
           els.toggleWebglBtn.classList.toggle('active');
@@ -73,6 +85,24 @@
         triggerZoomCheck();
       });
       els.zoomInputElem.addEventListener('change', () => triggerZoomCheck());
+
+      // Click to add box tool logic
+      els.viewer.addEventListener('mousedown', async (e) => {
+        if (state.activeTool === 'add-box') {
+          const pageEl = e.target.closest('.page-container');
+          if (!pageEl) return;
+          
+          const pageNum = parseInt(pageEl.id.replace('pageContainer', ''));
+          const rect = pageEl.getBoundingClientRect();
+          const scale = state.currentZoom || 1.0;
+          const pxX = (e.clientX - rect.left) / scale;
+          const pxY = (e.clientY - rect.top) / scale;
+          
+          if (typeof handleManualAddBox === 'function') {
+            handleManualAddBox(pageNum, pxX, pxY);
+          }
+        }
+      });
 
       // Ctrl+Wheel Zoom
       els.viewerContainer.addEventListener('wheel', (e) => {

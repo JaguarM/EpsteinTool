@@ -146,9 +146,9 @@
       els.size.value = s.size;
       els.calcScale.value = s.scale;
       els.tol.value = s.tol;
-      els.kern.checked = s.kern;
-      els.lig.checked = s.lig;
-      els.upper.checked = s.upper;
+      els.kern.checked = !!s.kern;
+      els.lig.checked = !!s.lig;
+      els.upper.checked = !!s.upper;
 
       document.querySelectorAll('.redaction-overlay').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('#all-matches-body tr').forEach(el => el.classList.remove('selected-row'));
@@ -170,6 +170,12 @@
             top: els.viewerContainer.scrollTop + (targetRect.top - parentRect.top) - (parentRect.height / 2),
             behavior: 'smooth'
           });
+        }
+        
+        // SYNC FABRIC TOOLBAR
+        const label = el.querySelector('.redaction-label');
+        if (label) {
+          label.focus();
         }
       }
 
@@ -211,6 +217,14 @@
           }
         }
 
+        const richStyles = `
+          font-weight: ${r.settings.bold ? 'bold' : 'normal'};
+          font-style: ${r.settings.italic ? 'italic' : 'normal'};
+          text-decoration: ${r.settings.textDecoration || 'none'};
+          letter-spacing: ${r.settings.letterSpacing || 'normal'};
+          color: ${r.settings.color || '#81c995'};
+        `;
+
         const matchHtml = matches.length
           ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
           : `<span class="no-match">No obvious matches</span>`;
@@ -240,6 +254,14 @@
             label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
             label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
             label.style.textTransform = isUpper ? 'uppercase' : 'none';
+            
+            // RICH FORMATTING FROM BRIDGE
+            label.style.fontWeight = r.settings.bold ? 'bold' : 'normal';
+            label.style.fontStyle = r.settings.italic ? 'italic' : 'normal';
+            label.style.textDecoration = r.settings.textDecoration || 'none';
+            label.style.letterSpacing = r.settings.letterSpacing || 'normal';
+            label.style.color = r.settings.color || '#81c995';
+
             label.style.display = 'flex';
 
             // Always reflect the per-redaction label text in the DOM (for this redaction when updating selectively)
@@ -258,6 +280,86 @@
       }).join('');
 
       els.allMatchesSummary.textContent = `${matchCount} of ${state.redactions.length} redactions have potential matches.`;
+    }
+
+    document.addEventListener('text-format-changed', (e) => {
+      const { element, styles } = e.detail;
+      if (!element.classList.contains('redaction-label')) return;
+      
+      // Extract index from ID redaction-idx-N
+      const overlay = element.parentElement;
+      if (!overlay) return;
+      const idMatch = overlay.id.match(/redaction-idx-(\d+)/);
+      if (!idMatch) return;
+      
+      const idx = parseInt(idMatch[1]);
+      const r = state.redactions[idx];
+      if (r) {
+        r.settings.bold = styles.fontWeight === 'bold';
+        r.settings.italic = styles.fontStyle === 'italic';
+        r.settings.textDecoration = styles.textDecoration;
+        r.settings.letterSpacing = styles.letterSpacing;
+        r.settings.color = styles.color;
+        
+        // Also update matching table view for this redaction if needed
+        const rowEl = document.getElementById(`match-row-${idx}`);
+        if (rowEl) {
+           // We don't necessarily need to re-render the whole row, but ensure state is sync
+        }
+      }
+    });
+
+    async function handleManualAddBox(pageNum, pxX, pxY) {
+      if (typeof findNearestETVLine !== 'function') return;
+
+      const nearestLine = findNearestETVLine(pageNum, pxY, 2.0); // 2x threshold
+      let finalY = pxY;
+      let finalH = 20; // Default height if no line
+      let finalLineId = null;
+
+      if (nearestLine) {
+        finalY = nearestLine.y;
+        finalH = nearestLine.h;
+        finalLineId = nearestLine.lineId;
+      }
+
+      // Default width 100px
+      createNewRedaction(pageNum, pxX - 50, finalY, 100, finalH, finalLineId);
+    }
+
+    function createNewRedaction(pageNum, x, y, width, height, lineId = null) {
+      const idx = state.redactions.length;
+      const newRed = {
+        page: pageNum,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        area: width * height,
+        lineId: lineId,
+        settings: {
+          font: els.font?.value || 'times.ttf',
+          size: parseFloat(els.size?.value) || state.suggested_size || 12,
+          scale: parseFloat(els.calcScale?.value) || state.suggested_scale || 100,
+          tol: parseFloat(els.tol?.value) || 0,
+          kern: els.kern?.checked ?? true,
+          lig: els.lig?.checked ?? true,
+          upper: els.upper?.checked ?? false
+        },
+        widths: {},
+        labelText: '',
+        manualLabel: false
+      };
+      
+      state.redactions.push(newRed);
+      
+      // Redraw overlays
+      if (typeof injectRedactionOverlays === 'function') {
+        injectRedactionOverlays();
+      }
+      
+      // Select the new one
+      selectRedaction(idx);
     }
 
     function getFontFamily(f) {

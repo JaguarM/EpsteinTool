@@ -20,6 +20,9 @@
   {% if 'redaction_matching' in active_plugins %}
   <link rel="stylesheet" href="{% static 'redaction_matching/styles.css' %}">
   {% endif %}
+  {% if 'embedded_text_viewer' in active_plugins %}
+  <link rel="stylesheet" href="{% static 'embedded_text_viewer/styles.css' %}">
+  {% endif %}
 </head>
 
 <body>
@@ -75,27 +78,40 @@
           <span class="material-symbols-outlined">upload_file</span>
         </button>
 
-        {% if 'text_tool' in active_plugins %}
-        {% include 'text_tool/toolbar_button.html' %}
-        {% endif %}
-
         {% if 'webgl_mask' in active_plugins %}
         {% include 'webgl_mask/toolbar_button.html' %}
         {% endif %}
 
+        {% if 'embedded_text_viewer' in active_plugins %}
+        {% include 'embedded_text_viewer/toolbar_button.html' %}
+        {% endif %}
+
+
+        <button id="tool-add-box" class="icon-button" title="Add Redaction to Line">
+          <span class="material-symbols-outlined">add_box</span>
+        </button>
+        
         <button id="toggle-tools" class="icon-button active" title="Toggle AI Unredactor Tools">
           <span class="material-symbols-outlined">build</span>
         </button>
       </div>
     </header>
 
-    {% if 'text_tool' in active_plugins %}
-    {% include 'text_tool/options_bar.html' %}
-    {% endif %}
+    <div id="unified-options-bar-container">
+      {% if 'webgl_mask' in active_plugins %}
+      {% include 'webgl_mask/options_bar.html' %}
+      {% endif %}
 
-    {% if 'webgl_mask' in active_plugins %}
-    {% include 'webgl_mask/options_bar.html' %}
-    {% endif %}
+      <div id="text-toolbar-row">
+        {% if 'redaction_matching' in active_plugins or 'embedded_text_viewer' in active_plugins %}
+        {% include 'guesser_core/text_options_bar.html' %}
+        {% endif %}
+
+        {% if 'embedded_text_viewer' in active_plugins %}
+        {% include 'embedded_text_viewer/options_bar.html' %}
+        {% endif %}
+      </div>
+    </div>
 
     <!-- Main Content Area -->
     <div id="main-content">
@@ -136,6 +152,9 @@
   <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
   {% endif %}
   <script src="{% static 'guesser_core/pdf-viewer.js' %}"></script>
+  {% if 'embedded_text_viewer' in active_plugins %}
+  <script src="{% static 'embedded_text_viewer/embedded-text-viewer.js' %}"></script>
+  {% endif %}
   {% if 'redaction_matching' in active_plugins %}
   <script src="{% static 'redaction_matching/redaction-matching.js' %}"></script>
   {% endif %}
@@ -156,8 +175,8 @@
     }
   </script>
 
-  {% if 'text_tool' in active_plugins %}
-  <script src="{% static 'text_tool/text-tool.js' %}"></script>
+  {% if 'embedded_text_viewer' in active_plugins %}
+  <script src="{% static 'embedded_text_viewer/text-tool.js' %}"></script>
   {% endif %}
 
   <script>

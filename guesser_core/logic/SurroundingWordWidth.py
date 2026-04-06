@@ -15,6 +15,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
     px_to_pts_x = img_rect.width / img_w
     px_to_pts_y = img_rect.height / img_h
     pts_to_px_x = 1.0 / px_to_pts_x
+    pts_to_px_y = 1.0 / px_to_pts_y
     
     boxes_pts = []
     for b in boxes:
@@ -208,8 +209,14 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     if next_boundary is not None:
                         expected_x2_px = next_boundary
             
-            expected_widths.append((expected_x1_px, expected_x2_px))
+            expected_height_px = None
+            if best_line_words:
+                heights_pts = [w[3] - w[1] for w in best_line_words if w[3] - w[1] > 0]
+                if heights_pts:
+                    expected_height_px = (sum(heights_pts) / len(heights_pts)) * pts_to_px_y
+            
+            expected_widths.append((expected_x1_px, expected_x2_px, expected_height_px))
         else:
-            expected_widths.append((None, None))
+            expected_widths.append((None, None, None))
             
     return expected_widths

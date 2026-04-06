@@ -6,6 +6,7 @@ function injectMatchingLabel(overlay, r, idx) {
     label.className = 'redaction-label';
     label.contentEditable = 'false';
     label.spellcheck = false;
+    label.tabIndex = 0; // ENABLE FOCUS
     label.textContent = r.labelText || '';
     label.dataset.manualEdit = r.manualLabel ? 'true' : 'false';
 
@@ -42,6 +43,10 @@ function injectMatchingLabel(overlay, r, idx) {
         label.dataset.manualEdit = 'true';
       }
       label.contentEditable = 'false';
+      label.classList.remove('editing');
+    };
+    label.onfocus = () => {
+      if (typeof selectRedaction === 'function') selectRedaction(idx);
     };
 
     overlay.appendChild(label);

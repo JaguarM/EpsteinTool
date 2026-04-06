@@ -23,8 +23,6 @@ async function loadDocument(data, file) {
   state.pageImages = [];
   state.numPages = 0;
   if (els.allMatchesCard) els.allMatchesCard.style.display = 'none';
-  if (typeof resetFabricCanvases === 'function') resetFabricCanvases();
-
   const imgType = data.page_image_type || 'image/png';
   state.pageImages = (data.page_images || []).map(b64 => b64 ? `data:${imgType};base64,${b64}` : null);
   state.maskImages = (data.mask_images || []).map(b64 => b64 ? `data:image/png;base64,${b64}` : null);
@@ -60,6 +58,7 @@ async function loadDocument(data, file) {
 
   state.redactions = data.redactions.map(r => ({
     ...r,
+    lineId: null,
     settings: {
       font: els.font?.value ?? 'times.ttf',
       size: autoSize,
@@ -91,6 +90,7 @@ async function handleFileUpload(e) {
   const file = els.pdfFile.files[0] || (e && e.dataTransfer && e.dataTransfer.files[0]);
   if (!file) return;
   state.hasPdf = (file.name || '').split('.').pop().toLowerCase() === 'pdf';
+  state.currentFile = file;
   els.titleElem.textContent = file.name;
   try {
     const fd = new FormData();
@@ -106,12 +106,6 @@ async function handleFileUpload(e) {
 async function goToPage(pageNum) {
   if (!state.pageImages.length) return;
   pageNum = Math.max(1, Math.min(pageNum, state.numPages));
-
-  // Dispose fabric canvas for the page being left
-  if (state.fabricCanvases.has(state.currentPage) && state.currentPage !== pageNum) {
-    state.fabricCanvases.get(state.currentPage).dispose();
-    state.fabricCanvases.delete(state.currentPage);
-  }
 
   if (typeof clearWebGLContexts === 'function') clearWebGLContexts();
 
@@ -162,8 +156,8 @@ async function goToPage(pageNum) {
   if (typeof setupWebGLOverlay === 'function' && state.hasPdf) {
     setupWebGLOverlay(pageContainer, webglCanvas, pageNum);
   }
-  if (typeof createPageOverlay === 'function') {
-    createPageOverlay(pageContainer, pageNum);
+  if (typeof renderEmbeddedTextOverlay === 'function') {
+    renderEmbeddedTextOverlay(pageContainer, pageNum);
   }
 
   injectRedactionOverlays();

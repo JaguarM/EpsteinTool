@@ -553,22 +553,44 @@ html {
 
 
 /* ----------------- Sub-Toolbar ----------------- */
+#unified-options-bar-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #2d3033;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 90;
+}
+
+#text-toolbar-row {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 #text-options-bar,
 #fabric-options-bar,
-#webgl-options-bar {
+#webgl-options-bar,
+#etv-options-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: #2d3033;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: transparent; /* Container handles background */
   padding: 0 16px;
   height: 36px;
   flex-shrink: 0;
   color: #F1F3F4;
   font-size: 13px;
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  border-bottom: none; /* Container handles border */
+}
+
+#text-options-bar {
+  padding-right: 0; /* Connect tightly to the next bar */
+}
+
+#fabric-options-bar {
+  padding-left: 0;
 }
 
 #fabric-options-bar.hidden,
@@ -613,8 +635,10 @@ html {
 
 #size,
 #calc-scale,
-#tolerance {
-  width: 60px;
+#tolerance,
+#fabric-font-size,
+#fabric-letter-spacing {
+  width: 54px;
   text-align: center;
   -moz-appearance: textfield;
   appearance: textfield;
@@ -625,8 +649,30 @@ html {
 #calc-scale::-webkit-inner-spin-button,
 #calc-scale::-webkit-outer-spin-button,
 #tolerance::-webkit-inner-spin-button,
-#tolerance::-webkit-outer-spin-button {
+#tolerance::-webkit-outer-spin-button,
+#fabric-font-size::-webkit-inner-spin-button,
+#fabric-font-size::-webkit-outer-spin-button,
+#fabric-letter-spacing::-webkit-inner-spin-button,
+#fabric-letter-spacing::-webkit-outer-spin-button {
   -webkit-appearance: none;
+}
+
+.options-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-select,
+.toolbar-input-small {
+  background-color: #202124 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #F1F3F4 !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  height: 26px;
+  font-family: inherit;
 }
 
 /* Disclaimer Modal */

@@ -44,8 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'guesser_core',
     'webgl_mask',
-    'text_tool',
     'redaction_matching',
+    'embedded_text_viewer',
 ]
 
 MIDDLEWARE = [

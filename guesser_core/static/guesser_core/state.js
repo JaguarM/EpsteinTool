@@ -12,7 +12,6 @@ const state = {
   minZoom: 0.5,
   maxZoom: 8.0,
   renderQueue: [],
-  fabricCanvases: new Map(),
 
   // Unredactor State
   candidates: ['Jeffrey Epstein', 'Ghislaine Maxwell', 'Alan Dershowitz', 'Bill Clinton', 'Donald Trump', 'Prince Andrew', 'Virginia Giuffre', 'Virginia Roberts', 'Jean-Luc Brunel', 'Sarah Kellen', 'Nadia Marcinkova', 'Les Wexner', 'Glenn Dubin', 'Eva Dubin', 'Bill Richardson', 'George Mitchell', 'Leon Black', 'Mort Zuckerman', 'Emmy Tayler', 'Lesley Groff', 'Adriana Ross', 'Juan Alessi', 'Alfredo Rodriguez', 'Adriana Mucinska', 'Nadia Marcinkova', 'Nadia', 'Marcinkova', 'Les Wexner', 'Lex Wexner', 'Lesley Groff', 'Haley Robson', 'William Hammond', 'David Rodgers', 'Gerald Lefcourt'],
@@ -23,7 +22,8 @@ const state = {
   page: 1,
   perPage: 15,
   sortBy: 'name',
-  sortDir: 'asc'
+  sortDir: 'asc',
+  activeTool: null, // 'add-box' or null
 };
 
 const els = {
@@ -44,6 +44,7 @@ const els = {
   // Tools Sidebar
   toolsSidebar: document.getElementById('tools-sidebar'),
   toggleToolsBtn: document.getElementById('toggle-tools'),
+  toolAddBoxBtn: document.getElementById('tool-add-box'),
   toggleWebglBtn: document.getElementById('toggle-webgl'),
   webglOptionsBar: document.getElementById('webgl-options-bar'),
   textOptionsBar: document.getElementById('text-options-bar'),

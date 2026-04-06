@@ -66,6 +66,7 @@ def process_pdf(pdf_bytes):
                             text_spans.append({
                                 "page": page_num,
                                 "text": span.get("text", "").strip(),
+                                "bbox": span.get("bbox"),
                                 "font": {
                                     "size": span.get("size", 0),
                                     "flags": span.get("flags", 0),
@@ -137,7 +138,7 @@ def process_pdf(pdf_bytes):
                         final_x2 = float(bx2)
                         
                         if expected_data[0] is not None or expected_data[1] is not None:
-                            expected_x1, expected_x2 = expected_data
+                            expected_x1, expected_x2, _ = expected_data
                             
                             temp_x1 = expected_x1 if expected_x1 is not None else float(bx1)
                             temp_x2 = expected_x2 if expected_x2 is not None else float(bx2)
@@ -173,16 +174,10 @@ def process_pdf(pdf_bytes):
     redactions.sort(key=lambda b: (b["page"], b["y"], b["x"]))
 
     # suggested_scale: converts font advances (in pt) to image pixel widths.
-    # Width calculator: pixel_width = (advance/upem) * font_size_pt * (scale/100)
-    # Actual pixel width in embedded image: (advance/upem) * font_size_pt * (img_px / page_pt)
-    # Therefore scale/100 = img_px / page_pt  →  scale = round(100 * img_px / page_pt)
-    # For standard 816 px / 612 pt letter pages this is 133.
     ratio = page_scale_ratio if page_scale_ratio is not None else (816.0 / 612.0)
     suggested_scale = round(100 * ratio)
 
     # suggested_size: mode of body-text span sizes, rounded to nearest 0.5 pt.
-    # Filter to spans >= 20 chars to exclude headers, labels, page numbers;
-    # fall back to all spans when the PDF has only short word-level spans.
     def _body_sizes(spans, min_len):
         return [
             round(s["font"]["size"] * 2) / 2
@@ -210,7 +205,6 @@ def process_pdf(pdf_bytes):
         "page_height": 1056,
         "num_pages": num_pages,
     }
-
 
 def process_image(image_bytes, mime_type="image/png"):
     """
