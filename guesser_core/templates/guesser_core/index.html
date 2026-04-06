@@ -54,8 +54,14 @@
       </div>
 
       <div id="toolbar-center">
+        <button id="prev-page" class="icon-button" title="Previous Page">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
         <input type="number" id="page-input" class="toolbar-input" value="0" min="0" max="0">
         <span id="page-count">/ 0</span>
+        <button id="next-page" class="icon-button" title="Next Page">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
       </div>
 
       <div id="toolbar-right">
@@ -144,6 +150,8 @@
     </div>
   </div>
 
+  <div id="sidebar-backdrop" class="hidden"></div>
+
   <script src="{% static 'guesser_core/state.js' %}"></script>
   {% if 'redaction_matching' in active_plugins %}
   <script src="{% static 'redaction_matching/api.js' %}"></script>
@@ -160,6 +168,7 @@
   {% endif %}
   <script src="{% static 'guesser_core/ui-events.js' %}"></script>
   <script src="{% static 'guesser_core/app.js' %}"></script>
+  <script src="{% static 'guesser_core/mobile.js' %}"></script>
   
   <!-- Polyfill for Fabric.js v5 using 'alphabetical' textBaseline which causes browser warnings -->
   <script>

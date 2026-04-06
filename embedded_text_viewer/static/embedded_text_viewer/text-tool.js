@@ -131,23 +131,57 @@ function broadcastChange(el) {
 
 document.getElementById('fabric-font-family')?.addEventListener('change', (e) => {
   textOptions.fontFamily = e.target.value;
-  if (focusedTextItem) {
+
+  const etvFocused = focusedTextItem && focusedTextItem.classList.contains('etv-span');
+
+  // Update the focused ETV span if one is being edited
+  if (etvFocused) {
     focusedTextItem.style.fontFamily = e.target.value;
     broadcastChange(focusedTextItem);
+  }
+
+  // Update the selected redaction when no ETV span is being edited
+  if (!etvFocused && typeof state !== 'undefined' && state.selectedRedactionIdx !== null) {
+    const r = state.redactions[state.selectedRedactionIdx];
+    if (r) {
+      r.settings.fontFamily = e.target.value;
+      const overlay = document.getElementById(`redaction-idx-${state.selectedRedactionIdx}`);
+      const label = overlay?.querySelector('.redaction-label');
+      if (label) label.style.fontFamily = e.target.value;
+      if (typeof calculateWidthsForRedaction === 'function') {
+        calculateWidthsForRedaction(state.selectedRedactionIdx);
+      }
+    }
   }
 });
 
 document.getElementById('fabric-font-size')?.addEventListener('change', (e) => {
   const px = Math.max(4, parseInt(e.target.value) || 12);
   e.target.value = px;
-  if (focusedTextItem) {
+
+  const etvFocused = focusedTextItem && focusedTextItem.classList.contains('etv-span');
+
+  // Update the focused ETV span if one is being edited
+  if (etvFocused) {
     focusedTextItem.style.setProperty('--etv-fs', `${px}px`);
-    // Also set standard fontSize for redaction-labels
-    if (focusedTextItem.classList.contains('redaction-label')) {
-       // Calculation handled by api.js usually, but we set it here for immediate feedback
-       focusedTextItem.style.fontSize = `${px}px`; 
-    }
     broadcastChange(focusedTextItem);
+  }
+
+  // Update the selected redaction when no ETV span is being edited
+  if (!etvFocused && typeof state !== 'undefined' && state.selectedRedactionIdx !== null) {
+    const r = state.redactions[state.selectedRedactionIdx];
+    if (r) {
+      r.settings.fontSize = px;
+      const overlay = document.getElementById(`redaction-idx-${state.selectedRedactionIdx}`);
+      const label = overlay?.querySelector('.redaction-label');
+      if (label) {
+        label.style.setProperty('--etv-fs', `${px}px`);
+        label.style.fontSize = `calc(${px}px * var(--scale-factor, 1))`;
+      }
+      if (typeof calculateWidthsForRedaction === 'function') {
+        calculateWidthsForRedaction(state.selectedRedactionIdx);
+      }
+    }
   }
 });
 

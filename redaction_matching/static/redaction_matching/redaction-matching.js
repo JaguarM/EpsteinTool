@@ -11,9 +11,10 @@ function injectMatchingLabel(overlay, r, idx) {
     label.dataset.manualEdit = r.manualLabel ? 'true' : 'false';
 
     // Set font styles immediately so zoom (via --scale-factor CSS var) works from the start
-    const basePx = r.settings.size * (r.settings.scale / 100);
-    label.style.fontFamily = typeof getFontFamily === 'function' ? getFontFamily(r.settings.font) : 'sans-serif';
-    label.style.fontSize = `calc(${basePx}px * var(--scale-factor, 1))`;
+    const fs = r.settings.fontSize || 16;
+    label.style.fontFamily = r.settings.fontFamily || 'inherit';
+    label.style.setProperty('--etv-fs', `${fs}px`);
+    label.style.fontSize = `calc(${fs}px * var(--scale-factor, 1))`;
     label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
     label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
     label.style.textTransform = r.settings.upper ? 'uppercase' : 'none';

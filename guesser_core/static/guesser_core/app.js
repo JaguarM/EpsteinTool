@@ -2,22 +2,7 @@
        Initialization
        ========================================================= */
     (async function init() {
-      // 1. Fetch available fonts
-      try {
-        const resp = await fetch('/fonts-list');
-        const fonts = await resp.json();
-        fonts.forEach(f => {
-          const opt = document.createElement('option');
-          opt.value = f;
-          opt.textContent = f;
-          els.font.appendChild(opt);
-        });
-        if (fonts.includes('times.ttf')) els.font.value = 'times.ttf';
-      } catch (e) {
-        console.error("Font load error:", e);
-      }
-
-      // 2. Event Listeners for Viewer functionality
+      // 1. Event Listeners for Viewer functionality
       els.toggleSidebarBtn.addEventListener('click', () => {
         els.sidebar.classList.toggle('hidden');
         els.toggleSidebarBtn.classList.toggle('active');
@@ -142,13 +127,10 @@
 
       // Candidate events
       if (els.nameInput) els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
-      [els.font, els.size, els.calcScale, els.kern, els.lig, els.upper, els.tol].filter(Boolean).forEach(el =>
+      [els.kern, els.lig, els.upper, els.tol].filter(Boolean).forEach(el =>
         el.addEventListener('change', () => {
           if (state.selectedRedactionIdx !== null && state.redactions[state.selectedRedactionIdx]) {
             const r = state.redactions[state.selectedRedactionIdx];
-            r.settings.font = els.font?.value ?? r.settings.font;
-            r.settings.size = parseFloat(els.size?.value) || r.settings.size || 12;
-            r.settings.scale = parseFloat(els.calcScale?.value) || r.settings.scale || 100;
             r.settings.tol = parseFloat(els.tol?.value) || 0;
             r.settings.kern = els.kern?.checked ?? r.settings.kern;
             r.settings.lig = els.lig?.checked ?? r.settings.lig;
@@ -173,6 +155,17 @@
         e.target.value = p;
         goToPage(p);
       });
+
+      if (els.prevPageBtn) {
+        els.prevPageBtn.addEventListener('click', () => {
+          if (state.currentPage > 1) goToPage(state.currentPage - 1);
+        });
+      }
+      if (els.nextPageBtn) {
+        els.nextPageBtn.addEventListener('click', () => {
+          if (state.currentPage < state.numPages) goToPage(state.currentPage + 1);
+        });
+      }
 
       // 3. Auto-load the default PDF on startup
       try {

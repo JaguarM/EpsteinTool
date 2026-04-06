@@ -13,6 +13,8 @@ function ttfToFabricFont(ttfName) {
     'courier_new.ttf': 'Courier New',
     'arial.ttf': 'Arial',
     'calibri.ttf': 'Calibri',
+    'segoe_ui.ttf': 'Segoe UI',
+    'verdana.ttf': 'Verdana',
   };
   return map[ttfName] || null;
 }
@@ -41,28 +43,29 @@ async function loadDocument(data, file) {
   const autoSize = data.suggested_size || 12;
   const autoFont = data.suggested_font || null;
 
-  if (els.calcScale) els.calcScale.value = autoScale;
-  if (els.size) els.size.value = autoSize;
-  if (autoFont && els.font) {
-    const opt = Array.from(els.font.options).find(o => o.value === autoFont);
-    if (opt) els.font.value = autoFont;
+  // Derive initial font family (CSS name) and size (px)
+  let initialFontFamily = 'Times New Roman';
+  if (autoFont) {
     const fabricFont = ttfToFabricFont(autoFont);
-    if (fabricFont) {
-      const fabricSel = document.getElementById('fabric-font-family');
-      if (fabricSel && Array.from(fabricSel.options).find(o => o.value === fabricFont)) {
-        fabricSel.value = fabricFont;
-        if (typeof textOptions !== 'undefined') textOptions.fontFamily = fabricFont;
-      }
-    }
+    if (fabricFont) initialFontFamily = fabricFont;
   }
+  const initialFontSize = autoSize * autoScale / 100; // keep as float for accurate width matching
+
+  // Sync fabric toolbar to the document's detected font/size
+  const fabricSel = document.getElementById('fabric-font-family');
+  if (fabricSel && Array.from(fabricSel.options).find(o => o.value === initialFontFamily)) {
+    fabricSel.value = initialFontFamily;
+    if (typeof textOptions !== 'undefined') textOptions.fontFamily = initialFontFamily;
+  }
+  const fabricSizeInput = document.getElementById('fabric-font-size');
+  if (fabricSizeInput) fabricSizeInput.value = initialFontSize;
 
   state.redactions = data.redactions.map(r => ({
     ...r,
     lineId: null,
     settings: {
-      font: els.font?.value ?? 'times.ttf',
-      size: autoSize,
-      scale: autoScale,
+      fontFamily: initialFontFamily,
+      fontSize: initialFontSize,
       tol: parseFloat(els.tol?.value) || 0,
       kern: els.kern?.checked ?? false,
       lig: els.lig?.checked ?? false,

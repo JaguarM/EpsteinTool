@@ -1,36 +1,21 @@
 <!-- guesser_core/templates/guesser_core/text_options_bar.html -->
 <div id="text-options-bar" class="options-bar">
   <div class="options-group">
-    <span class="options-label">Font</span>
-    <select id="font" class="toolbar-select"></select>
+    <div class="options-group-header">General</div>
+    <div class="options-group-controls">
+      <span class="options-label">Tolerance (px)</span>
+      <input type="number" id="tolerance" value="3" step="0.1" class="toolbar-input-small">
+    </div>
   </div>
 
   <div class="options-divider"></div>
 
   <div class="options-group">
-    <span class="options-label">Size (pt)</span>
-    <input type="number" id="size" value="12" step="1" class="toolbar-input-small">
-  </div>
-
-  <div class="options-divider"></div>
-
-  <div class="options-group">
-    <span class="options-label">Scale (%)</span>
-    <input type="number" id="calc-scale" value="178" min="1" step="1" class="toolbar-input-small">
-  </div>
-
-  <div class="options-divider"></div>
-
-  <div class="options-group">
-    <span class="options-label">Tolerance (px)</span>
-    <input type="number" id="tolerance" value="3" step="0.1" class="toolbar-input-small">
-  </div>
-
-  <div class="options-divider"></div>
-
-  <div class="options-group">
-    <label class="checkbox-lbl"><input type="checkbox" id="kerning" checked> Kerning</label>
-    <label class="checkbox-lbl"><input type="checkbox" id="ligatures" checked> Ligatures</label>
-    <label class="checkbox-lbl"><input type="checkbox" id="force-uppercase"> Uppercase</label>
+    <div class="options-group-header">Rendering</div>
+    <div class="options-group-controls">
+      <label class="checkbox-lbl"><input type="checkbox" id="kerning" checked> Kerning</label>
+      <label class="checkbox-lbl"><input type="checkbox" id="ligatures" checked> Ligatures</label>
+      <label class="checkbox-lbl"><input type="checkbox" id="force-uppercase"> Uppercase</label>
+    </div>
   </div>
 </div>

@@ -49,9 +49,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             strings: state.candidates,
-            font: s.font,
-            size: s.size,
-            scale: s.scale,
+            font: fontFamilyToTtf(s.fontFamily),
+            size: s.fontSize,
+            scale: 100,
             kerning: s.kern,
             ligatures: s.lig,
             force_uppercase: s.upper
@@ -121,7 +121,7 @@
         const disp = isUpper ? n.toUpperCase() : n;
         return `
           <tr>
-            <td style="font-family:${getFontFamily(r.settings.font)};">${disp}</td>
+            <td style="font-family:${r.settings.fontFamily || 'inherit'};">${disp}</td>
             <td class="col-right">${w !== undefined ? w.toFixed(2) : '-'}</td>
             <td class="col-del"><button class="btn-del" onclick="removeName('${esc.replace(/'/g, "\\'")}')">&times;</button></td>
           </tr>
@@ -140,11 +140,12 @@
 
       state.selectedRedactionIdx = idx;
 
-      // Update the DOM right sidebar settings to match this redaction's specific settings
+      // Update toolbar settings to match this redaction's specific settings
       const s = r.settings;
-      els.font.value = s.font;
-      els.size.value = s.size;
-      els.calcScale.value = s.scale;
+      const fabricSel = document.getElementById('fabric-font-family');
+      if (fabricSel) fabricSel.value = s.fontFamily || 'Times New Roman';
+      const fabricSizeInput = document.getElementById('fabric-font-size');
+      if (fabricSizeInput) fabricSizeInput.value = s.fontSize || 16;
       els.tol.value = s.tol;
       els.kern.checked = !!s.kern;
       els.lig.checked = !!s.lig;
@@ -197,7 +198,7 @@
       els.allMatchesBody.innerHTML = state.redactions.map((r, idx) => {
         const tol = r.settings.tol;
         const isUpper = r.settings.upper;
-        const fontStyle = `font-family: ${getFontFamily(r.settings.font)}; font-variant-ligatures: ${r.settings.lig ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${r.settings.kern ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
+        const fontStyle = `font-family: ${r.settings.fontFamily || 'inherit'}; font-variant-ligatures: ${r.settings.lig ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${r.settings.kern ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
         const matches = state.candidates.filter(c => {
           const w = r.widths[c];
@@ -217,14 +218,6 @@
           }
         }
 
-        const richStyles = `
-          font-weight: ${r.settings.bold ? 'bold' : 'normal'};
-          font-style: ${r.settings.italic ? 'italic' : 'normal'};
-          text-decoration: ${r.settings.textDecoration || 'none'};
-          letter-spacing: ${r.settings.letterSpacing || 'normal'};
-          color: ${r.settings.color || '#81c995'};
-        `;
-
         const matchHtml = matches.length
           ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
           : `<span class="no-match">No obvious matches</span>`;
@@ -242,20 +235,19 @@
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
             <td>${r.page}</td>
             <td class="col-right">${r.width.toFixed(2)}</td>
-            <td class="col-right">${r.height.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;
             }
-            const basePx = r.settings.size * (r.settings.scale / 100);
-            
-            label.style.fontFamily = getFontFamily(r.settings.font);
-            label.style.fontSize = `calc(${basePx}px * var(--scale-factor, 1))`;
+            const fs = r.settings.fontSize || 16;
+
+            label.style.fontFamily = r.settings.fontFamily || 'inherit';
+            label.style.setProperty('--etv-fs', `${fs}px`);
+            label.style.fontSize = `calc(${fs}px * var(--scale-factor, 1))`;
             label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
             label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
             label.style.textTransform = isUpper ? 'uppercase' : 'none';
-            
-            // RICH FORMATTING FROM BRIDGE
+
             label.style.fontWeight = r.settings.bold ? 'bold' : 'normal';
             label.style.fontStyle = r.settings.italic ? 'italic' : 'normal';
             label.style.textDecoration = r.settings.textDecoration || 'none';
@@ -263,8 +255,6 @@
             label.style.color = r.settings.color || '#81c995';
 
             label.style.display = 'flex';
-
-            // Always reflect the per-redaction label text in the DOM (for this redaction when updating selectively)
             label.textContent = r.labelText || '';
           }
         }
@@ -273,7 +263,6 @@
           <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
             <td>${r.page}</td>
             <td class="col-right">${r.width.toFixed(2)}</td>
-            <td class="col-right">${r.height.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;
@@ -338,9 +327,8 @@
         area: width * height,
         lineId: lineId,
         settings: {
-          font: els.font?.value || 'times.ttf',
-          size: parseFloat(els.size?.value) || state.suggested_size || 12,
-          scale: parseFloat(els.calcScale?.value) || state.suggested_scale || 100,
+          fontFamily: document.getElementById('fabric-font-family')?.value || 'Times New Roman',
+          fontSize: parseInt(document.getElementById('fabric-font-size')?.value) || 16,
           tol: parseFloat(els.tol?.value) || 0,
           kern: els.kern?.checked ?? true,
           lig: els.lig?.checked ?? true,
@@ -362,11 +350,14 @@
       selectRedaction(idx);
     }
 
-    function getFontFamily(f) {
-      const low = (f || '').toLowerCase();
-      if (low.includes('times')) return '"Times New Roman",serif';
-      if (low.includes('arial')) return 'Arial,sans-serif';
-      if (low.includes('calibri')) return 'Calibri,sans-serif';
-      if (low.includes('cour')) return '"Courier New",monospace';
-      return 'system-ui,sans-serif';
+    function fontFamilyToTtf(fontFamily) {
+      const map = {
+        'Times New Roman': 'times.ttf',
+        'Courier New': 'courier_new.ttf',
+        'Arial': 'arial.ttf',
+        'Calibri': 'calibri.ttf',
+        'Segoe UI': 'segoe_ui.ttf',
+        'Verdana': 'verdana.ttf',
+      };
+      return map[fontFamily] || 'times.ttf';
     }

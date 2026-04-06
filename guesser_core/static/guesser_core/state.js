@@ -40,6 +40,8 @@ const els = {
   sidebar: document.getElementById('sidebar'),
   toggleSidebarBtn: document.getElementById('toggle-sidebar'),
   thumbnailView: document.getElementById('thumbnail-view'),
+  prevPageBtn: document.getElementById('prev-page'),
+  nextPageBtn: document.getElementById('next-page'),
 
   // Tools Sidebar
   toolsSidebar: document.getElementById('tools-sidebar'),
@@ -52,9 +54,6 @@ const els = {
   edgeSubtract: document.getElementById('edge-subtract'),
 
   // Settings
-  font: document.getElementById('font'),
-  size: document.getElementById('size'),
-  calcScale: document.getElementById('calc-scale'),
   tol: document.getElementById('tolerance'),
   kern: document.getElementById('kerning'),
   lig: document.getElementById('ligatures'),

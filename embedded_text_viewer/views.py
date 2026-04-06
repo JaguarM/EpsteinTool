@@ -107,12 +107,11 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
             "rawdict", flags=fitz.TEXT_PRESERVE_WHITESPACE
         )
 
-        line_counter = 0
+        page_raw_spans = []
         for block in rawdict.get("blocks", []):
             if block.get("type") != 0:
                 continue
             for line in block.get("lines", []):
-                line_counter += 1
                 for span in line.get("spans", []):
                     text = span.get("text", "")
                     if not text:
@@ -146,10 +145,10 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
                     # Font size in image-pixel units
                     px_font_size = font_size_pt * scale_y
 
-                    all_spans.append(
+                    page_raw_spans.append(
                         {
                             "page": page_index + 1,
-                            "lineId": f"{page_index+1}_{line_counter}",
+                            "lineId": None, # Will be assigned below
                             "text": text,
                             "x": round(px_x0, 2),
                             "y": round(px_y0, 2),
@@ -159,6 +158,24 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
                             "font": font_name,
                         }
                     )
+
+        # --- Group Spans into Shared lineIds by Vertical Proximity (3px tolerance) ---
+        if page_raw_spans:
+            # Sort by top coordinate (y) to facilitate single-pass clustering
+            page_raw_spans.sort(key=lambda s: s["y"])
+            
+            line_counter = 1
+            last_y = page_raw_spans[0]["y"]
+            
+            for s in page_raw_spans:
+                # If current span is far from the previous baseline, start a new line
+                if abs(s["y"] - last_y) > 3.0:
+                    line_counter += 1
+                    last_y = s["y"]
+                
+                s["lineId"] = f"{page_index+1}_{line_counter}"
+
+            all_spans.extend(page_raw_spans)
 
     doc.close()
     return all_spans

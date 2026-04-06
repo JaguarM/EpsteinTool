@@ -69,7 +69,7 @@ function initResize(e, idx, edge) {
 
   const tol = r.settings.tol || 0;
   const isUpper = r.settings.upper;
-  const fontStyle = `font-family: ${getFontFamily(r.settings.font)}; font-variant-ligatures: ${r.settings.lig ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${r.settings.kern ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
+  const fontStyle = `font-family: ${r.settings.fontFamily || 'inherit'}; font-variant-ligatures: ${r.settings.lig ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${r.settings.kern ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
   function onMouseMove(moveEvent) {
     const dx = (moveEvent.clientX - startX) / scaleFactor;
@@ -135,10 +135,9 @@ function initResize(e, idx, edge) {
         if (label.isContentEditable && document.activeElement === label) {
           return;
         }
-        const basePx = r.settings.size * (r.settings.scale / 100);
-
-        label.style.fontFamily = getFontFamily(r.settings.font);
-        label.style.fontSize = `calc(${basePx}px * var(--scale-factor, 1))`;
+        label.style.fontFamily = r.settings.fontFamily || 'inherit';
+        label.style.setProperty('--etv-fs', `${r.settings.fontSize || 16}px`);
+        label.style.fontSize = `calc(${r.settings.fontSize || 16}px * var(--scale-factor, 1))`;
         label.style.fontVariantLigatures = r.settings.lig ? 'common-ligatures' : 'none';
         label.style.fontFeatureSettings = `"kern" ${r.settings.kern ? 1 : 0}`;
         label.style.textTransform = isUpper ? 'uppercase' : 'none';
