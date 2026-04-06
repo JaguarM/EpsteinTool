@@ -1,6 +1,6 @@
 # width_calculator.py
 
-[width_calculator.py](../../text_tool/logic/width_calculator.py) provides precision text-width measurement for candidate name matching.
+[width_calculator.py](https://github.com/JaguarM/EpsteinTool/blob/main/text_tool/logic/width_calculator.py) provides precision text-width measurement for candidate name matching.
 
 ---
 

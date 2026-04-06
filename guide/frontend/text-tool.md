@@ -1,6 +1,6 @@
 # Formatting Bridge — `text-tool.js`
 
-[text-tool.js](../../embedded_text_viewer/static/embedded_text_viewer/text-tool.js) manages the **Unified Options Bar** and acts as a formatting bridge between the **Redaction Matcher** and the **Embedded Text Viewer (ETV)**.
+[text-tool.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/text-tool.js) manages the **Unified Options Bar** and acts as a formatting bridge between the **Redaction Matcher** and the **Embedded Text Viewer (ETV)**.
 
 It ensures that rich text properties (Bold, Italic, Color, etc.) are synchronized across all interactive text elements in the viewer.
 

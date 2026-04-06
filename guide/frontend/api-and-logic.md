@@ -1,6 +1,6 @@
 # API & Candidate Logic — `api.js`
 
-[api.js](../../redaction_matching/static/redaction_matching/api.js) manages the candidate name list, sends width calculation requests to the backend, renders the candidates table, and matches candidate widths against redaction box widths.
+[api.js](https://github.com/JaguarM/EpsteinTool/blob/main/redaction_matching/static/redaction_matching/api.js) manages the candidate name list, sends width calculation requests to the backend, renders the candidates table, and matches candidate widths against redaction box widths.
 
 ## Candidate Management
 

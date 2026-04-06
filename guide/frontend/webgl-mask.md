@@ -1,6 +1,6 @@
 # WebGL Mask — `webgl-mask.js`
 
-[webgl-mask.js](../../webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays...
+[webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays...
 
 ## Architecture
 

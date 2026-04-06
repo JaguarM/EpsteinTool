@@ -8,15 +8,15 @@ The scripts must load in this exact order because later modules depend on global
 
 | Order | File | Defines | Depends On |
 |-------|------|---------|------------|
-| 1 | [state.js](../../guesser_core/static/guesser_core/state.js) | `state`, `els` | DOM elements |
-| 2 | [api.js](../../redaction_matching/static/redaction_matching/api.js) | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `updateAllMatchesView` | `state`, `els` |
-| 3 | [webgl-mask.js](../../webgl_mask/static/webgl_mask/webgl-mask.js) | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync` | `state`, `els` |
-| 4 | [pdf-viewer.js](../../guesser_core/static/guesser_core/pdf-viewer.js) | `handleFileUpload`, `goToPage`, `injectRedactionOverlays` | `state`, `els`, `api.js`, `webgl-mask.js` |
-| 5 | [embedded-text-viewer.js](../../embedded_text_viewer/static/embedded_text_viewer/embedded-text-viewer.js) | `createETVOverlay`, `findNearestETVLine`, `connectRedactionsToETVLines`, `initDragETV` | `state`, `els`, `pdf-viewer.js` |
-| 6 | [redaction-matching.js](../../redaction_matching/static/redaction_matching/redaction-matching.js) | `injectMatchingLabel` | `api.js` |
-| 7 | [ui-events.js](../../guesser_core/static/guesser_core/ui-events.js) | `updateCSSZoom`, `processZoomFromText`, `initResize`, `initDragRedaction`, `renderThumbnails` | `state`, `els` |
-| 8 | [app.js](../../guesser_core/static/guesser_core/app.js) | IIFE — wires all event listeners | All above |
-| 9 | [text-tool.js](../../embedded_text_viewer/static/embedded_text_viewer/text-tool.js) | Formatting Toolbar Bridge (CustomEvents) | `state`, `els`, `app.js` |
+| 1 | [state.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/state.js) | `state`, `els` | DOM elements |
+| 2 | [api.js](https://github.com/JaguarM/EpsteinTool/blob/main/redaction_matching/static/redaction_matching/api.js) | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `updateAllMatchesView` | `state`, `els` |
+| 3 | [webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync` | `state`, `els` |
+| 4 | [pdf-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/pdf-viewer.js) | `handleFileUpload`, `goToPage`, `injectRedactionOverlays` | `state`, `els`, `api.js`, `webgl-mask.js` |
+| 5 | [embedded-text-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/embedded-text-viewer.js) | `createETVOverlay`, `findNearestETVLine`, `connectRedactionsToETVLines`, `initDragETV` | `state`, `els`, `pdf-viewer.js` |
+| 6 | [redaction-matching.js](https://github.com/JaguarM/EpsteinTool/blob/main/redaction_matching/static/redaction_matching/redaction-matching.js) | `injectMatchingLabel` | `api.js` |
+| 7 | [ui-events.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/ui-events.js) | `updateCSSZoom`, `processZoomFromText`, `initResize`, `initDragRedaction`, `renderThumbnails` | `state`, `els` |
+| 8 | [app.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/app.js) | IIFE — wires all event listeners | All above |
+| 9 | [text-tool.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/text-tool.js) | Formatting Toolbar Bridge (CustomEvents) | `state`, `els`, `app.js` |
 
 ## External Libraries
 

@@ -1,6 +1,6 @@
 # PDF Viewer — `pdf-viewer.js`
 
-[pdf-viewer.js](../../guesser_core/static/guesser_core/pdf-viewer.js) handles file uploads, page rendering, and redaction overlay injection. It does **not** use PDF.js — pages are rendered from server-extracted base64 PNG images.
+[pdf-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/pdf-viewer.js) handles file uploads, page rendering, and redaction overlay injection. It does **not** use PDF.js — pages are rendered from server-extracted base64 PNG images.
 
 ## Functions
 

@@ -1,6 +1,6 @@
 # Embedded Text Viewer — `embedded-text-viewer.js`
 
-[embedded-text-viewer.js](../../embedded_text_viewer/static/embedded_text_viewer/embedded-text-viewer.js) provides the **Automatic Text Extraction** layer. It renders the PDF's underlying text as interactive DOM elements (`.etv-span`) positioned over the page images.
+[embedded-text-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/embedded-text-viewer.js) provides the **Automatic Text Extraction** layer. It renders the PDF's underlying text as interactive DOM elements (`.etv-span`) positioned over the page images.
 
 ---
 

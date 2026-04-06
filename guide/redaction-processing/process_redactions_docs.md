@@ -1,6 +1,6 @@
 # ProcessRedactions.py
 
-[ProcessRedactions.py](../../guesser_core/logic/ProcessRedactions.py) is the main orchestrator for PDF and image analysis. It opens the uploaded file, extracts embedded page images, runs redaction box detection, refines box boundaries using surrounding text, and collects font metadata — returning the core structural data the frontend needs in a single JSON-serialisable dict.
+[ProcessRedactions.py](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/logic/ProcessRedactions.py) is the main orchestrator for PDF and image analysis. It opens the uploaded file, extracts embedded page images, runs redaction box detection, refines box boundaries using surrounding text, and collects font metadata — returning the core structural data the frontend needs in a single JSON-serialisable dict.
 
 ---
 

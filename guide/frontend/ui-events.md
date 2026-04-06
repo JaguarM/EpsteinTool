@@ -1,6 +1,6 @@
 # UI Events — `ui-events.js`
 
-[ui-events.js](../../guesser_core/static/guesser_core/ui-events.js) handles zoom controls, redaction box resizing/dragging, and thumbnail rendering.
+[ui-events.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/ui-events.js) handles zoom controls, redaction box resizing/dragging, and thumbnail rendering.
 
 ## Zoom
 

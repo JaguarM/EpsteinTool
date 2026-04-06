@@ -1,9 +1,9 @@
 # BoxDetector.py Documentation
 
-The [BoxDetector.py](../../guesser_core/logic/BoxDetector.py) script is designed to rapidly process an image...
+The [BoxDetector.py](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/logic/BoxDetector.py) script is designed to rapidly process an image...
 
 ## Core Function
-### [find_redaction_boxes_in_image(image_bytes)](../../guesser_core/logic/BoxDetector.py)
+### [find_redaction_boxes_in_image(image_bytes)](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/logic/BoxDetector.py)
 
 This is the primary entry point of the script. It consumes an image (provided as raw byte data) and returns a deduplicated list of detected black rectangular boxes.
 

@@ -1,6 +1,6 @@
 # State Management — `state.js`
 
-[state.js](../../guesser_core/static/guesser_core/state.js) defines two global objects used by all other frontend modules.
+[state.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/state.js) defines two global objects used by all other frontend modules.
 
 ## `state` — Application State
 
