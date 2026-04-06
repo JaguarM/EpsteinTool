@@ -37,13 +37,14 @@ function injectMatchingLabel(overlay, r, idx) {
       }
     };
     label.onblur = () => {
-      if (state.redactions[idx]) {
+      const wasEditing = label.contentEditable === 'true';
+      label.contentEditable = 'false';
+      label.classList.remove('editing');
+      if (wasEditing && state.redactions[idx]) {
         state.redactions[idx].labelText = label.textContent || '';
         state.redactions[idx].manualLabel = true;
         label.dataset.manualEdit = 'true';
       }
-      label.contentEditable = 'false';
-      label.classList.remove('editing');
     };
     label.onfocus = () => {
       if (typeof selectRedaction === 'function') selectRedaction(idx);
