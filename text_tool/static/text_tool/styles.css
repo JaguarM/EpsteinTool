@@ -1,0 +1,96 @@
+/* === Embedded Text Viewer Overlay === */
+
+.etv-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Elevate when active tool to bypass redactions */
+.etv-overlay.active-tool {
+  z-index: 50;
+}
+
+.etv-span {
+  position: absolute;
+  color: var(--etv-color, rgba(0, 100, 255, 0.85));
+  font-family: "Times New Roman", Times, serif;
+  white-space: pre;
+  cursor: text;
+  pointer-events: auto; /* ENABLES INTERACTION */
+  left:        calc(var(--etv-x,  0px) * var(--scale-factor, 1));
+  top:         calc(var(--etv-y,  0px) * var(--scale-factor, 1));
+  font-size:   calc(var(--etv-fs, 12px) * var(--scale-factor, 1));
+  height:      calc(var(--etv-h,  12px) * var(--scale-factor, 1));
+  line-height: calc(var(--etv-h,  12px) * var(--scale-factor, 1));
+  user-select: text;
+}
+
+.etv-span:focus,
+.etv-span.selected {
+  outline: none;
+  background-color: rgba(138, 180, 248, 0.15);
+  box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.7);
+  border-radius: 2px;
+  caret-color: #8ab4f8;
+  z-index: 100;
+  color: var(--etv-color, rgba(0, 100, 255, 0.85)) !important; /* Ensure visible in boxes mode */
+}
+
+/* Redaction labels share the etv-span class but get their selection highlight from
+   .redaction-overlay.selected (blue pulse border). Suppress the box-shadow glow here. */
+.etv-span.redaction-label:focus,
+.etv-span.redaction-label.selected {
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+/* Boxes mode: fill bounding box, hide text */
+#viewer.etv-boxes-mode .etv-span {
+  color: transparent;
+  background-color: var(--etv-box-bg, rgba(0, 100, 255, 0.25));
+  border: 1px solid var(--etv-color, rgba(0, 100, 255, 0.85));
+  width: calc(var(--etv-w, 0px) * var(--scale-factor, 1));
+  overflow: hidden;
+}
+
+/* ETV Specific Resizers */
+/* Resizers (matching redaction-overlay look) */
+.etv-span .resizer {
+  position: absolute;
+  background: transparent;
+  z-index: 110;
+  display: none;
+}
+
+/* Only show resizers when focused or selected */
+.etv-span:focus .resizer,
+.etv-span.selected .resizer {
+  display: block;
+}
+
+.etv-span .resizer-l { left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.etv-span .resizer-r { right: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+
+.etv-span .resizer:hover {
+  background: rgba(138, 180, 248, 0.5);
+}
+
+/* Ensure char-mode spans have explicit width so absolutely-positioned children are visible */
+.etv-span[data-char-mode] {
+  width: calc(var(--etv-w, 0px) * var(--scale-factor, 1));
+  overflow: visible;
+}
+
+/* Character-level absolute positioning for PDF-precise text overlay */
+.etv-span > i {
+  position: absolute;
+  left: calc(var(--ch-x, 0px) * var(--scale-factor, 1));
+  font-style: inherit;
+  white-space: pre;
+}

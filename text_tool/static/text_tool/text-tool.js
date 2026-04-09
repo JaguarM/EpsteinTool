@@ -1,518 +1,297 @@
-// =====================================================================
-// TEXT ANNOTATION TOOL — Fabric.js
-// Depends on viewer.js globals: currentZoom, renderWelcomePage
-// Exposes to viewer.js: textBoxes, selectedBoxId (stubs for compat),
-//                        createPageOverlay, onZoomChange, resetFabricCanvases
-// =====================================================================
+/**
+ * =====================================================================
+ * TEXT TOOL & FORMATTING MANAGER
+ * Handles selection, formatting, and toolbar synchronization for:
+ * 1. .etv-span (PDF text overlays)
+ * 2. .redaction-label (Manual unredactor guesses)
+ * =====================================================================
+ */
 
-// viewer.js compatibility stubs
-let textBoxes = [];
-let selectedBoxId = null;
+let lastSelectedTextItem = null;
 
-// --- State ---
-let currentTool = 'select';
+const TEXT_SELECTORS  = '.etv-span'; // .redaction-label elements also carry this class
+const TOOLBAR_SELECTORS = '#unified-options-bar-container, #fabric-options-bar';
 
-
-let redactPairs = [];
-let nextPairId = 1;
-
-let textOptions = {
-  fontFamily: 'Times New Roman',
-  fontSize: 12,
-  fontScale: 100,          // → scaleX on the object
-  bold: false,
-  italic: false,
-  underline: false,
-  linethrough: false,
-  charSpacing: 0,            // Fabric unit (1/1000 em)
-  fill: '#000000',
-};
-
-// ── Tool activation ───────────────────────────────────────────────────
-
-function setTool(tool) {
-  currentTool = tool;
-  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tool-${tool}`)?.classList.add('active');
-  for (const [, fc] of state.fabricCanvases) applyCanvasMode(fc);
+function deselectAllText() {
+    lastSelectedTextItem = null;
+    document.querySelectorAll(TEXT_SELECTORS).forEach(el => {
+        el.classList.remove('selected');
+        el.contentEditable = 'false';
+    });
+    document.querySelectorAll('.redaction-overlay.selected').forEach(o => o.classList.remove('selected'));
 }
 
-function applyCanvasMode(fc) {
-  fc.selection = false; // no rubber-band; always in add/edit mode
-  fc.defaultCursor = currentTool === 'redact' ? 'crosshair' : 'text';
-  fc.getObjects().forEach(obj => {
-    const isBar = obj._redactRole === 'bar';
-    obj.selectable = !isBar;
-    obj.evented = !isBar;
-  });
-  fc.renderAll();
-}
+function selectTextElement(el) {
+    if (!el || lastSelectedTextItem === el) return;
+    deselectAllText();
+    lastSelectedTextItem = el;
+    el.classList.add('selected');
+    if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
+    el.focus();
 
-// Button only toggles the sub-toolbar; mode is always add/edit
-document.getElementById('tool-text').addEventListener('click', () => {
-  const bar = document.getElementById('fabric-options-bar');
-  const hidden = bar.classList.toggle('hidden');
-  document.getElementById('tool-text').classList.toggle('active', !hidden);
-});
-
-function addIText(fc, x, y, text = '') {
-  const txt = new fabric.IText(text, { left: x, top: y, ...makeITextProps() });
-  fc.add(txt);
-  fc.setActiveObject(txt);
-  wireTextEvents(txt, fc);
-  fc.renderAll();
-  requestAnimationFrame(() => {
-    txt.enterEditing();
-    if (text) txt.selectAll();
-    fc.renderAll();
-  });
-  return txt;
-}
-
-
-// ── Options bar controls ──────────────────────────────────────────────
-
-function activeFc() { for (const [, fc] of state.fabricCanvases) if (fc.getActiveObject()) return fc; return null; }
-function activeObj() { return activeFc()?.getActiveObject() ?? null; }
-
-function applyToSelection(prop, value) {
-  const fc = activeFc();
-  const obj = activeObj();
-  if (!fc || !obj || obj.type !== 'i-text') return;
-  if (obj.isEditing && obj.selectionStart !== obj.selectionEnd) {
-    obj.setSelectionStyles({ [prop]: value }, obj.selectionStart, obj.selectionEnd);
-  } else {
-    obj.set(prop, value);
-  }
-  obj.setCoords();
-  fc.renderAll();
-}
-
-document.getElementById('fabric-font-family').addEventListener('change', (e) => {
-  textOptions.fontFamily = e.target.value;
-  applyToSelection('fontFamily', e.target.value);
-});
-
-document.getElementById('fabric-font-size').addEventListener('change', (e) => {
-  textOptions.fontSize = Math.max(4, parseInt(e.target.value) || 12);
-  e.target.value = textOptions.fontSize;
-  applyToSelection('fontSize', textOptions.fontSize);
-});
-
-document.getElementById('fabric-font-scale').addEventListener('change', (e) => {
-  textOptions.fontScale = Math.min(500, Math.max(10, parseInt(e.target.value) || 100));
-  e.target.value = textOptions.fontScale;
-  const scale = textOptions.fontScale / 100;
-  const fc = activeFc(), obj = activeObj();
-  if (fc && obj) { obj.set({ scaleX: scale, scaleY: scale }); obj.setCoords(); fc.renderAll(); }
-});
-
-function wireBoolToggle(btnId, prop, fabricProp, trueVal, falseVal) {
-  document.getElementById(btnId).addEventListener('click', () => {
-    const obj = activeObj();
-    if (obj?.type === 'i-text' && obj.isEditing && obj.selectionStart !== obj.selectionEnd) {
-      // Detect aggregate state of selection
-      const styles = obj.getSelectionStyles(obj.selectionStart, obj.selectionEnd, false);
-      const allOn = styles.every(s => s[fabricProp] === trueVal);
-      const newVal = allOn ? falseVal : trueVal;
-      textOptions[prop] = (newVal === trueVal);
-      applyToSelection(fabricProp, newVal);
-    } else {
-      textOptions[prop] = !textOptions[prop];
-      const fc = activeFc();
-      if (fc && obj) { obj.set(fabricProp, textOptions[prop] ? trueVal : falseVal); obj.setCoords(); fc.renderAll(); }
+    const redactionParent = el.closest('.redaction-overlay');
+    if (redactionParent) {
+        redactionParent.classList.add('selected');
+        const idx = parseInt(redactionParent.id.replace('redaction-idx-', ''));
+        if (!isNaN(idx) && typeof selectRedaction === 'function') selectRedaction(idx);
     }
-    document.getElementById(btnId).classList.toggle('active', textOptions[prop]);
-  });
 }
 
-wireBoolToggle('fabric-bold', 'bold', 'fontWeight', 'bold', 'normal');
-wireBoolToggle('fabric-italic', 'italic', 'fontStyle', 'italic', 'normal');
-wireBoolToggle('fabric-underline', 'underline', 'underline', true, false);
-wireBoolToggle('fabric-strikethrough', 'linethrough', 'linethrough', true, false);
-
-document.getElementById('fabric-letter-spacing').addEventListener('change', (e) => {
-  // Fabric charSpacing is in 1/1000 of fontSize units; our input is in em
-  textOptions.charSpacing = Math.round((parseFloat(e.target.value) || 0) * 1000);
-  const fc = activeFc(), obj = activeObj();
-  if (fc && obj && obj.type === 'i-text') { obj.set('charSpacing', textOptions.charSpacing); obj.setCoords(); fc.renderAll(); }
+// Sync toolbar on focus — also ensures lastSelectedTextItem is always current.
+// This covers the selectRedaction→label.focus() path where no mousedown fires.
+document.addEventListener('focusin', (e) => {
+    const el = e.target.closest(TEXT_SELECTORS);
+    if (!el) return;
+    if (lastSelectedTextItem !== el) {
+        // Deselect the previous element without calling deselectAllText (which clears el too)
+        if (lastSelectedTextItem) {
+            lastSelectedTextItem.classList.remove('selected');
+            lastSelectedTextItem.contentEditable = 'false';
+        }
+        lastSelectedTextItem = el;
+        el.classList.add('selected');
+        if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
+    }
+    syncBarToSpan(el);
 });
 
-document.getElementById('fabric-color').addEventListener('input', (e) => {
-  textOptions.fill = e.target.value;
-  applyToSelection('fill', e.target.value);
+// Deselect when focus leaves text elements (but not when moving to the toolbar)
+document.addEventListener('focusout', (e) => {
+    if (!e.target.closest(TEXT_SELECTORS)) return;
+    const goingTo = e.relatedTarget;
+    const stayingInText    = goingTo?.closest(TEXT_SELECTORS);
+    const stayingInToolbar = goingTo?.closest(TOOLBAR_SELECTORS);
+    if (!stayingInText && !stayingInToolbar) deselectAllText();
 });
 
-// ── Redact gap slider ─────────────────────────────────────────────────
+// Route clicks to the right element
+document.addEventListener('mousedown', (e) => {
+    const textEl = e.target.closest('.etv-span')
+                || e.target.closest('.redaction-overlay')?.querySelector('.etv-span');
+    const inToolbar = e.target.closest(TOOLBAR_SELECTORS);
 
-let activeRedactPair = null;
-
-document.getElementById('redact-gap-slider').addEventListener('input', (e) => {
-  const gap = parseInt(e.target.value);
-  document.getElementById('redact-gap-display').textContent = Math.round(gap) + ' px';
-  if (activeRedactPair) setRedactGap(activeRedactPair, gap);
+    if (textEl) {
+        const isNew = lastSelectedTextItem !== textEl;
+        selectTextElement(textEl);
+        // Prevent default on new selection to avoid unwanted cursor jumps into char children
+        if (isNew && e.target !== textEl) e.preventDefault();
+    } else if (!inToolbar) {
+        deselectAllText();
+    }
 });
 
-function setRedactGap(pair, gap) {
-  const rightEdge = pair.before.left + pair.before.getScaledWidth();
-  pair.after.set('left', rightEdge + gap);
-  pair.after.setCoords();
-  updateRedactBar(pair);
-  pair.fc.renderAll();
-}
+/**
+ * SYNC: Update toolbar inputs to match the styles of the selected element.
+ * Reads inline styles directly (not computed) so it works reliably with raw
+ * PDF font names and before the browser font cascade resolves.
+ */
+function syncBarToSpan(el) {
+    if (!el) return;
 
-function updateRedactBar(pair) {
-  const { before, after, bar } = pair;
-  const rightEdge = before.left + before.getScaledWidth();
-  const gap = Math.max(0, after.left - rightEdge);
-  bar.set({ left: rightEdge, width: gap, top: before.top, height: before.getScaledHeight() });
-  bar.setCoords();
-  document.getElementById('redact-gap-slider').value = Math.round(gap);
-  document.getElementById('redact-gap-display').textContent = Math.round(gap) + ' px';
-}
-
-function showRedactControls(show) {
-  const el = document.getElementById('redact-gap-controls');
-  if (show) el.classList.remove('hidden');
-  else el.classList.add('hidden');
-}
-
-// ── Sync options bar ──────────────────────────────────────────────────
-
-function syncBarToObj(obj) {
-  if (!obj || obj.type !== 'i-text') return;
-  let ff = obj.fontFamily, fs = obj.fontSize, fw = obj.fontWeight, fi = obj.fontStyle;
-  let ul = obj.underline, lt = obj.linethrough, cl = obj.fill;
-  if (obj.isEditing && obj.selectionStart < obj.selectionEnd) {
-    const st = obj.getSelectionStyles(obj.selectionStart, obj.selectionEnd, false)[0] || {};
-    ff = st.fontFamily || ff; fs = st.fontSize || fs;
-    fw = st.fontWeight || fw; fi = st.fontStyle || fi;
-    ul = st.underline !== undefined ? st.underline : ul;
-    lt = st.linethrough !== undefined ? st.linethrough : lt;
-    cl = st.fill || cl;
-  }
-  document.getElementById('fabric-font-family').value = ff;
-  document.getElementById('fabric-font-size').value = fs;
-  document.getElementById('fabric-font-scale').value = Math.round((obj.scaleY || obj.scaleX || 1) * 100);
-  document.getElementById('fabric-bold').classList.toggle('active', fw === 'bold');
-  document.getElementById('fabric-italic').classList.toggle('active', fi === 'italic');
-  document.getElementById('fabric-underline').classList.toggle('active', !!ul);
-  document.getElementById('fabric-strikethrough').classList.toggle('active', !!lt);
-  document.getElementById('fabric-letter-spacing').value = ((obj.charSpacing || 0) / 1000).toFixed(2);
-  document.getElementById('fabric-color').value = (typeof cl === 'string' && cl.startsWith('#')) ? cl : textOptions.fill;
-  Object.assign(textOptions, {
-    fontFamily: ff, fontSize: fs, fontScale: Math.round((obj.scaleY || obj.scaleX || 1) * 100),
-    bold: fw === 'bold', italic: fi === 'italic', underline: !!ul, linethrough: !!lt,
-    charSpacing: obj.charSpacing || 0, fill: cl || textOptions.fill,
-  });
-}
-
-function syncBarToTextOptions() {
-  document.getElementById('fabric-font-family').value = textOptions.fontFamily;
-  document.getElementById('fabric-font-size').value = textOptions.fontSize;
-  document.getElementById('fabric-font-scale').value = textOptions.fontScale;
-  document.getElementById('fabric-bold').classList.toggle('active', textOptions.bold);
-  document.getElementById('fabric-italic').classList.toggle('active', textOptions.italic);
-  document.getElementById('fabric-underline').classList.toggle('active', textOptions.underline);
-  document.getElementById('fabric-strikethrough').classList.toggle('active', textOptions.linethrough);
-  document.getElementById('fabric-letter-spacing').value = (textOptions.charSpacing / 1000).toFixed(2);
-  document.getElementById('fabric-color').value = textOptions.fill;
-}
-
-// ── Canvas creation ───────────────────────────────────────────────────
-
-function makeITextProps(extra = {}) {
-  return {
-    fontFamily: textOptions.fontFamily,
-    fontSize: textOptions.fontSize,
-    scaleX: textOptions.fontScale / 100,
-    scaleY: textOptions.fontScale / 100,
-    fontWeight: textOptions.bold ? 'bold' : 'normal',
-    fontStyle: textOptions.italic ? 'italic' : 'normal',
-    underline: textOptions.underline,
-    linethrough: textOptions.linethrough,
-    charSpacing: textOptions.charSpacing,
-    fill: textOptions.fill,
-    lockRotation: true,
-    hasRotatingPoint: false,
-    padding: 0,
-    ...extra,
-  };
-}
-
-function createPageOverlay(pageContainer, pageNum) {
-  const baseW = parseFloat(pageContainer.style.getPropertyValue('--page-width')) || 816;
-  const baseH = parseFloat(pageContainer.style.getPropertyValue('--page-height')) || 1056;
-  const zoom = state.currentZoom;
-
-  const canvasEl = document.createElement('canvas');
-  canvasEl.id = `fabric-${pageNum}`;
-  pageContainer.appendChild(canvasEl);
-
-  const fc = new fabric.Canvas(canvasEl, {
-    width: Math.round(baseW * zoom),
-    height: Math.round(baseH * zoom),
-    backgroundColor: null,
-    selection: currentTool === 'select',
-    preserveObjectStacking: true,
-    renderOnAddRemove: false,
-  });
-  fc.setViewportTransform([zoom, 0, 0, zoom, 0, 0]);
-  fc._baseW = baseW;
-  fc._baseH = baseH;
-  fc._pageNum = pageNum;
-
-  // Position Fabric's wrapper div over the PDF canvas
-  Object.assign(fc.wrapperEl.style, { position: 'absolute', top: '0', left: '0' });
-
-  state.fabricCanvases.set(pageNum, fc);
-  setupCanvasEvents(fc);
-  applyCanvasMode(fc);
-  fc.renderAll();
-  return fc;
-}
-
-// ── Zoom ──────────────────────────────────────────────────────────────
-
-function onZoomChange(zoom) {
-  for (const [, fc] of state.fabricCanvases) {
-    fc.setWidth(Math.round(fc._baseW * zoom));
-    fc.setHeight(Math.round(fc._baseH * zoom));
-    fc.setViewportTransform([zoom, 0, 0, zoom, 0, 0]);
-    fc.renderAll();
-  }
-}
-
-// Called when a new PDF is loaded (viewer.js resets page containers)
-function resetFabricCanvases() {
-  for (const [, fc] of state.fabricCanvases) fc.dispose();
-  state.fabricCanvases.clear();
-  redactPairs = [];
-  activeRedactPair = null;
-}
-
-// viewer.js API compat
-function updateAllTextBoxFontSizes() {
-  if (typeof state.currentZoom !== 'undefined') onZoomChange(state.currentZoom);
-}
-
-// ── Canvas event wiring ───────────────────────────────────────────────
-
-function setupCanvasEvents(fc) {
-  // Click on empty area → create new text; click on IText → enter editing
-  fc.on('mouse:down', (opt) => {
-    if (opt.target) return; // clicked an existing object
-    if (currentTool === 'text') {
-      const pt = fc.getPointer(opt.e);
-      addIText(fc, pt.x, pt.y);
-    }
-  });
-
-  // Single-click on IText enters editing (skip if the object was just dragged)
-  fc.on('mouse:up', (opt) => {
-    const obj = opt.target;
-    if (obj?.type === 'i-text' && !obj.isEditing && !obj.__wasMoved) {
-      fc.setActiveObject(obj);
-      requestAnimationFrame(() => {
-        if (!obj.isEditing) { obj.enterEditing(); fc.renderAll(); }
-      });
-    }
-    if (obj) obj.__wasMoved = false;
-  });
-
-  // Selection events → sync options bar
-  fc.on('selection:created', (opt) => onFcSelect(fc, opt.selected?.[0]));
-  fc.on('selection:updated', (opt) => onFcSelect(fc, opt.selected?.[0]));
-  fc.on('selection:cleared', () => { activeRedactPair = null; showRedactControls(false); });
-
-  // object:moving — mark dragged flag + keep redact "after" to the right of "before"
-  fc.on('object:moving', (opt) => {
-    opt.target.__wasMoved = true;
-    if (opt.target?._redactRole !== 'after') return;
-    const pair = redactPairs.find(p => p.pairId === opt.target._redactPairId);
-    if (!pair) return;
-    const minLeft = pair.before.left + pair.before.getScaledWidth();
-    if (opt.target.left < minLeft) opt.target.set('left', minLeft);
-    updateRedactBar(pair);
-    fc.renderAll();
-  });
-}
-
-function wireTextEvents(txt, fc) {
-  txt.on('selection:changed', () => syncBarToObj(txt));
-  txt.on('editing:exited', () => {
-    // Delete empty non-redact boxes on deselect
-    const canvas = fc ?? [...state.fabricCanvases.values()].find(c => c.getObjects().includes(txt));
-    if (canvas && !txt._redactPairId && txt.text.trim() === '') {
-      canvas.remove(txt);
-      canvas.discardActiveObject();
-      canvas.renderAll();
-      return;
-    }
-    syncBarToObj(txt);
-  });
-}
-
-function onFcSelect(fc, obj) {
-  if (!obj) return;
-  // Redact pair object selected
-  if (obj._redactPairId) {
-    const pair = redactPairs.find(p => p.pairId === obj._redactPairId);
-    if (pair) {
-      activeRedactPair = pair;
-      updateRedactBar(pair); // also syncs slider
-      showRedactControls(true);
-      return;
-    }
-  }
-  activeRedactPair = null;
-  showRedactControls(false);
-  if (obj.type === 'i-text') {
-    syncBarToObj(obj);
-    wireTextEvents(obj, fc);
-  }
-}
-
-// ── Redaction (Alt+R) ─────────────────────────────────────────────────
-
-// Split Fabric styles object at a character index (single-line assumed)
-function splitStyles(styles, cursorPos, keepBefore) {
-  const line = styles?.[0];
-  if (!line) return {};
-  const result = {};
-  for (const [k, v] of Object.entries(line)) {
-    const idx = parseInt(k);
-    if (keepBefore ? idx < cursorPos : idx >= cursorPos) {
-      result[keepBefore ? idx : idx - cursorPos] = v;
-    }
-  }
-  return Object.keys(result).length ? { 0: result } : {};
-}
-
-function insertRedactionGap() {
-  // Find the IText currently in editing mode
-  let txt = null, fc = null;
-  for (const [, canvas] of state.fabricCanvases) {
-    const obj = canvas.getActiveObject();
-    if (obj?.type === 'i-text' && obj.isEditing) { txt = obj; fc = canvas; break; }
-  }
-  if (!txt || !fc) return;
-
-  const cursorPos = txt.selectionStart;
-  const beforeText = txt.text.substring(0, cursorPos);
-  const afterText = txt.text.substring(cursorPos);
-  const pairId = nextPairId++;
-
-  // Exit editing; reuse the existing IText as "before"
-  txt.exitEditing();
-  txt.set({
-    text: beforeText,
-    styles: splitStyles(txt.styles, cursorPos, true),
-    _redactPairId: pairId, _redactRole: 'before',
-    hasControls: false,
-  });
-  txt.initDimensions();
-  txt.setCoords();
-
-  const rightEdge = txt.left + txt.getScaledWidth();
-  const defaultGap = 50;
-
-  const bar = new fabric.Rect({
-    left: rightEdge, top: txt.top, width: defaultGap, height: txt.getScaledHeight(),
-    fill: 'rgba(255, 140, 0, 0.5)', selectable: false, evented: false,
-    _redactPairId: pairId, _redactRole: 'bar',
-  });
-
-  const after = new fabric.IText(afterText, {
-    left: rightEdge + defaultGap, top: txt.top,
-    styles: splitStyles(txt.styles, cursorPos, false),
-    ...makeITextProps({
-      fontFamily: txt.fontFamily, fontSize: txt.fontSize,
-      fill: txt.fill, scaleX: txt.scaleX,
-      lockMovementY: true, lockScalingY: true, hasControls: false,
-      _redactPairId: pairId, _redactRole: 'after',
-    }),
-  });
-
-  fc.add(bar, after);
-
-  const pair = { pairId, pageNum: fc._pageNum, before: txt, after, bar, fc };
-  redactPairs.push(pair);
-
-  // "after" drag → recompute gap
-  after.on('moving', () => updateRedactBar(pair));
-  after.on('editing:exited', () => updateRedactBar(pair));
-
-  // "before" drag → slide bar + after together, keeping gap constant
-  txt.on('moving', () => {
-    const rightEdge = txt.left + txt.getScaledWidth();
-    const gap = bar.width;
-    bar.set({ left: rightEdge, top: txt.top });
-    after.set({ left: rightEdge + gap, top: txt.top });
-    bar.setCoords();
-    after.setCoords();
-    fc.renderAll();
-  });
-
-  // "before" text edited → keep gap size, shift after to new right edge
-  txt.on('editing:exited', () => {
-    txt.initDimensions();
-    txt.setCoords();
-    const gap = bar.width;
-    const rightEdge = txt.left + txt.getScaledWidth();
-    after.set({ left: rightEdge + gap, top: txt.top });
-    updateRedactBar(pair);
-    fc.renderAll();
-  });
-
-  fc.setActiveObject(after);
-  fc.renderAll();
-  after.enterEditing();
-
-  activeRedactPair = pair;
-  showRedactControls(true);
-  document.getElementById('redact-gap-slider').value = defaultGap;
-  document.getElementById('redact-gap-display').textContent = defaultGap + ' px';
-}
-
-// ── Keyboard: Delete selected object(s) ──────────────────────────────
-
-document.addEventListener('keydown', (e) => {
-  // Alt+R — insert redaction gap at cursor inside any editing IText
-  if (e.altKey && e.key === 'x') {
-    e.preventDefault();
-    insertRedactionGap();
-    return;
-  }
-
-  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-  if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-
-  for (const [, fc] of state.fabricCanvases) {
-    const obj = fc.getActiveObject();
-    if (!obj) continue;
-    if (obj.type === 'i-text' && obj.isEditing) continue; // let text editing handle it
-
-    if (obj._redactPairId) {
-      const pair = redactPairs.find(p => p.pairId === obj._redactPairId);
-      if (pair) {
-        fc.remove(pair.before, pair.after, pair.bar);
-        redactPairs = redactPairs.filter(p => p.pairId !== obj._redactPairId);
-        activeRedactPair = null;
-        showRedactControls(false);
-      }
-    } else {
-      fc.remove(obj);
+    // --- Font Family ---
+    // etvNormFont (defined in embedded-text-viewer.js) converts raw PDF names
+    // like "ABCDEF+TimesNewRomanPSMT" to browser-safe equivalents.
+    const rawFont = el.style.fontFamily || '';
+    const normFont = (typeof etvNormFont === 'function') ? etvNormFont(rawFont) : rawFont;
+    const ff = document.getElementById('fabric-font-family');
+    if (ff && normFont) {
+        const opt = Array.from(ff.options).find(o =>
+            o.value.toLowerCase() === normFont.toLowerCase() ||
+            o.text.toLowerCase()  === normFont.toLowerCase()
+        );
+        if (opt) ff.value = opt.value;
     }
 
-    fc.discardActiveObject();
-    fc.renderAll();
-    break;
-  }
+    // --- Font Size ---
+    // Always stored unscaled in the --etv-fs CSS custom property.
+    const fsInput = document.getElementById('fabric-font-size');
+    if (fsInput) {
+        const raw = el.style.getPropertyValue('--etv-fs');
+        if (raw) fsInput.value = Math.round(parseFloat(raw));
+    }
+
+    // --- Bold / Italic / Underline / Strikethrough ---
+    // renderEmbeddedTextOverlay already converts PDF font-name hints (e.g. "Times-Bold")
+    // into real fontWeight/fontStyle inline styles, so reading them here is sufficient.
+    const isBold      = el.style.fontWeight === 'bold' || el.style.fontWeight === '700';
+    const isItalic    = el.style.fontStyle === 'italic';
+    const decor       = el.style.textDecoration || '';
+    const isUnderline = decor.includes('underline');
+    const isStrike    = decor.includes('line-through');
+
+    document.getElementById('fabric-bold')?.classList.toggle('active', isBold);
+    document.getElementById('fabric-italic')?.classList.toggle('active', isItalic);
+    document.getElementById('fabric-underline')?.classList.toggle('active', isUnderline);
+    document.getElementById('fabric-strikethrough')?.classList.toggle('active', isStrike);
+
+    // --- Letter Spacing ---
+    const lsInput = document.getElementById('fabric-letter-spacing');
+    if (lsInput) lsInput.value = (parseFloat(el.style.letterSpacing) || 0).toFixed(2);
+
+    // --- Color ---
+    const colorInput = document.getElementById('fabric-color');
+    if (colorInput) {
+        const src = el.style.getPropertyValue('--etv-color') || el.style.color;
+        if (src) colorInput.value = _cssColorToHex(src);
+    }
+}
+
+/** Convert any CSS color string to a #rrggbb hex value. */
+function _cssColorToHex(color) {
+    if (!color || color === 'initial' || color === 'inherit') return '#000000';
+    if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+    const m = color.match(/\d+/g);
+    if (m && m.length >= 3) {
+        return '#' + ((1 << 24) + (+m[0] << 16) + (+m[1] << 8) + +m[2]).toString(16).slice(1);
+    }
+    return '#000000';
+}
+
+/**
+ * ACTIONS: Apply Ribbon changes to the selected object.
+ */
+function applyFormatting() {
+    const el = lastSelectedTextItem;
+    if (!el) return;
+
+    const bold      = document.getElementById('fabric-bold')?.classList.contains('active');
+    const italic    = document.getElementById('fabric-italic')?.classList.contains('active');
+    const underline = document.getElementById('fabric-underline')?.classList.contains('active');
+    const strike    = document.getElementById('fabric-strikethrough')?.classList.contains('active');
+    
+    el.style.fontWeight = bold ? 'bold' : 'normal';
+    el.style.fontStyle = italic ? 'italic' : 'normal';
+    el.style.textDecoration = [underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ') || 'none';
+
+    persistChangesToState(el);
+    broadcastChange(el);
+}
+
+/**
+ * PERSISTENCE: Save UI changes back to the underlying data model.
+ */
+function persistChangesToState(el) {
+    if (!el) return;
+
+    // Redaction labels — detected by data-redaction-idx, regardless of dual etv-span class
+    if (el.dataset.redactionIdx !== undefined) {
+        const idx = parseInt(el.dataset.redactionIdx);
+        if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions[idx]) {
+            const r = state.redactions[idx];
+            r.settings.fontFamily    = el.style.fontFamily;
+            r.settings.fontSize      = parseInt(el.style.getPropertyValue('--etv-fs')) || r.settings.fontSize;
+            r.settings.bold          = el.style.fontWeight === 'bold';
+            r.settings.italic        = el.style.fontStyle === 'italic';
+            r.settings.textDecoration = el.style.textDecoration;
+            r.settings.letterSpacing  = el.style.letterSpacing;
+            r.settings.color          = el.style.getPropertyValue('--etv-color') || el.style.color;
+            if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
+        }
+        return;
+    }
+
+    // Regular ETV spans — sync to etvState.spans[]
+    if (el.classList.contains('etv-span')) {
+        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer','') || 1);
+        const pageSpans = etvState.spans.filter(s => s.page === pageNum);
+        const spanIdx = parseInt(el.dataset.index);
+        const s = pageSpans[spanIdx];
+        if (s) {
+            s.font          = el.style.fontFamily;
+            s.fontSize      = parseInt(el.style.getPropertyValue('--etv-fs')) || s.fontSize;
+            s.fontWeight    = el.style.fontWeight;
+            s.fontStyle     = el.style.fontStyle;
+            s.textDecoration = el.style.textDecoration;
+            s.letterSpacing  = el.style.letterSpacing;
+            s.color          = el.style.getPropertyValue('--etv-color');
+        }
+    }
+}
+
+/**
+ * UI EVENT: Toggle Ribbon Overlay
+ */
+document.getElementById('tool-text')?.addEventListener('click', () => {
+    const bar = document.getElementById('fabric-options-bar');
+    if (!bar) return;
+    const isVisible = !bar.classList.toggle('hidden');
+    document.getElementById('tool-text').classList.toggle('active', isVisible);
+
+    // Context Cursor / Visibility
+    document.querySelectorAll('.etv-overlay').forEach(el => el.classList.toggle('active-tool', isVisible));
 });
 
-// ── Welcome page ──────────────────────────────────────────────────────
+/**
+ * UI EVENT: Add Text Tool Mode
+ */
+document.getElementById('etv-add-text-btn')?.addEventListener('click', (e) => {
+    const isActive = e.currentTarget.classList.toggle('active');
+    state.activeTool = isActive ? 'text' : null;
+    els.viewer.style.cursor = isActive ? 'text' : 'default';
+    if (isActive && els.toolAddBoxBtn) els.toolAddBoxBtn.classList.remove('active');
+});
 
-// currentTool is always 'text' — clicking a page always adds text.
-// Sub-toolbar visibility and button highlight are managed separately by the tool-text button handler.
-currentTool = 'text';
+/**
+ * WIRE-UP: Control Listenners
+ */
+document.getElementById('fabric-font-family')?.addEventListener('change', (e) => {
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.fontFamily = e.target.value;
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
+});
+
+document.getElementById('fabric-font-size')?.addEventListener('change', (e) => {
+    const px = Math.max(4, parseInt(e.target.value) || 12);
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.setProperty('--etv-fs', `${px}px`);
+        // Redaction labels need the explicit calc() fontSize (not inherited via stylesheet)
+        if (lastSelectedTextItem.dataset.redactionIdx !== undefined) {
+            lastSelectedTextItem.style.fontSize = `calc(${px}px * var(--scale-factor, 1))`;
+        }
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
+});
+
+['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', () => {
+        document.getElementById(id).classList.toggle('active');
+        applyFormatting();
+    });
+});
+
+document.getElementById('fabric-letter-spacing')?.addEventListener('change', (e) => {
+    if (lastSelectedTextItem) {
+        const em = parseFloat(e.target.value) || 0;
+        lastSelectedTextItem.style.letterSpacing = em ? `${em}em` : '';
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
+});
+
+document.getElementById('fabric-color')?.addEventListener('input', (e) => {
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.setProperty('--etv-color', e.target.value);
+        lastSelectedTextItem.style.color = e.target.value;
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
+});
+
+function broadcastChange(el) {
+    const event = new CustomEvent('text-format-changed', {
+        detail: {
+            element: el,
+            styles: {
+                fontFamily: el.style.fontFamily,
+                fontSize: el.style.getPropertyValue('--etv-fs'),
+                fontWeight: el.style.fontWeight,
+                fontStyle: el.style.fontStyle,
+                color: el.style.getPropertyValue('--etv-color')
+            }
+        }
+    });
+    document.dispatchEvent(event);
+}
