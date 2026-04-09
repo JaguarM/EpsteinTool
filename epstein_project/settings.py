@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'text_tool',
     'guesser_core',
     'embedded_text_viewer',
+    'webgl_mask',
 ]
 
 MIDDLEWARE = [

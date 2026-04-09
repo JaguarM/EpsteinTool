@@ -26,7 +26,9 @@ urlpatterns = [
 if 'webgl_mask' in settings.INSTALLED_APPS:
     urlpatterns += [path('', include('webgl_mask.urls'))]
 
+if 'text_tool' in settings.INSTALLED_APPS:
+    from text_tool.urls import root_urlpatterns
+    urlpatterns += root_urlpatterns  # /widths, /fonts-list
+
 if 'embedded_text_viewer' in settings.INSTALLED_APPS:
-    from embedded_text_viewer.urls import root_urlpatterns
-    urlpatterns += [path('embedded-text-viewer/', include('embedded_text_viewer.urls'))]
-    urlpatterns += root_urlpatterns
+    urlpatterns += [path('embedded-text-viewer/', include('embedded_text_viewer.urls'))]  # /api/extract-spans
