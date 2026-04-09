@@ -246,12 +246,8 @@ function injectRedactionOverlays() {
 
     // click: stop propagation so overlay.onclick (selectRedaction) doesn't double-fire
     // mousedown: allow propagation so text-tool.js global handler can call selectTextElement
+    // No blur/edit handler — label text is always driven by the width calculation
     label.addEventListener('click', (e) => e.stopPropagation());
-    label.addEventListener('blur', () => {
-       r.labelText = label.textContent.trim();
-       r.manualLabel = true;
-       if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
-    });
 
     overlay.appendChild(label);
 
