@@ -26,7 +26,7 @@ function selectTextElement(el) {
     deselectAllText();
     lastSelectedTextItem = el;
     el.classList.add('selected');
-    el.contentEditable = 'true';
+    if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
     el.focus();
 
     const redactionParent = el.closest('.redaction-overlay');
@@ -50,7 +50,7 @@ document.addEventListener('focusin', (e) => {
         }
         lastSelectedTextItem = el;
         el.classList.add('selected');
-        el.contentEditable = 'true';
+        if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
     }
     syncBarToSpan(el);
 });
