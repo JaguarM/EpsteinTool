@@ -216,15 +216,9 @@
 
         if (matches.length) matchCount++;
 
-        // Update per-redaction label text if it has not been manually overridden.
-        // When onlyIdx is provided, restrict text changes to that redaction; otherwise
-        // we are in the initial load case and can initialize all label texts.
-        if (!r.manualLabel && (onlyIdx === null || onlyIdx === idx)) {
-          if (matches.length > 0) {
-            r.labelText = isUpper ? matches[0].toUpperCase() : matches[0];
-          } else {
-            r.labelText = '';
-          }
+        // Label text is always driven by the best match (no manual override).
+        if (onlyIdx === null || onlyIdx === idx) {
+          r.labelText = matches.length > 0 ? (isUpper ? matches[0].toUpperCase() : matches[0]) : '';
         }
 
         const matchHtml = matches.length
@@ -238,17 +232,7 @@
         if (overlay && (onlyIdx === null || onlyIdx === idx)) {
           const label = overlay.querySelector('.redaction-label');
           if (label) {
-            // If the user is actively editing this label, do not touch its text or styling
-            if (label.isContentEditable && document.activeElement === label) {
-              return `
-          <tr id="match-row-${idx}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction(${idx})" title="Click to view on document">
-            <td>${r.page}</td>
-            <td class="col-right">${r.width.toFixed(2)}</td>
-            <td>${matchHtml}</td>
-          </tr>
-        `;
-            }
-            const fs = r.settings.fontSize || 16;
+              const fs = r.settings.fontSize || 16;
 
             label.style.fontFamily = r.settings.fontFamily || 'inherit';
             label.style.setProperty('--etv-fs', `${fs}px`);
