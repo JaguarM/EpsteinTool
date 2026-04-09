@@ -219,6 +219,7 @@ function injectRedactionOverlays() {
       if (e.button !== 0) return;
       if (e.detail > 1) return;
       if (e.target.classList.contains('resizer')) return;
+      if (e.target.classList.contains('redaction-label')) return; // let text-tool.js handle label clicks
       initDragRedaction(e, idx);
     };
 
@@ -229,9 +230,30 @@ function injectRedactionOverlays() {
       overlay.appendChild(resizer);
     });
 
-    if (typeof injectMatchingLabel === 'function') {
-      injectMatchingLabel(overlay, r, idx);
-    }
+    // Add the editable text label for the redaction
+    const label = document.createElement('div');
+    label.className = 'redaction-label';
+    label.contentEditable = 'false'; // text-tool.js manages contentEditable state
+    label.tabIndex = 0;              // stays focusable even when contentEditable is false
+    label.spellcheck = false;
+    label.textContent = r.labelText || '';
+
+    // Apply styling from r.settings
+    label.style.fontFamily = r.settings.fontFamily || 'inherit';
+    label.style.setProperty('--etv-fs', `${r.settings.fontSize || 16}px`);
+    label.style.fontSize = `calc(${r.settings.fontSize || 16}px * var(--scale-factor, 1))`;
+    label.style.color = r.settings.color || '#81c995';
+
+    // click: stop propagation so overlay.onclick (selectRedaction) doesn't double-fire
+    // mousedown: allow propagation so text-tool.js global handler can call selectTextElement
+    label.addEventListener('click', (e) => e.stopPropagation());
+    label.addEventListener('blur', () => {
+       r.labelText = label.textContent.trim();
+       r.manualLabel = true;
+       if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
+    });
+
+    overlay.appendChild(label);
 
     if (idx === state.selectedRedactionIdx) overlay.classList.add('selected');
 

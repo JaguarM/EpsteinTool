@@ -19,6 +19,25 @@ function etvOptionsBar() {
   return document.getElementById('etv-options-bar');
 }
 
+/**
+ * Normalize a raw PDF font name to a browser-renderable CSS font family.
+ * PDF fonts often have subset prefixes ("ABCDEF+") and platform-specific
+ * suffixes ("MT", "PS", "PSMT") that browsers don't recognize.
+ */
+function etvNormFont(name) {
+  if (!name) return '';
+  // Strip subset prefix (e.g. "ABCDEF+TimesNewRoman..." → "TimesNewRoman...")
+  let n = name.replace(/^[A-Z]{6}\+/, '').replace(/["']/g, '').split(',')[0].trim();
+  const lc = n.toLowerCase().replace(/[\s\-_]/g, '');
+  if (lc.includes('times') || lc.includes('timesnew')) return 'Times New Roman';
+  if (lc.includes('arial'))                             return 'Arial';
+  if (lc.includes('courier'))                            return 'Courier New';
+  if (lc.includes('verdana'))                            return 'Verdana';
+  if (lc.includes('calibri'))                            return 'Calibri';
+  if (lc.includes('segoe'))                              return 'Segoe UI';
+  return n;
+}
+
 /* ---------- Toggle button wiring ------------------------------------ */
 (function initETV() {
   const btn = document.getElementById('toggle-embedded-viewer');
@@ -136,6 +155,21 @@ async function etvFetchSpans(file) {
   }
 }
 
+/* ---------- Char-level rendering helper ----------------------------- */
+function etvRenderChars(el, span) {
+  Array.from(el.childNodes).forEach(node => {
+    if (!node.classList || !node.classList.contains('resizer')) el.removeChild(node);
+  });
+  for (const ch of span.chars) {
+    const i = document.createElement('i');
+    i.textContent = ch.c;
+    i.style.setProperty('--ch-x', `${ch.x}px`);
+    el.appendChild(i);
+  }
+  el.dataset.charMode = '1';
+  delete el.dataset.origText;
+}
+
 /* ---------- Render overlay spans onto a page container --------------- */
 function renderEmbeddedTextOverlay(pageContainer, pageNum) {
   if (!pageContainer || !etvState.active) return;
@@ -161,7 +195,11 @@ function renderEmbeddedTextOverlay(pageContainer, pageNum) {
     const span = pageSpans[i];
     const el = document.createElement('span');
     el.className = 'etv-span';
-    el.textContent = span.text;
+    if (span.chars?.length) {
+      etvRenderChars(el, span);
+    } else {
+      el.textContent = span.text;
+    }
     el.dataset.index = i;
     el.dataset.lineId = span.lineId; // Used for grouped vertical dragging
 
@@ -172,22 +210,29 @@ function renderEmbeddedTextOverlay(pageContainer, pageNum) {
     el.style.setProperty('--etv-h',  `${span.h}px`);
     el.style.setProperty('--etv-w',  `${span.w}px`);
 
-    // Inline editing & selection
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (e.target.classList.contains('resizer')) return;
-      selectETVBox(el);
-      el.contentEditable = 'true';
-      el.focus();
-    });
+    // Styling
+    if (span.font) {
+      el.style.fontFamily = etvNormFont(span.font);
+      // Detect bold/italic encoded in the raw PDF font name (e.g. "Times-Bold", "Times-BoldItalic")
+      // and store them as real inline styles so syncBarToSpan can read them reliably.
+      if (!span.fontWeight && /bold/i.test(span.font))            el.style.fontWeight = 'bold';
+      if (!span.fontStyle  && /italic|oblique/i.test(span.font))  el.style.fontStyle  = 'italic';
+    }
+    if (span.color) {
+      el.style.color = span.color;
+      el.style.setProperty('--etv-color', span.color);
+    }
+    if (span.fontWeight)    el.style.fontWeight     = span.fontWeight;
+    if (span.fontStyle)     el.style.fontStyle      = span.fontStyle;
+    if (span.textDecoration) el.style.textDecoration = span.textDecoration;
+    if (span.letterSpacing) el.style.letterSpacing  = span.letterSpacing;
 
+    // Drag and resize functionality (kept locally as it's specialized)
     el.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       if (e.target.classList.contains('resizer')) return;
-      if (el.contentEditable === 'true' && document.activeElement === el) return;
       
-      e.stopPropagation();
-      selectETVBox(el);
+      // We start the drag here. selectTextElement is handled by the global listener in text-tool.js
       initDragETV(e, span, el);
     });
 
@@ -197,40 +242,66 @@ function renderEmbeddedTextOverlay(pageContainer, pageNum) {
         e.preventDefault();
         el.blur();
       } else if (e.key === 'Escape') {
-        el.textContent = span.text; // revert
+        if (span.chars?.length) {
+          etvRenderChars(el, span);
+        } else {
+          el.textContent = span.text;
+        }
         el.blur();
+      }
+    });
+
+    el.addEventListener('focus', () => {
+      // Record origText for change-detection in blur, but don't flatten chars yet.
+      // Flattening only happens in beforeinput — right before the user actually types.
+      if (el.dataset.charMode && span.chars?.length) {
+        el.dataset.origText = span.chars.map(ch => ch.c).join('');
+      }
+    });
+
+    el.addEventListener('beforeinput', () => {
+      // Flatten <i> char children to plain text on the first actual keystroke.
+      if (el.dataset.charMode) {
+        const text = el.dataset.origText || span.chars.map(ch => ch.c).join('');
+        el.dataset.origText = text;
+        Array.from(el.childNodes).forEach(node => {
+          if (!node.classList || !node.classList.contains('resizer')) el.removeChild(node);
+        });
+        el.insertBefore(
+          document.createTextNode(text),
+          el.querySelector('.resizer') || null
+        );
+        delete el.dataset.charMode;
       }
     });
 
     el.addEventListener('blur', () => {
       el.contentEditable = 'false';
       const txt = el.textContent.trim();
+
       if (!txt) {
-        // Capture connection info before removal
-        const deletedLineId = span.lineId;
-        const deletedPage   = span.page;
-
-        // DELETE IF EMPTY
+        // Empty → remove span and disconnect any linked redactions
         el.remove();
-        // Also remove from etvState.spans
-        const globalIdx = etvState.spans.indexOf(span);
-        if (globalIdx !== -1) {
-          etvState.spans.splice(globalIdx, 1);
+        etvState.spans.splice(etvState.spans.indexOf(span), 1);
+        if (span.lineId && typeof state !== 'undefined' && state.redactions) {
+          const lineGone = !etvState.spans.some(s => s.lineId === span.lineId && s.page === span.page);
+          if (lineGone) state.redactions.forEach(r => {
+            if (r.lineId === span.lineId && r.page === span.page) r.lineId = null;
+          });
         }
+        return;
+      }
 
-        // Disconnect redactions if this was the last span on that lineId
-        if (deletedLineId !== null && typeof state !== 'undefined' && state.redactions) {
-          const lineStillExists = etvState.spans.some(
-            s => s.lineId === deletedLineId && s.page === deletedPage
-          );
-          if (!lineStillExists) {
-            state.redactions.forEach(r => {
-              if (r.lineId === deletedLineId && r.page === deletedPage) r.lineId = null;
-            });
-          }
-        }
-      } else {
-        span.text = txt; // persist edit back into state
+      span.text = txt;
+
+      if (el.dataset.charMode) {
+        // User never typed — <i> chars still intact
+        delete el.dataset.origText;
+      } else if (span.chars?.length) {
+        // beforeinput fired: chars were flattened for editing
+        txt === el.dataset.origText
+          ? etvRenderChars(el, span)  // unchanged → restore char rendering
+          : (span.chars = []);        // changed → positions stale, keep plain text
       }
     });
 
@@ -454,6 +525,62 @@ function findNearestETVLine(pageNum, pxY, thresholdFactor = 2.0) {
 
 // Expose to other scripts
 window.findNearestETVLine = findNearestETVLine;
+window.selectETVBox = selectETVBox;
+
+function addEmbeddedTextSpan(pageNum, x, y) {
+  if (!etvState.active) {
+    document.getElementById('toggle-embedded-viewer')?.click();
+  }
+
+  // 1. Snapping Logic: Find the nearest line on this page
+  const neat = findNearestETVLine(pageNum, y);
+  
+  // 2. Derive defaults from the snapped line or toolbar
+  // If we snap to a line, we use its Y coordinate, height, and font size.
+  const snapY  = neat ? neat.y        : y - (12);
+  const snapH  = neat ? neat.h        : 20;
+  const snapFS = neat ? neat.fontSize : (parseInt(document.getElementById('fabric-font-size')?.value) || 16);
+  const snapFF = neat ? neat.font     : (document.getElementById('fabric-font-family')?.value || 'serif');
+  const lineId = neat ? neat.lineId   : `manual_${Date.now()}`;
+
+  const newSpan = {
+    page: pageNum,
+    lineId: lineId,
+    text: 'Click to edit',
+    x: x,
+    y: snapY,
+    w: 100,
+    h: snapH,
+    fontSize: snapFS,
+    font: snapFF,
+    manual: true
+    // No 'color' set here means it will inherit the global var(--etv-color)
+  };
+
+  etvState.spans.push(newSpan);
+  
+  const pageContainer = document.getElementById(`pageContainer${pageNum}`);
+  if (pageContainer) {
+    renderEmbeddedTextOverlay(pageContainer, pageNum);
+    
+    setTimeout(() => {
+        const overlay = pageContainer.querySelector('.etv-overlay');
+        const els = overlay.querySelectorAll('.etv-span');
+        const lastEl = els[els.length - 1];
+        if (lastEl) {
+            selectETVBox(lastEl);
+            lastEl.contentEditable = 'true';
+            lastEl.focus();
+            const range = document.createRange();
+            range.selectNodeContents(lastEl);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    }, 50);
+  }
+}
+window.addEmbeddedTextSpan = addEmbeddedTextSpan;
 
 /* ---------- Hook: call on every pdf-file change to reset ------------ */
 (function hookFileUpload() {

@@ -18,7 +18,7 @@
 .etv-span {
   position: absolute;
   color: var(--etv-color, rgba(0, 100, 255, 0.85));
-  font-family: serif;
+  font-family: "Times New Roman", Times, serif;
   white-space: pre;
   cursor: text;
   pointer-events: auto; /* ENABLES INTERACTION */
@@ -70,4 +70,18 @@
 
 .etv-span .resizer:hover {
   background: rgba(138, 180, 248, 0.5);
+}
+
+/* Ensure char-mode spans have explicit width so absolutely-positioned children are visible */
+.etv-span[data-char-mode] {
+  width: calc(var(--etv-w, 0px) * var(--scale-factor, 1));
+  overflow: visible;
+}
+
+/* Character-level absolute positioning for PDF-precise text overlay */
+.etv-span > i {
+  position: absolute;
+  left: calc(var(--ch-x, 0px) * var(--scale-factor, 1));
+  font-style: inherit;
+  white-space: pre;
 }

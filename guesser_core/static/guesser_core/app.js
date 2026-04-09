@@ -18,10 +18,20 @@
           if (state.activeTool === 'add-box') {
             state.activeTool = null;
             els.toolAddBoxBtn.classList.remove('active');
+            els.viewer.style.cursor = 'default';
           } else {
             state.activeTool = 'add-box';
             els.toolAddBoxBtn.classList.add('active');
+            if (els.toolTextBtn) els.toolTextBtn.classList.remove('active');
+            els.viewer.style.cursor = 'crosshair';
           }
+        });
+      }
+      
+      if (els.toolTextBtn) {
+        els.toolTextBtn.addEventListener('click', () => {
+          // This button now only toggles the sub-toolbar (handled in text-tool.js)
+          // We can remove logic from here to avoid duplication.
         });
       }
 
@@ -71,21 +81,36 @@
       });
       els.zoomInputElem.addEventListener('change', () => triggerZoomCheck());
 
-      // Click to add box tool logic
+      // Click to add box/text tool logic
       els.viewer.addEventListener('mousedown', async (e) => {
+        const pageEl = e.target.closest('.page-container');
+        if (!pageEl) return;
+        
+        const pageNum = parseInt(pageEl.id.replace('pageContainer', ''));
+        const rect = pageEl.getBoundingClientRect();
+        const scale = state.currentZoom || 1.0;
+        const pxX = (e.clientX - rect.left) / scale;
+        const pxY = (e.clientY - rect.top) / scale;
+
         if (state.activeTool === 'add-box') {
-          const pageEl = e.target.closest('.page-container');
-          if (!pageEl) return;
-          
-          const pageNum = parseInt(pageEl.id.replace('pageContainer', ''));
-          const rect = pageEl.getBoundingClientRect();
-          const scale = state.currentZoom || 1.0;
-          const pxX = (e.clientX - rect.left) / scale;
-          const pxY = (e.clientY - rect.top) / scale;
-          
           if (typeof handleManualAddBox === 'function') {
             handleManualAddBox(pageNum, pxX, pxY);
           }
+          state.activeTool = null;
+          els.viewer.style.cursor = 'default';
+          document.getElementById('tool-add-box')?.classList.remove('active');
+        }
+        else if (state.activeTool === 'text') {
+           // Create new ETV span at click position
+           if (typeof addEmbeddedTextSpan === 'function') {
+              addEmbeddedTextSpan(pageNum, pxX, pxY);
+           }
+           
+           // Deselect tool after one use to avoid spam
+           state.activeTool = null;
+           els.viewer.style.cursor = 'default';
+           const toolBtn = document.getElementById('etv-add-text-btn');
+           if (toolBtn) toolBtn.classList.remove('active');
         }
       });
 

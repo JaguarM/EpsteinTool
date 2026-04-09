@@ -1,209 +1,296 @@
-// =====================================================================
-// TEXT FORMAT TOOL — applies inline formatting to focused ETV spans
-// Wires the #fabric-options-bar controls to whatever .etv-span is
-// currently being edited via contentEditable.
-// =====================================================================
+/**
+ * =====================================================================
+ * TEXT TOOL & FORMATTING MANAGER
+ * Handles selection, formatting, and toolbar synchronization for:
+ * 1. .etv-span (PDF text overlays)
+ * 2. .redaction-label (Manual unredactor guesses)
+ * =====================================================================
+ */
 
-// Kept for pdf-viewer.js compat (auto-selects font family on PDF load)
-let textOptions = { fontFamily: 'serif' };
+let lastSelectedTextItem = null;
 
-// The currently active text element (either .etv-span or .redaction-label)
-let focusedTextItem = null;
+const TEXT_SELECTORS  = '.etv-span, .redaction-label';
+const TOOLBAR_SELECTORS = '#unified-options-bar-container, #fabric-options-bar';
 
-// ── Show/hide the formatting bar via the toolbar button ───────────────
+function deselectAllText() {
+    lastSelectedTextItem = null;
+    document.querySelectorAll(TEXT_SELECTORS).forEach(el => {
+        el.classList.remove('selected');
+        el.contentEditable = 'false';
+    });
+    document.querySelectorAll('.redaction-overlay.selected').forEach(o => o.classList.remove('selected'));
+}
 
-document.getElementById('tool-text')?.addEventListener('click', () => {
-  const bar = document.getElementById('fabric-options-bar');
-  if (!bar) return;
-  const nowHidden = bar.classList.toggle('hidden');
-  document.getElementById('tool-text').classList.toggle('active', !nowHidden);
+function selectTextElement(el) {
+    if (!el || lastSelectedTextItem === el) return;
+    deselectAllText();
+    lastSelectedTextItem = el;
+    el.classList.add('selected');
+    el.contentEditable = 'true';
+    el.focus();
 
-  // Toggle elevation of ETV overlay to bypass redactions
-  const etvOverlays = document.querySelectorAll('.etv-overlay');
-  etvOverlays.forEach(el => el.classList.toggle('active-tool', !nowHidden));
-});
+    const redactionParent = el.closest('.redaction-overlay');
+    if (redactionParent) {
+        redactionParent.classList.add('selected');
+        const idx = parseInt(redactionParent.id.replace('redaction-idx-', ''));
+        if (!isNaN(idx) && typeof selectRedaction === 'function') selectRedaction(idx);
+    }
+}
 
-// ── Track which ETV span has focus ────────────────────────────────────
-
+// Sync toolbar on focus — also ensures lastSelectedTextItem is always current.
+// This covers the selectRedaction→label.focus() path where no mousedown fires.
 document.addEventListener('focusin', (e) => {
-  const isETV = e.target.classList.contains('etv-span');
-  const isRedaction = e.target.classList.contains('redaction-label');
-  if (!isETV && !isRedaction) return;
-  
-  focusedTextItem = e.target;
-  
-  // Ensure the element is marked as selected when focused
-  if (isETV) {
-    if (typeof selectETVBox === 'function') {
-      selectETVBox(e.target);
-    } else {
-      document.querySelectorAll('.etv-span.selected').forEach(s => s.classList.remove('selected'));
-      e.target.classList.add('selected');
+    const el = e.target.closest(TEXT_SELECTORS);
+    if (!el) return;
+    if (lastSelectedTextItem !== el) {
+        // Deselect the previous element without calling deselectAllText (which clears el too)
+        if (lastSelectedTextItem) {
+            lastSelectedTextItem.classList.remove('selected');
+            lastSelectedTextItem.contentEditable = 'false';
+        }
+        lastSelectedTextItem = el;
+        el.classList.add('selected');
+        el.contentEditable = 'true';
     }
-  } else if (isRedaction) {
-     // Redaction labels handle their own selection via click usually, 
-     // but we ensure text-tool knows it's active.
-  }
-  
-  syncBarToSpan(e.target);
+    syncBarToSpan(el);
 });
 
+// Deselect when focus leaves text elements (but not when moving to the toolbar)
 document.addEventListener('focusout', (e) => {
-  if (!e.target.classList.contains('etv-span') && !e.target.classList.contains('redaction-label')) return;
-  // Delay so toolbar button clicks can still read focusedTextItem
-  requestAnimationFrame(() => { 
-    if (document.activeElement !== focusedTextItem) {
-       focusedTextItem = null; 
-    }
-  });
+    if (!e.target.closest(TEXT_SELECTORS)) return;
+    const goingTo = e.relatedTarget;
+    const stayingInText    = goingTo?.closest(TEXT_SELECTORS);
+    const stayingInToolbar = goingTo?.closest(TOOLBAR_SELECTORS);
+    if (!stayingInText && !stayingInToolbar) deselectAllText();
 });
 
-// ── Sync bar controls to reflect a span's current style ──────────────
+// Route clicks to the right element
+document.addEventListener('mousedown', (e) => {
+    const textEl = e.target.closest('.etv-span')
+                || e.target.closest('.redaction-label')
+                || e.target.closest('.redaction-overlay')?.querySelector('.redaction-label');
+    const inToolbar = e.target.closest(TOOLBAR_SELECTORS);
 
+    if (textEl) {
+        const isNew = lastSelectedTextItem !== textEl;
+        selectTextElement(textEl);
+        // Prevent default on new selection to avoid unwanted cursor jumps into char children
+        if (isNew && e.target !== textEl) e.preventDefault();
+    } else if (!inToolbar) {
+        deselectAllText();
+    }
+});
+
+/**
+ * SYNC: Update toolbar inputs to match the styles of the selected element.
+ * Reads inline styles directly (not computed) so it works reliably with raw
+ * PDF font names and before the browser font cascade resolves.
+ */
 function syncBarToSpan(el) {
-  const cs = window.getComputedStyle(el);
+    if (!el) return;
 
-  const ff = document.getElementById('fabric-font-family');
-  if (ff) ff.value = cs.fontFamily.replace(/"/g, '').split(',')[0].trim();
+    // --- Font Family ---
+    // etvNormFont (defined in embedded-text-viewer.js) converts raw PDF names
+    // like "ABCDEF+TimesNewRomanPSMT" to browser-safe equivalents.
+    const rawFont = el.style.fontFamily || '';
+    const normFont = (typeof etvNormFont === 'function') ? etvNormFont(rawFont) : rawFont;
+    const ff = document.getElementById('fabric-font-family');
+    if (ff && normFont) {
+        const opt = Array.from(ff.options).find(o =>
+            o.value.toLowerCase() === normFont.toLowerCase() ||
+            o.text.toLowerCase()  === normFont.toLowerCase()
+        );
+        if (opt) ff.value = opt.value;
+    }
 
-  const fs = document.getElementById('fabric-font-size');
-  if (fs) {
-    const raw = el.style.getPropertyValue('--etv-fs');
-    fs.value = raw ? Math.round(parseFloat(raw)) : Math.round(parseFloat(cs.fontSize));
-  }
+    // --- Font Size ---
+    // Always stored unscaled in the --etv-fs CSS custom property.
+    const fsInput = document.getElementById('fabric-font-size');
+    if (fsInput) {
+        const raw = el.style.getPropertyValue('--etv-fs');
+        if (raw) fsInput.value = Math.round(parseFloat(raw));
+    }
 
-  document.getElementById('fabric-bold')
-    ?.classList.toggle('active', cs.fontWeight === '700' || cs.fontWeight === 'bold');
-  document.getElementById('fabric-italic')
-    ?.classList.toggle('active', cs.fontStyle === 'italic');
-  document.getElementById('fabric-underline')
-    ?.classList.toggle('active', cs.textDecorationLine.includes('underline'));
-  document.getElementById('fabric-strikethrough')
-    ?.classList.toggle('active', cs.textDecorationLine.includes('line-through'));
+    // --- Bold / Italic / Underline / Strikethrough ---
+    // renderEmbeddedTextOverlay already converts PDF font-name hints (e.g. "Times-Bold")
+    // into real fontWeight/fontStyle inline styles, so reading them here is sufficient.
+    const isBold      = el.style.fontWeight === 'bold' || el.style.fontWeight === '700';
+    const isItalic    = el.style.fontStyle === 'italic';
+    const decor       = el.style.textDecoration || '';
+    const isUnderline = decor.includes('underline');
+    const isStrike    = decor.includes('line-through');
 
-  const ls = document.getElementById('fabric-letter-spacing');
-  if (ls) ls.value = el.style.letterSpacing ? (parseFloat(el.style.letterSpacing) || 0).toFixed(2) : '0.00';
+    document.getElementById('fabric-bold')?.classList.toggle('active', isBold);
+    document.getElementById('fabric-italic')?.classList.toggle('active', isItalic);
+    document.getElementById('fabric-underline')?.classList.toggle('active', isUnderline);
+    document.getElementById('fabric-strikethrough')?.classList.toggle('active', isStrike);
 
-  const fc = document.getElementById('fabric-color');
-  if (fc) {
-    const custom = el.style.getPropertyValue('--etv-color');
-    if (custom && custom.startsWith('#')) fc.value = custom;
-  }
+    // --- Letter Spacing ---
+    const lsInput = document.getElementById('fabric-letter-spacing');
+    if (lsInput) lsInput.value = (parseFloat(el.style.letterSpacing) || 0).toFixed(2);
+
+    // --- Color ---
+    const colorInput = document.getElementById('fabric-color');
+    if (colorInput) {
+        const src = el.style.getPropertyValue('--etv-color') || el.style.color;
+        if (src) colorInput.value = _cssColorToHex(src);
+    }
 }
 
-// ── Apply formatting toggles (bold/italic/underline/strike) ──────────
+/** Convert any CSS color string to a #rrggbb hex value. */
+function _cssColorToHex(color) {
+    if (!color || color === 'initial' || color === 'inherit') return '#000000';
+    if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+    const m = color.match(/\d+/g);
+    if (m && m.length >= 3) {
+        return '#' + ((1 << 24) + (+m[0] << 16) + (+m[1] << 8) + +m[2]).toString(16).slice(1);
+    }
+    return '#000000';
+}
 
+/**
+ * ACTIONS: Apply Ribbon changes to the selected object.
+ */
 function applyFormatting() {
-  if (!focusedTextItem) return;
-  const el = focusedTextItem;
-  const bold      = document.getElementById('fabric-bold')?.classList.contains('active');
-  const italic    = document.getElementById('fabric-italic')?.classList.contains('active');
-  const underline = document.getElementById('fabric-underline')?.classList.contains('active');
-  const strike    = document.getElementById('fabric-strikethrough')?.classList.contains('active');
-  
-  el.style.fontWeight     = bold ? 'bold' : 'normal';
-  el.style.fontStyle      = italic ? 'italic' : 'normal';
-  el.style.textDecoration = [underline && 'underline', strike && 'line-through']
-    .filter(Boolean).join(' ') || 'none';
+    const el = lastSelectedTextItem;
+    if (!el) return;
 
-  broadcastChange(el);
+    const bold      = document.getElementById('fabric-bold')?.classList.contains('active');
+    const italic    = document.getElementById('fabric-italic')?.classList.contains('active');
+    const underline = document.getElementById('fabric-underline')?.classList.contains('active');
+    const strike    = document.getElementById('fabric-strikethrough')?.classList.contains('active');
+    
+    el.style.fontWeight = bold ? 'bold' : 'normal';
+    el.style.fontStyle = italic ? 'italic' : 'normal';
+    el.style.textDecoration = [underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ') || 'none';
+
+    persistChangesToState(el);
+    broadcastChange(el);
 }
 
-function broadcastChange(el) {
-  const event = new CustomEvent('text-format-changed', {
-    detail: {
-      element: el,
-      styles: {
-        fontFamily: el.style.fontFamily,
-        fontSize: el.style.getPropertyValue('--etv-fs') || el.style.fontSize,
-        fontWeight: el.style.fontWeight,
-        fontStyle: el.style.fontStyle,
-        textDecoration: el.style.textDecoration,
-        letterSpacing: el.style.letterSpacing,
-        color: el.style.getPropertyValue('--etv-color') || el.style.color
-      }
+/**
+ * PERSISTENCE: Save UI changes back to the underlying data model.
+ */
+function persistChangesToState(el) {
+    if (!el) return;
+    
+    // ETV Spans
+    if (el.classList.contains('etv-span')) {
+        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer','') || 1);
+        const pageSpans = etvState.spans.filter(s => s.page === pageNum);
+        const spanIdx = parseInt(el.dataset.index);
+        const s = pageSpans[spanIdx];
+        if (s) {
+            s.font = el.style.fontFamily;
+            s.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || s.fontSize;
+            s.fontWeight = el.style.fontWeight;
+            s.fontStyle = el.style.fontStyle;
+            s.textDecoration = el.style.textDecoration;
+            s.letterSpacing = el.style.letterSpacing;
+            s.color = el.style.getPropertyValue('--etv-color');
+        }
+    } 
+    // Redaction Labels
+    else if (el.classList.contains('redaction-label')) {
+        const parent = el.closest('.redaction-overlay');
+        const idx = parent ? parseInt(parent.id.replace('redaction-idx-', '')) : null;
+        if (idx !== null && typeof state !== 'undefined' && state.redactions[idx]) {
+            const r = state.redactions[idx];
+            r.settings.fontFamily = el.style.fontFamily;
+            r.settings.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || r.settings.fontSize;
+            // Re-run width calculation with the updated font settings
+            if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
+        }
     }
-  });
-  document.dispatchEvent(event);
 }
 
-// ── Control event listeners ───────────────────────────────────────────
+/**
+ * UI EVENT: Toggle Ribbon Overlay
+ */
+document.getElementById('tool-text')?.addEventListener('click', () => {
+    const bar = document.getElementById('fabric-options-bar');
+    if (!bar) return;
+    const isVisible = !bar.classList.toggle('hidden');
+    document.getElementById('tool-text').classList.toggle('active', isVisible);
 
+    // Context Cursor / Visibility
+    document.querySelectorAll('.etv-overlay').forEach(el => el.classList.toggle('active-tool', isVisible));
+    if (isVisible && typeof etvState !== 'undefined' && !etvState.active) {
+        document.getElementById('toggle-embedded-viewer')?.click();
+    }
+});
+
+/**
+ * UI EVENT: Add Text Tool Mode
+ */
+document.getElementById('etv-add-text-btn')?.addEventListener('click', (e) => {
+    const isActive = e.currentTarget.classList.toggle('active');
+    state.activeTool = isActive ? 'text' : null;
+    els.viewer.style.cursor = isActive ? 'text' : 'default';
+    if (isActive && els.toolAddBoxBtn) els.toolAddBoxBtn.classList.remove('active');
+});
+
+/**
+ * WIRE-UP: Control Listenners
+ */
 document.getElementById('fabric-font-family')?.addEventListener('change', (e) => {
-  textOptions.fontFamily = e.target.value;
-
-  const etvFocused = focusedTextItem && focusedTextItem.classList.contains('etv-span');
-
-  // Update the focused ETV span if one is being edited
-  if (etvFocused) {
-    focusedTextItem.style.fontFamily = e.target.value;
-    broadcastChange(focusedTextItem);
-  }
-
-  // Update the selected redaction when no ETV span is being edited
-  if (!etvFocused && typeof state !== 'undefined' && state.selectedRedactionIdx !== null) {
-    const r = state.redactions[state.selectedRedactionIdx];
-    if (r) {
-      r.settings.fontFamily = e.target.value;
-      const overlay = document.getElementById(`redaction-idx-${state.selectedRedactionIdx}`);
-      const label = overlay?.querySelector('.redaction-label');
-      if (label) label.style.fontFamily = e.target.value;
-      if (typeof calculateWidthsForRedaction === 'function') {
-        calculateWidthsForRedaction(state.selectedRedactionIdx);
-      }
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.fontFamily = e.target.value;
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
     }
-  }
 });
 
 document.getElementById('fabric-font-size')?.addEventListener('change', (e) => {
-  const px = Math.max(4, parseInt(e.target.value) || 12);
-  e.target.value = px;
-
-  const etvFocused = focusedTextItem && focusedTextItem.classList.contains('etv-span');
-
-  // Update the focused ETV span if one is being edited
-  if (etvFocused) {
-    focusedTextItem.style.setProperty('--etv-fs', `${px}px`);
-    broadcastChange(focusedTextItem);
-  }
-
-  // Update the selected redaction when no ETV span is being edited
-  if (!etvFocused && typeof state !== 'undefined' && state.selectedRedactionIdx !== null) {
-    const r = state.redactions[state.selectedRedactionIdx];
-    if (r) {
-      r.settings.fontSize = px;
-      const overlay = document.getElementById(`redaction-idx-${state.selectedRedactionIdx}`);
-      const label = overlay?.querySelector('.redaction-label');
-      if (label) {
-        label.style.setProperty('--etv-fs', `${px}px`);
-        label.style.fontSize = `calc(${px}px * var(--scale-factor, 1))`;
-      }
-      if (typeof calculateWidthsForRedaction === 'function') {
-        calculateWidthsForRedaction(state.selectedRedactionIdx);
-      }
+    const px = Math.max(4, parseInt(e.target.value) || 12);
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.setProperty('--etv-fs', `${px}px`);
+        // If it's a redaction, we also need to update the calc font size
+        if (lastSelectedTextItem.classList.contains('redaction-label')) {
+            lastSelectedTextItem.style.fontSize = `calc(${px}px * var(--scale-factor, 1))`;
+        }
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
     }
-  }
 });
 
 ['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'].forEach(id => {
-  document.getElementById(id)?.addEventListener('click', () => {
-    document.getElementById(id).classList.toggle('active');
-    applyFormatting();
-  });
+    document.getElementById(id)?.addEventListener('click', () => {
+        document.getElementById(id).classList.toggle('active');
+        applyFormatting();
+    });
 });
 
 document.getElementById('fabric-letter-spacing')?.addEventListener('change', (e) => {
-  const em = parseFloat(e.target.value) || 0;
-  if (focusedTextItem) {
-    focusedTextItem.style.letterSpacing = em ? `${em}em` : '';
-    broadcastChange(focusedTextItem);
-  }
+    if (lastSelectedTextItem) {
+        const em = parseFloat(e.target.value) || 0;
+        lastSelectedTextItem.style.letterSpacing = em ? `${em}em` : '';
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
 });
 
 document.getElementById('fabric-color')?.addEventListener('input', (e) => {
-  if (focusedTextItem) {
-    focusedTextItem.style.setProperty('--etv-color', e.target.value);
-    focusedTextItem.style.color = e.target.value;
-    broadcastChange(focusedTextItem);
-  }
+    if (lastSelectedTextItem) {
+        lastSelectedTextItem.style.setProperty('--etv-color', e.target.value);
+        lastSelectedTextItem.style.color = e.target.value;
+        persistChangesToState(lastSelectedTextItem);
+        broadcastChange(lastSelectedTextItem);
+    }
 });
+
+function broadcastChange(el) {
+    const event = new CustomEvent('text-format-changed', {
+        detail: {
+            element: el,
+            styles: {
+                fontFamily: el.style.fontFamily,
+                fontSize: el.style.getPropertyValue('--etv-fs'),
+                fontWeight: el.style.fontWeight,
+                fontStyle: el.style.fontStyle,
+                color: el.style.getPropertyValue('--etv-color')
+            }
+        }
+    });
+    document.dispatchEvent(event);
+}

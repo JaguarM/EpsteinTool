@@ -47,6 +47,8 @@ const els = {
   toolsSidebar: document.getElementById('tools-sidebar'),
   toggleToolsBtn: document.getElementById('toggle-tools'),
   toolAddBoxBtn: document.getElementById('tool-add-box'),
+  toolTextBtn: document.getElementById('tool-text'),
+  etvAddTextBtn: document.getElementById('etv-add-text-btn'),
   toggleWebglBtn: document.getElementById('toggle-webgl'),
   webglOptionsBar: document.getElementById('webgl-options-bar'),
   textOptionsBar: document.getElementById('text-options-bar'),

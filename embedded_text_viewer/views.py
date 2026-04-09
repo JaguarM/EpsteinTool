@@ -125,6 +125,10 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
                     font_size_pt = float(span.get("size", 12.0))
                     bbox_raw = span.get("bbox")
 
+                    # Remap Helvetica to Calibri for consistent rendering
+                    if "helvetica" in font_name.lower():
+                        font_name = "Calibri"
+
                     if not bbox_raw:
                         continue
 
@@ -133,6 +137,15 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
                     px_y0 = (bbox_raw[1] - img_rect.y0) * scale_y
                     px_x1 = (bbox_raw[2] - img_rect.x0) * scale_x
                     px_y1 = (bbox_raw[3] - img_rect.y0) * scale_y
+
+                    # --- Per-character pixel offsets (relative to span left) ---
+                    chars_data = []
+                    for ch in span.get("chars", []):
+                        ch_bbox = ch.get("bbox")
+                        ch_c    = ch.get("c", "")
+                        if ch_bbox and ch_c:
+                            rel_x = (ch_bbox[0] - img_rect.x0) * scale_x - px_x0
+                            chars_data.append({"c": ch_c, "x": round(rel_x, 2)})
 
                     # Skip spans that fall entirely below the crop line
                     if px_y0 >= expected_h:
@@ -156,6 +169,7 @@ def _extract_pixel_spans(pdf_bytes: bytes) -> list[dict]:
                             "h": round(px_y1 - px_y0, 2),
                             "fontSize": round(px_font_size, 2),
                             "font": font_name,
+                            **({"chars": chars_data} if chars_data else {}),
                         }
                     )
 
