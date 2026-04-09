@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'redaction_matching',
+    'text_tool',
     'guesser_core',
     'embedded_text_viewer',
 ]
