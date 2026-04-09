@@ -219,8 +219,7 @@ function injectRedactionOverlays() {
       if (e.button !== 0) return;
       if (e.detail > 1) return;
       if (e.target.classList.contains('resizer')) return;
-      if (e.target.classList.contains('redaction-label')) return; // let text-tool.js handle label clicks
-      initDragRedaction(e, idx);
+      initDragRedaction(e, idx); // handles label clicks too; e.preventDefault() inside stops text selection
     };
 
     ['l', 'r', 't', 'b'].forEach(edge => {
@@ -232,10 +231,11 @@ function injectRedactionOverlays() {
 
     // Add the editable text label for the redaction
     const label = document.createElement('div');
-    label.className = 'redaction-label';
+    label.className = 'etv-span redaction-label'; // etv-span = unified toolbar/selection handling
     label.contentEditable = 'false'; // text-tool.js manages contentEditable state
     label.tabIndex = 0;              // stays focusable even when contentEditable is false
     label.spellcheck = false;
+    label.dataset.redactionIdx = idx; // used by persistChangesToState to detect redaction labels
     label.textContent = r.labelText || '';
 
     // Apply styling from r.settings

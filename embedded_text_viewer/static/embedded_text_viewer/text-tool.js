@@ -215,9 +215,6 @@ document.getElementById('tool-text')?.addEventListener('click', () => {
 
     // Context Cursor / Visibility
     document.querySelectorAll('.etv-overlay').forEach(el => el.classList.toggle('active-tool', isVisible));
-    if (isVisible && typeof etvState !== 'undefined' && !etvState.active) {
-        document.getElementById('toggle-embedded-viewer')?.click();
-    }
 });
 
 /**

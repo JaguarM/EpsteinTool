@@ -187,6 +187,8 @@ tr:last-child td {
   justify-content: flex-start;
   overflow: visible;
   z-index: 10;
+  user-select: none; /* prevent text selection during drag */
+  cursor: move;
 }
 
 
@@ -198,4 +200,21 @@ tr:last-child td {
   overflow: visible;
   z-index: 100;
   border: 1px dashed #8ab4f8;
+}
+
+/* When label also carries .etv-span, override position/cursor/select conflicts.
+   Two-class specificity (0,2,0) beats either single-class rule regardless of load order. */
+.etv-span.redaction-label {
+  left: 0;
+  top: 0;
+  height: 100%;
+  cursor: move;
+  user-select: none;
+  /* Neutralise etv-span's position custom-property cascade */
+  --etv-x: 0;
+  --etv-y: 0;
+}
+
+.etv-span.redaction-label:focus {
+  cursor: text;
 }

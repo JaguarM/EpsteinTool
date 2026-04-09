@@ -149,12 +149,8 @@
 
       state.selectedRedactionIdx = idx;
 
-      // Update toolbar settings to match this redaction's specific settings
+      // Redaction-specific controls (not part of the unified font toolbar)
       const s = r.settings;
-      const fabricSel = document.getElementById('fabric-font-family');
-      if (fabricSel) fabricSel.value = s.fontFamily || 'Times New Roman';
-      const fabricSizeInput = document.getElementById('fabric-font-size');
-      if (fabricSizeInput) fabricSizeInput.value = s.fontSize || 16;
       els.tol.value = s.tol;
       els.kern.checked = !!s.kern;
       els.lig.checked = !!s.lig;
@@ -182,16 +178,19 @@
           });
         }
         
-        // SYNC FABRIC TOOLBAR
-        const label = el.querySelector('.redaction-label');
+        // updateAllMatchesView writes r.settings.* to label inline styles first,
+        // then label.focus() triggers focusin → syncBarToSpan(label) in text-tool.js
+        const label = el.querySelector('.etv-span.redaction-label');
         if (label) {
+          updateAllMatchesView(idx);
+          renderCandidates();
           label.focus();
+          return; // updateAllMatchesView and renderCandidates already called above
         }
       }
 
-      // Re-render candidates since we changed selection (and widths depend on selection)
+      // Fallback if overlay/label not in DOM yet
       renderCandidates();
-      // Only update overlay label/style for the selected redaction
       updateAllMatchesView(idx);
     }
 
@@ -277,52 +276,36 @@
     }
 
 
-    document.addEventListener('text-format-changed', (e) => {
-      const { element, styles } = e.detail;
-      if (!element.classList.contains('redaction-label')) return;
-      
-      // Extract index from ID redaction-idx-N
-      const overlay = element.parentElement;
-      if (!overlay) return;
-      const idMatch = overlay.id.match(/redaction-idx-(\d+)/);
-      if (!idMatch) return;
-      
-      const idx = parseInt(idMatch[1]);
-      const r = state.redactions[idx];
-      if (r) {
-        r.settings.bold = styles.fontWeight === 'bold';
-        r.settings.italic = styles.fontStyle === 'italic';
-        r.settings.textDecoration = styles.textDecoration;
-        r.settings.letterSpacing = styles.letterSpacing;
-        r.settings.color = styles.color;
-        
-        // Also update matching table view for this redaction if needed
-        const rowEl = document.getElementById(`match-row-${idx}`);
-        if (rowEl) {
-           // We don't necessarily need to re-render the whole row, but ensure state is sync
-        }
-      }
-    });
+    // text-format-changed listener removed — persistChangesToState in text-tool.js now
+    // handles all r.settings sync (fontFamily, fontSize, bold, italic, color, etc.)
+    // for redaction labels via the el.dataset.redactionIdx branch.
 
     async function handleManualAddBox(pageNum, pxX, pxY) {
       if (typeof findNearestETVLine !== 'function') return;
 
       const nearestLine = findNearestETVLine(pageNum, pxY, 2.0); // 2x threshold
-      let finalY = pxY;
-      let finalH = 20; // Default height if no line
-      let finalLineId = null;
 
-      if (nearestLine) {
-        finalY = nearestLine.y;
-        finalH = nearestLine.h;
-        finalLineId = nearestLine.lineId;
-      }
+      // Snap geometry and typography from the nearest ETV line, same as addEmbeddedTextSpan
+      const finalY      = nearestLine ? nearestLine.y      : pxY;
+      const finalH      = nearestLine ? nearestLine.h      : 20;
+      const finalLineId = nearestLine ? nearestLine.lineId : null;
+      const lineFont    = nearestLine?.font;
+      const lineFontSz  = nearestLine?.fontSize;
 
-      // Default width 100px
-      createNewRedaction(pageNum, pxX - 50, finalY, 100, finalH, finalLineId);
+      createNewRedaction(pageNum, pxX - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
     }
 
-    function createNewRedaction(pageNum, x, y, width, height, lineId = null) {
+    function createNewRedaction(pageNum, x, y, width, height, lineId = null, lineFont = null, lineFontSz = null) {
+      // Resolve font: prefer the snapped ETV line's font (normalized to CSS name),
+      // then fall back to whatever is in the toolbar, then Times New Roman.
+      const normFn = typeof etvNormFont === 'function' ? etvNormFont : (n => n);
+      const fontFamily = (lineFont ? normFn(lineFont) : null)
+                      || document.getElementById('fabric-font-family')?.value
+                      || 'Times New Roman';
+      const fontSize   = lineFontSz
+                      || parseInt(document.getElementById('fabric-font-size')?.value)
+                      || 16;
+
       const idx = state.redactions.length;
       const newRed = {
         page: pageNum,
@@ -333,8 +316,8 @@
         area: width * height,
         lineId: lineId,
         settings: {
-          fontFamily: document.getElementById('fabric-font-family')?.value || 'Times New Roman',
-          fontSize: parseInt(document.getElementById('fabric-font-size')?.value) || 16,
+          fontFamily,
+          fontSize,
           tol: parseFloat(els.tol?.value) || 0,
           kern: els.kern?.checked ?? true,
           lig: els.lig?.checked ?? true,
@@ -352,8 +335,10 @@
         injectRedactionOverlays();
       }
       
-      // Select the new one
+      // Select then immediately calculate widths (selectRedaction sets selectedRedactionIdx
+      // so the calculation will call renderCandidates once the fetch completes)
       selectRedaction(idx);
+      if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
     }
 
     function fontFamilyToTtf(fontFamily) {
