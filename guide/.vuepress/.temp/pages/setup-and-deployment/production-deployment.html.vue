@@ -44,7 +44,7 @@
 </tr>
 <tr>
 <td>6</td>
-<td>Installs SSL certificate via Certbot for <code v-pre>puzzle.moedritscher.ch</code></td>
+<td>Installs SSL certificate via Certbot for <code v-pre>unbarPDF.com</code></td>
 </tr>
 </tbody>
 </table>
@@ -75,7 +75,7 @@
 <p>The file <code v-pre>nginx_app.conf</code> proxies to the Gunicorn socket and serves static files directly:</p>
 <div class="language-nginx line-numbers-mode" data-highlighter="prismjs" data-ext="nginx"><pre v-pre><code class="language-nginx"><span class="line"><span class="token directive"><span class="token keyword">server</span></span> <span class="token punctuation">{</span></span>
 <span class="line">    <span class="token directive"><span class="token keyword">listen</span> <span class="token number">80</span></span><span class="token punctuation">;</span></span>
-<span class="line">    <span class="token directive"><span class="token keyword">server_name</span> puzzle.moedritscher.ch</span><span class="token punctuation">;</span></span>
+<span class="line">    <span class="token directive"><span class="token keyword">server_name</span> unbarPDF.com</span><span class="token punctuation">;</span></span>
 <span class="line"></span>
 <span class="line">    <span class="token directive"><span class="token keyword">location</span> /static/</span> <span class="token punctuation">{</span></span>
 <span class="line">        <span class="token directive"><span class="token keyword">alias</span> /var/www/epsteintool/static/</span><span class="token punctuation">;</span></span>
@@ -95,7 +95,7 @@
 <span class="line"></span></code></pre>
 <div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_3-ssl-with-certbot" tabindex="-1"><a class="header-anchor" href="#_3-ssl-with-certbot"><span>3. SSL with Certbot</span></a></h3>
 <div class="language-bash line-numbers-mode" data-highlighter="prismjs" data-ext="sh"><pre v-pre><code class="language-bash"><span class="line"><span class="token function">sudo</span> <span class="token function">apt-get</span> <span class="token function">install</span> <span class="token parameter variable">-y</span> certbot python3-certbot-nginx</span>
-<span class="line"><span class="token function">sudo</span> certbot <span class="token parameter variable">--nginx</span> <span class="token parameter variable">-d</span> puzzle.moedritscher.ch</span>
+<span class="line"><span class="token function">sudo</span> certbot <span class="token parameter variable">--nginx</span> <span class="token parameter variable">-d</span> unbarPDF.com</span>
 <span class="line"></span></code></pre>
 <div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div></div></div><p>Certbot will modify the Nginx config to add HTTPS listeners and auto-renew certificates.</p>
 <hr>

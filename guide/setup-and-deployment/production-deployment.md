@@ -33,7 +33,7 @@ sudo ./setup.sh
 | 3 | Runs `manage.py migrate` and `collectstatic` |
 | 4 | Installs the `epsteintool.service` systemd unit |
 | 5 | Configures Nginx with `nginx_app.conf` |
-| 6 | Installs SSL certificate via Certbot for `puzzle.moedritscher.ch` |
+| 6 | Installs SSL certificate via Certbot for `unbarPDF.com` |
 
 ---
 
@@ -73,7 +73,7 @@ The file `nginx_app.conf` proxies to the Gunicorn socket and serves static files
 ```nginx
 server {
     listen 80;
-    server_name puzzle.moedritscher.ch;
+    server_name unbarPDF.com;
 
     location /static/ {
         alias /var/www/epsteintool/static/;
@@ -98,7 +98,7 @@ sudo nginx -t && sudo systemctl restart nginx
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d puzzle.moedritscher.ch
+sudo certbot --nginx -d unbarPDF.com
 ```
 
 Certbot will modify the Nginx config to add HTTPS listeners and auto-renew certificates.

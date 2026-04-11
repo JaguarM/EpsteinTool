@@ -28,8 +28,8 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://puzzle.moedritscher.ch',
-    'http://puzzle.moedritscher.ch',
+    'https://unbarPDF.com',
+    'http://unbarPDF.com',
 ]
 
 

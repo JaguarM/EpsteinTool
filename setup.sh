@@ -77,6 +77,6 @@ if ! command -v certbot &> /dev/null; then
 fi
 
 # Run certbot
-sudo certbot --nginx -d puzzle.moedritscher.ch
+sudo certbot --nginx -d unbarPDF.com
 
-echo -e "${GREEN}Installation Complete! Check https://puzzle.moedritscher.ch${NC}"
+echo -e "${GREEN}Installation Complete! Check https://unbarPDF.com${NC}"
