@@ -46,6 +46,8 @@
       const s = r.settings;
       
       try {
+        const useCal = typeof window.calState !== 'undefined' && window.calState.loaded;
+
         const resp = await fetch('/widths', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -56,20 +58,45 @@
             scale: 100,
             kerning: s.kern,
             ligatures: s.lig,
-            force_uppercase: s.upper
+            force_uppercase: s.upper,
+            use_calibration: useCal,
+            spans: typeof etvState !== 'undefined' && etvState.spans ? etvState.spans : (typeof state !== 'undefined' && state.spans ? state.spans : [])
           })
         });
+        
+        if (!resp.ok) throw new Error("API Offline");
+        
         const d = await resp.json();
         r.widths = {};
         d.results.forEach(res => r.widths[res.text] = res.width);
         
         if (idx === state.selectedRedactionIdx) {
             renderCandidates();
-            // Recompute matches and update the overlay label styling only for this redaction
             updateAllMatchesView(idx);
         }
       } catch (e) {
-        console.error("Width logic error", e);
+        console.warn("HarfBuzz API unavailable, falling back to Canvas measureText", e);
+        
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        
+        const fontStyle = s.italic ? 'italic ' : '';
+        const fontWeight = s.bold ? 'bold ' : '';
+        const fontSizeStr = `${s.fontSize || 16}px`;
+        const fontFamilyStr = `"${s.fontFamily || 'Times New Roman'}"`;
+        ctx.font = `${fontStyle}${fontWeight}${fontSizeStr} ${fontFamilyStr}`;
+        
+        r.widths = {};
+        state.candidates.forEach(c => {
+           let disp = s.upper ? c.toUpperCase() : c;
+           // In canvas, widths are directly in pixels, but without the precision Harfbuzz scale factors.
+           r.widths[c] = ctx.measureText(disp).width;
+        });
+
+        if (idx === state.selectedRedactionIdx) {
+            renderCandidates();
+            updateAllMatchesView(idx);
+        }
       }
     }
 

@@ -8,10 +8,12 @@
         els.toggleSidebarBtn.classList.toggle('active');
       });
 
-      els.toggleToolsBtn.addEventListener('click', () => {
-        els.toolsSidebar.classList.toggle('hidden');
-        els.toggleToolsBtn.classList.toggle('active');
-      });
+      if (els.toggleToolsBtn) {
+        els.toggleToolsBtn.addEventListener('click', () => {
+          els.toolsSidebar.classList.toggle('hidden');
+          els.toggleToolsBtn.classList.toggle('active');
+        });
+      }
 
       if (els.toolAddBoxBtn) {
         els.toolAddBoxBtn.addEventListener('click', () => {

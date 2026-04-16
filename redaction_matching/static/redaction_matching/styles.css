@@ -140,9 +140,51 @@ tr:last-child td {
   font-style: italic;
 }
 
-/* Redaction Labels & Overlays */
+/* Redaction Overlays */
 
+.redaction-overlay {
+  position: absolute;
+  background-color: rgba(253, 224, 71, 0.3);
+  border: 1px solid rgba(234, 179, 8, 0.8);
+  border-radius: 2px;
+  cursor: pointer;
+  z-index: 60; /* above etv-overlay (4) and etv-overlay.active-tool (50) */
+  left:   calc(var(--px-x,      0) * var(--scale-factor, 1));
+  top:    calc(var(--px-y,      0) * var(--scale-factor, 1));
+  width:  calc(var(--px-width,  0) * var(--scale-factor, 1));
+  height: calc(var(--px-height, 0) * var(--scale-factor, 1));
+}
 
+.redaction-overlay:hover {
+  background-color: rgba(253, 224, 71, 0.55);
+}
+
+.redaction-overlay.selected {
+  background-color: rgba(138, 180, 248, 0.15);
+  border-color: rgba(138, 180, 248, 0.7);
+  box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.4);
+  z-index: 20;
+}
+
+/* Hide the match glow when the overlay is selected — avoids two simultaneous rings */
+.redaction-overlay.selected::after {
+  display: none;
+}
+
+.resizer {
+  position: absolute;
+  background: transparent;
+  z-index: 30;
+}
+
+.resizer-l { left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.resizer-r { right: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.resizer-t { top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; }
+.resizer-b { bottom: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; }
+
+.resizer:hover {
+  background: rgba(138, 180, 248, 0.5);
+}
 
 /* High Confidence Match Glow */
 .redaction-overlay.has-match::after {
@@ -156,16 +198,6 @@ tr:last-child td {
   opacity: 0.6;
 }
 
-.redaction-overlay.selected {
-  animation: pulse-border 2s infinite;
-}
-
-@keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(138, 180, 248, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(138, 180, 248, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(138, 180, 248, 0); }
-}
-
 .redaction-label {
   position: absolute;
   left: 0;
@@ -173,15 +205,10 @@ tr:last-child td {
   min-width: 100%;
   height: 100%;
   width: max-content;
-  background-color: transparent;
   color: #81c995;
-  font-weight: 600;
-  padding: 0;
-  border: none;
   font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
-  pointer-events: auto;
-  outline: none;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -192,14 +219,11 @@ tr:last-child td {
 }
 
 
-
-
 .redaction-label:focus {
-  background-color: rgba(255, 255, 255, 0.9);
+  outline: none;
   cursor: text;
   overflow: visible;
   z-index: 100;
-  border: 1px dashed #8ab4f8;
 }
 
 /* When label also carries .etv-span, override position/cursor/select conflicts.

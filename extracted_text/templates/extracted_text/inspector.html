@@ -1,0 +1,70 @@
+<aside id="cmp-panel" class="hidden">
+  <div id="cmp-header">
+    <span>HarfBuzz Accuracy Inspector</span>
+    <button id="cmp-close" class="icon-button" title="Close">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <!-- Controls -->
+  <div id="cmp-controls">
+
+
+    <div class="cmp-row">
+      <label class="cmp-label" title="PDF points → image pixels (default 4/3)">Scale px/pt</label>
+      <input type="number" id="cmp-scale" class="toolbar-input-small"
+        value="1.3333" min="0.5" max="4" step="0.0001">
+    </div>
+
+    <div class="cmp-row">
+      <label class="cmp-label" title="HarfBuzz correction multiplier">Correction</label>
+      <input type="range" id="cmp-correction" min="0.90" max="1.10"
+        step="0.001" value="1.0" style="width:90px">
+      <span id="cmp-correction-val" class="options-label">1.0000</span>
+      <button id="cmp-auto-calibrate" class="cmp-auto-btn"
+        title="Cluster fonts and learn per-char calibration ratios">Calibrate</button>
+    </div>
+
+    <div class="cmp-row">
+      <label></label>
+      <label style="font-size:12px;color:#9aa0a6">
+        <input type="checkbox" id="cmp-kerning" checked> kerning
+      </label>
+      <label style="font-size:12px;color:#9aa0a6">
+        <input type="checkbox" id="cmp-ligatures" checked> ligatures
+      </label>
+      <label style="font-size:12px;color:#9aa0a6">
+        <input type="checkbox" id="cmp-show-on-page" checked> show on page
+      </label>
+    </div>
+
+    <div class="cmp-row">
+      <span id="cmp-status" style="flex-grow:1; font-size:12px; color:#1a73e8; padding-right:10px;"></span>
+      <button id="cmp-run" class="cmp-run-btn">Run</button>
+    </div>
+  </div>
+
+  <!-- Calibration summary (populated by measure.js after /calibrate) -->
+  <div id="cmp-cal-summary" style="display:none"></div>
+
+  <!-- Results table -->
+  <div id="cmp-table-wrap">
+    <table id="cmp-table">
+      <thead id="cmp-thead"></thead>
+      <tbody id="cmp-tbody"></tbody>
+    </table>
+    <div id="cmp-empty">Load a PDF and click Run.</div>
+  </div>
+
+  <!-- Span inspector -->
+  <div id="cmp-inspector" class="hidden">
+    <div id="cmp-inspector-header">
+      <span id="cmp-inspector-text"></span>
+      <button id="cmp-inspector-close" class="icon-button" title="Close inspector">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <canvas id="cmp-crop-canvas"></canvas>
+    <div id="cmp-inspector-rows"></div>
+  </div>
+</aside>

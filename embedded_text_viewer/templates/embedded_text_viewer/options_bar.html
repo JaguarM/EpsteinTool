@@ -1,5 +1,14 @@
     <!-- Embedded Text Viewer Sub-toolbar -->
-    <div id="etv-options-bar" class="hidden">
+    <div id="etv-bar" class="options-bar hidden">
+      <div class="options-divider"></div>
+      <div class="options-group">
+        <div class="options-group-header">Rendering</div>
+        <div class="options-group-controls">
+          <label style="font-size:12px;color:#9aa0a6;display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="etv-render-enabled"> Enable Embedded Text
+          </label>
+        </div>
+      </div>
       <div class="options-divider"></div>
       <div class="options-group">
         <div class="options-group-header">Display</div>
@@ -24,10 +33,12 @@
           </select>
         </div>
       </div>
+
+
     </div>
 
     <!-- Fabric Options Bar (Formatting Ribbon) -->
-    <div id="fabric-options-bar" class="hidden">
+    <div id="fabric-options-bar" class="options-bar hidden">
       <div class="options-divider"></div>
 
       <div class="options-group">
@@ -55,7 +66,7 @@
             <option value="Times New Roman" selected>Times New Roman</option>
             <option value="Verdana">Verdana</option>
           </select>
-          <input type="number" id="fabric-font-size" value="12" min="4" max="400" title="Font size (px)" class="toolbar-input-small">
+          <input type="number" id="fabric-font-size" value="12" min="1" max="400" step="0.05" title="Font size (px)" class="toolbar-input-small" style="width: 72px;">
           <span class="options-label">px</span>
         </div>
       </div>

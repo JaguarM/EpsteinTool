@@ -6,7 +6,7 @@ function getETVSpanEl(span) {
   const pageSpans = etvState.spans.filter(sp => sp.page === span.page);
   const idx = pageSpans.indexOf(span);
   if (idx === -1) return null;
-  return overlay.querySelector(`.etv-span[data-index="${idx}"]`);
+  return overlay.querySelector(`.etv-span[data-idx="${idx}"]`);
 }
 
 /* Zoom Handlers */

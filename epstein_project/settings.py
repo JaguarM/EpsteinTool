@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import webgl_mask
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -28,8 +29,8 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://unbarPDF.com',
-    'http://unbarPDF.com',
+    'https://puzzle.moedritscher.ch',
+    'http://puzzle.moedritscher.ch',
 ]
 
 
@@ -43,10 +44,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'redaction_matching',
-    'text_tool',
     'guesser_core',
     'embedded_text_viewer',
     'webgl_mask',
+    'extracted_text',
 ]
 
 MIDDLEWARE = [

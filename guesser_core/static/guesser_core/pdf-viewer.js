@@ -60,24 +60,26 @@ async function loadDocument(data, file) {
   const fabricSizeInput = document.getElementById('fabric-font-size');
   if (fabricSizeInput) fabricSizeInput.value = initialFontSize;
 
-  state.redactions = data.redactions.map(r => ({
-    ...r,
-    lineId: null,
-    settings: {
-      fontFamily: initialFontFamily,
-      fontSize: initialFontSize,
-      tol: parseFloat(els.tol?.value) || 0,
-      kern: els.kern?.checked ?? false,
-      lig: els.lig?.checked ?? false,
-      upper: els.upper?.checked ?? false
-    },
-    widths: {},
-    labelText: '',
-    manualLabel: false
-  }));
+  if (typeof injectRedactionOverlays === 'function') {
+    state.redactions = data.redactions.map(r => ({
+      ...r,
+      lineId: null,
+      settings: {
+        fontFamily: initialFontFamily,
+        fontSize: initialFontSize,
+        tol: parseFloat(els.tol?.value) || 0,
+        kern: els.kern?.checked ?? false,
+        lig: els.lig?.checked ?? false,
+        upper: els.upper?.checked ?? false
+      },
+      widths: {},
+      labelText: '',
+      manualLabel: false
+    }));
+  }
 
   if (typeof calculateAllWidths === 'function') await calculateAllWidths();
-  injectRedactionOverlays();
+  if (typeof injectRedactionOverlays === 'function') injectRedactionOverlays();
 
   if (typeof fetchMasksAsync === 'function') await fetchMasksAsync(file, !file);
 
@@ -184,75 +186,9 @@ async function goToPage(pageNum) {
     renderEmbeddedTextOverlay(pageContainer, pageNum);
   }
 
-  injectRedactionOverlays();
+  if (typeof injectRedactionOverlays === 'function') injectRedactionOverlays();
 
   if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
 }
 
-/* Rendering Redaction Overlays inside Document Pages */
-function injectRedactionOverlays() {
-  if (!state.redactions.length) return;
 
-  // Cleanup existing
-  document.querySelectorAll('.redaction-overlay').forEach(e => e.remove());
-
-  state.redactions.forEach((r, idx) => {
-    const container = document.getElementById(`pageContainer${r.page}`);
-    if (!container) return;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'redaction-overlay';
-    overlay.id = `redaction-idx-${idx}`;
-
-    // Pixel-space coordinates; CSS multiplies by --scale-factor for zoom
-    overlay.style.setProperty('--px-x', `${r.x}px`);
-    overlay.style.setProperty('--px-y', `${r.y}px`);
-    overlay.style.setProperty('--px-width', `${r.width}px`);
-    overlay.style.setProperty('--px-height', `${r.height}px`);
-
-    overlay.onclick = (e) => {
-      e.stopPropagation();
-      if (typeof selectRedaction === 'function') selectRedaction(idx);
-    };
-
-    overlay.onmousedown = (e) => {
-      if (e.button !== 0) return;
-      if (e.detail > 1) return;
-      if (e.target.classList.contains('resizer')) return;
-      initDragRedaction(e, idx); // handles label clicks too; e.preventDefault() inside stops text selection
-    };
-
-    ['l', 'r', 't', 'b'].forEach(edge => {
-      const resizer = document.createElement('div');
-      resizer.className = `resizer resizer-${edge}`;
-      resizer.onmousedown = (e) => initResize(e, idx, edge);
-      overlay.appendChild(resizer);
-    });
-
-    // Add the editable text label for the redaction
-    const label = document.createElement('div');
-    label.className = 'etv-span redaction-label'; // etv-span = unified toolbar/selection handling
-    label.contentEditable = 'false'; // text-tool.js manages contentEditable state
-    label.tabIndex = 0;              // stays focusable even when contentEditable is false
-    label.spellcheck = false;
-    label.dataset.redactionIdx = idx; // used by persistChangesToState to detect redaction labels
-    label.textContent = r.labelText || '';
-
-    // Apply styling from r.settings
-    label.style.fontFamily = r.settings.fontFamily || 'inherit';
-    label.style.setProperty('--etv-fs', `${r.settings.fontSize || 16}px`);
-    label.style.fontSize = `calc(${r.settings.fontSize || 16}px * var(--scale-factor, 1))`;
-    label.style.color = r.settings.color || '#81c995';
-
-    // click: stop propagation so overlay.onclick (selectRedaction) doesn't double-fire
-    // mousedown: allow propagation so text-tool.js global handler can call selectTextElement
-    // No blur/edit handler — label text is always driven by the width calculation
-    label.addEventListener('click', (e) => e.stopPropagation());
-
-    overlay.appendChild(label);
-
-    if (idx === state.selectedRedactionIdx) overlay.classList.add('selected');
-
-    container.appendChild(overlay);
-  });
-}

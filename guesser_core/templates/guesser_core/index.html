@@ -23,6 +23,9 @@
   {% if 'text_tool' in active_plugins %}
   <link rel="stylesheet" href="{% static 'text_tool/styles.css' %}">
   {% endif %}
+  {% if 'embedded_text_viewer' in active_plugins %}
+  <link rel="stylesheet" href="{% static 'embedded_text_viewer/styles.css' %}">
+  {% endif %}
 </head>
 
 <body>
@@ -97,9 +100,11 @@
         {% endif %}
 
 
+        {% if 'redaction_matching' in active_plugins %}
         <button id="toggle-tools" class="icon-button active" title="Toggle AI Unredactor Tools">
           <span class="material-symbols-outlined">build</span>
         </button>
+        {% endif %}
       </div>
     </header>
 
@@ -115,6 +120,10 @@
 
         {% if 'webgl_mask' in active_plugins %}
         {% include 'webgl_mask/options_bar.html' %}
+        {% endif %}
+
+        {% if 'embedded_text_viewer' in active_plugins %}
+        {% include 'embedded_text_viewer/options_bar.html' %}
         {% endif %}
       </div>
     </div>
@@ -146,13 +155,17 @@
       </main>
 
       <!-- AI Tools Sidebar (Right) -->
-      <aside id="tools-sidebar">
+      <aside id="tools-sidebar"{% if 'redaction_matching' not in active_plugins %} class="hidden"{% endif %}>
 
         {% if 'redaction_matching' in active_plugins %}
         {% include 'redaction_matching/sidebar_tools.html' %}
         {% endif %}
 
       </aside>
+
+      {% if 'extracted_text' in active_plugins %}
+      {% include 'extracted_text/inspector.html' %}
+      {% endif %}
 
     </div>
   </div>
@@ -167,8 +180,11 @@
   <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
   {% endif %}
   <script src="{% static 'guesser_core/pdf-viewer.js' %}"></script>
-  {% if 'text_tool' in active_plugins %}
-  <script src="{% static 'text_tool/embedded-text-viewer.js' %}"></script>
+  {% if 'embedded_text_viewer' in active_plugins %}
+  <script src="{% static 'embedded_text_viewer/embedded-text-viewer.js' %}"></script>
+  {% endif %}
+  {% if 'extracted_text' in active_plugins %}
+  <script src="{% static 'extracted_text/measure.js' %}"></script>
   {% endif %}
   {% if 'redaction_matching' in active_plugins %}
   <script src="{% static 'redaction_matching/redaction-matching.js' %}"></script>
