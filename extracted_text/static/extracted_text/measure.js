@@ -39,6 +39,7 @@ const cmpEls = {
   correctionVal:  document.getElementById('cmp-correction-val'),
   kerning:        document.getElementById('cmp-kerning'),
   ligatures:      document.getElementById('cmp-ligatures'),
+  justify:        document.getElementById('cmp-justify'),
   runBtn:         document.getElementById('cmp-run'),
   autoBtn:        document.getElementById('cmp-auto-calibrate'),
   thead:          document.getElementById('cmp-thead'),
@@ -82,9 +83,14 @@ function cmpClearPageOverlay() {
 }
 
 /** Render colored bounding boxes on each page for each compared span. */
-function cmpRenderOnPage() {
+async function cmpRenderOnPage() {
   cmpClearPageOverlay();
   if (!cmpState.showOnPage || !cmpState.results.length) return;
+
+  const ttfForLoad = getFabricTtf();
+  if (ttfForLoad && typeof etvLoadRenderFont === 'function') {
+    try { await etvLoadRenderFont(ttfForLoad); } catch (_) { /* font unavailable — fall back to system font */ }
+  }
 
   // Group items by page using the parallel comparedSpans array
   const byPage = {};
@@ -107,12 +113,46 @@ function cmpRenderOnPage() {
       const cls = row.error_pct != null ? errClass(row.error_pct) : 'err-bad';
       const el  = document.createElement('div');
       el.className = `cmp-span-marker ${cls}`;
-      el.style.setProperty('--etv-x', `${span.x}px`);
-      el.style.setProperty('--etv-y', `${span.y}px`);
-      el.style.setProperty('--etv-w', `${span.w}px`);
-      el.style.setProperty('--etv-h', `${span.h}px`);
+      el.style.setProperty('--etv-x',  `${span.x}px`);
+      el.style.setProperty('--etv-y',  `${span.y}px`);
+      el.style.setProperty('--etv-w',  `${span.w}px`);
+      el.style.setProperty('--etv-h',  `${span.h}px`);
+      el.style.setProperty('--etv-fs', `${span.fontSize || span.sizePt * (4/3) || 16}px`);
+
+      const ttfName = getFabricTtf();
+      if (ttfName) el.style.fontFamily = `"etv_${ttfName}"`;
+      el.style.setProperty('--cmp-text-color', 'rgba(74, 144, 226, 0.7)');
+
+      // Per-character nodes
+      if (row.chars && row.chars.length) {
+        for (const ch of row.chars) {
+          const chEl = document.createElement('i');
+          chEl.textContent = ch.c === '\t' ? '' : ch.c;
+          chEl.style.setProperty('--ch-x', `${ch.x}px`);
+          el.appendChild(chEl);
+        }
+      }
+
+      // PDF end-of-text vertical line (red)
+      const pdfEndLine = document.createElement('div');
+      pdfEndLine.className = 'cmp-end-line cmp-pdf-end';
+      el.appendChild(pdfEndLine);
+
+      // HarfBuzz end vertical line (green dashed)
+      const hbW = row.width_px;
+      if (hbW != null) {
+        const hbEndLine = document.createElement('div');
+        hbEndLine.className = 'cmp-end-line cmp-hb-end';
+        hbEndLine.style.setProperty('--hb-w', `${hbW}px`);
+        el.appendChild(hbEndLine);
+      }
+
+      // Tooltip
+      const sizePt = span.sizePt ?? (span.fontSize ? (span.fontSize / (4/3)).toFixed(1) : '?');
+      const fontRaw = span.font || '?';
       if (row.error_pct != null) {
-        let hoverText = `${row.text}\nError: ${row.error_pct >= 0 ? '+' : ''}${row.error_pct.toFixed(2)}%`;
+        let hoverText = `${row.text}\nFont: ${fontRaw} | ${sizePt}pt`;
+        hoverText += `\nError: ${row.error_pct >= 0 ? '+' : ''}${row.error_pct.toFixed(2)}%`;
         if (row.calibrated_px != null) {
           hoverText += `\nCalibrated: ${row.calibrated_px.toFixed(2)} px`;
         }
@@ -121,7 +161,7 @@ function cmpRenderOnPage() {
       } else {
         el.title = `${row.text}: ${row.error || '?'}`;
       }
-      
+
       overlay.appendChild(el);
     });
 
@@ -374,6 +414,7 @@ async function runComparison() {
   const correction = parseFloat(cmpEls.correction.value) || 1.0;
   const kerning    = cmpEls.kerning.checked;
   const ligatures  = cmpEls.ligatures.checked;
+  const justify    = cmpEls.justify?.checked ?? true;
   const pageFilter = typeof state !== 'undefined' ? state.currentPage : 1;
 
   // Filter spans
@@ -398,7 +439,7 @@ async function runComparison() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         spans: toCompare, font: fontName,
-        scale, kerning, ligatures, correction,
+        scale, kerning, ligatures, justify, correction,
         use_calibration: calState.loaded,
       }),
     });
@@ -485,6 +526,9 @@ async function runCalibrate() {
 // ── Toggle panel open/close ───────────────────────────────────
 
 function openPanel()  {
+  // Mutual exclusivity: close tools-sidebar when cmp panel opens
+  document.getElementById('tools-sidebar')?.classList.add('hidden');
+  document.getElementById('toggle-tools')?.classList.remove('active');
   cmpEls.panel.classList.remove('hidden');
   cmpEls.toggleBtn.classList.add('active');
 }
@@ -513,6 +557,7 @@ cmpEls.correction?.addEventListener('input', () => {
 // Auto-rerun when these settings change (after a short debounce)
 cmpEls.kerning?.addEventListener('change',   scheduleRerun);
 cmpEls.ligatures?.addEventListener('change', scheduleRerun);
+cmpEls.justify?.addEventListener('change',   scheduleRerun);
 document.getElementById('fabric-font-family')?.addEventListener('change', () => {
   // Only change the HarfBuzz Accuracy Inspector calculation if NO individual span is selected,
   // and the inspector button/panel is actively open.

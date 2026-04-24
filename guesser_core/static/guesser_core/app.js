@@ -8,12 +8,30 @@
         els.toggleSidebarBtn.classList.toggle('active');
       });
 
+      // Right sidebars are mutually exclusive: tools-sidebar vs cmp-panel
+      function openRightPanel(panelToShow, btnToActivate) {
+        const cmpPanel   = document.getElementById('cmp-panel');
+        const toggleCmp  = document.getElementById('toggle-cmp');
+        els.toolsSidebar?.classList.add('hidden');
+        cmpPanel?.classList.add('hidden');
+        els.toggleToolsBtn?.classList.remove('active');
+        toggleCmp?.classList.remove('active');
+        if (panelToShow) {
+          panelToShow.classList.remove('hidden');
+          btnToActivate?.classList.add('active');
+        }
+      }
+
       if (els.toggleToolsBtn) {
         els.toggleToolsBtn.addEventListener('click', () => {
-          els.toolsSidebar.classList.toggle('hidden');
-          els.toggleToolsBtn.classList.toggle('active');
+          if (els.toolsSidebar.classList.contains('hidden')) {
+            openRightPanel(els.toolsSidebar, els.toggleToolsBtn);
+          } else {
+            openRightPanel(null, null);
+          }
         });
       }
+
 
       if (els.toolAddBoxBtn) {
         els.toolAddBoxBtn.addEventListener('click', () => {
@@ -37,24 +55,40 @@
         });
       }
 
+      // Subtoolbars are mutually exclusive tabs; null = default (text options bar)
+      // Exposed as window.openSubtoolbar so plugin scripts can call it on click
+      window.openSubtoolbar = function openSubtoolbar(barToShow, btnToActivate) {
+        const toggleETV = document.getElementById('toggle-embedded-viewer');
+        const toggleFmt = document.getElementById('toggle-fmt');
+        els.textOptionsBar?.classList.add('hidden');
+        if (els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
+        document.getElementById('etv-bar')?.classList.add('hidden');
+        document.getElementById('fabric-options-bar')?.classList.add('hidden');
+        els.toggleWebglBtn?.classList.remove('active');
+        toggleETV?.classList.remove('active');
+        toggleFmt?.classList.remove('active');
+        if (!barToShow) {
+          els.textOptionsBar?.classList.remove('hidden');
+          return;
+        }
+        barToShow.classList.remove('hidden');
+        btnToActivate?.classList.add('active');
+      };
+
+      // Set initial state — show text options bar
+      openSubtoolbar(null, null);
+
       if (els.toggleWebglBtn) {
         els.toggleWebglBtn.addEventListener('click', () => {
-          els.toggleWebglBtn.classList.toggle('active');
-          const isWebglActive = els.toggleWebglBtn.classList.contains('active');
-
+          const isActive = els.toggleWebglBtn.classList.contains('active');
           document.querySelectorAll('.webgl-overlay').forEach(canvas => {
-            canvas.style.display = isWebglActive ? 'block' : 'none';
+            canvas.style.display = !isActive ? 'block' : 'none';
           });
-
-          if (isWebglActive) {
-             if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
-             if(els.webglOptionsBar) els.webglOptionsBar.classList.remove('hidden');
-             if(els.textOptionsBar) els.textOptionsBar.classList.add('hidden');
-             const fabBar = document.getElementById('fabric-options-bar');
-             if (fabBar) fabBar.classList.add('hidden');
+          if (!isActive) {
+            openSubtoolbar(els.webglOptionsBar, els.toggleWebglBtn);
+            if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
           } else {
-             if(els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
-             if(els.textOptionsBar) els.textOptionsBar.classList.remove('hidden');
+            openSubtoolbar(null, null);
           }
         });
       }

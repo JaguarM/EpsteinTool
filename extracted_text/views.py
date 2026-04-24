@@ -128,7 +128,7 @@ def calibrate_document_api(request):
 
 @csrf_exempt
 def compare_geometry(request):
-    """Predicts string bounding boxes and per-char geometry against HarfBuzz."""
+    """Predicts string bounding boxes and per-char geometry against Aspose Engine."""
     if request.method != 'POST':
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
@@ -140,63 +140,104 @@ def compare_geometry(request):
         kerning = bool(data.get('kerning', True))
         ligatures = bool(data.get('ligatures', True))
         correction = float(data.get('correction', 1.0))
-        use_calibration = bool(data.get('use_calibration', False))
+        justify = bool(data.get('justify', False))
 
-        from .logic.calibrate import calibrate_document, GlyphCalibration, FontGroup
-
-        calibrations = []
-        if use_calibration:
-            calibrations = calibrate_document(spans, font_name=font_name, scale=scale)
-
-        raw_cal = GlyphCalibration(FontGroup("raw", "regular", 12.0, []), font_name=font_name, scale=scale)
-        raw_cal.ratios = {}
-        raw_cal.global_ratio = 1.0
+        # We will point to EpsteinTool/assets/fonts for robust referencing
+        from django.conf import settings
+        from pathlib import Path
+        BASE_DIR = Path(__file__).resolve().parent.parent
+        font_path = BASE_DIR / "assets" / "fonts" / font_name
+        
+        from aspose.logic.shaper import HarfBuzzShaper
+        from aspose.logic.layout_calculator import LayoutCalculator
 
         results = []
         for span in spans:
             text = span.get('text', '')
             actual_px = span.get('w', 0.0)
-            span_font_size_pt = span.get("sizePt", span.get("fontSize", 12.0) / scale)
+            sz_pt = span.get("sizePt", span.get("fontSize", 12.0 * scale) / scale)
+            
+            # Use Aspose layout calculation
+            aspose_px = None
+            aspose_chars = []
+            try:
+                shaper = HarfBuzzShaper(str(font_path))
+                upem = shaper.get_upem()
+                shaped = shaper.shape_text(text, kerning=kerning, ligatures=ligatures)
+                lc = LayoutCalculator(sz_pt, upem)
 
-            raw_cal.ref_size_pt = span_font_size_pt
-            hb_chars = raw_cal.predict_positions(text, font_size_pt=span_font_size_pt, kerning=kerning, ligatures=ligatures)
+                space_glyphs = shaper.shape_text(" ")
+                space_id = space_glyphs[0]['glyph_id'] if space_glyphs else 3
 
-            width_px = 0.0
-            if hb_chars:
-                width_px = hb_chars[-1]['x'] + hb_chars[-1]['w']
-                width_px *= correction
-                for ch in hb_chars:
-                    ch['x'] *= correction
-                    ch['w'] *= correction
+                extra_per_gap = 0
+                rem = 0
 
-            calibrated_px = None
-            if use_calibration and calibrations:
-                cal_chars = calibrations[0].predict_positions(text, font_size_pt=span_font_size_pt, kerning=kerning, ligatures=ligatures)
-                if cal_chars:
-                    calibrated_px = (cal_chars[-1]['x'] + cal_chars[-1]['w']) * correction
-                    for ch in cal_chars:
-                        ch['x'] *= correction
-                        ch['w'] *= correction
-                    hb_chars = cal_chars
+                # Default to PyMuPDF's individual span ink bounds if justify is not triggered
+                if justify and span.get("blockW") and not span.get("isBlockEnd", False):
+                    actual_px = span["blockW"]
 
-            comparison_px = calibrated_px if calibrated_px is not None else width_px
+                if justify and actual_px > 0:
+                    container_twips = lc.points_to_twips(actual_px / (scale * correction))
+                    justify_info = lc.calculate_justified_spaces(shaped, container_twips, space_id)
+                    extra_per_gap = justify_info.get("extra_space_per_gap_twips", 0)
+                    rem = justify_info.get("remainder", 0)
+
+                cum_twips = 0
+
+                for g in shaped:
+                    char_str = text[g['cluster']] if g['cluster'] < len(text) else ""
+                    
+                    if char_str == '\t':
+                        ch_twips = lc.calculate_tab_width_twips(cum_twips)
+                    else:
+                        advance = g['x_advance']
+                        ch_twips = lc.points_to_twips(lc.advance_to_points(advance))
+                    
+                    if justify and g['glyph_id'] == space_id:
+                        ch_twips += extra_per_gap
+                        if rem > 0:
+                            ch_twips += 1
+                            rem -= 1
+                            
+                    x_px = (cum_twips / 20.0) * scale * correction
+                    w_px = (ch_twips / 20.0) * scale * correction
+                    
+                    aspose_chars.append({
+                        "c": char_str,
+                        "x": round(x_px, 2),
+                        "w": round(w_px, 2)
+                    })
+                    cum_twips += ch_twips
+
+                aspose_px = (cum_twips / 20.0) * scale * correction
+
+            except Exception as e:
+                print(f"Aspose error on span '{text}': {e}")
+                aspose_px = 0.0
+
+            comparison_px = aspose_px if aspose_px is not None else 0.0
             error_px = comparison_px - actual_px
             error_pct = (error_px / actual_px * 100) if actual_px > 0 else 0
 
-            results.append({
+            res = dict(span)
+            res.update({
                 "text": text,
                 "actual_px": actual_px,
-                "width_px": width_px,
-                "calibrated_px": calibrated_px,
+                "width_px": comparison_px,  # Unified with Aspose tracking
+                "calibrated_px": aspose_px,
                 "error_px": error_px,
                 "error_pct": error_pct,
                 "font": span.get('font', ''),
                 "mapped_ttf": font_name,
-                "page": span.get('page'),
-                "x": span.get('x'),
-                "y": span.get('y'),
-                "chars": hb_chars,
+                "page": span.get('page', 0),
+                "x": span.get('x', 0),
+                "y": span.get('y', 0),
+                "w": span.get('w', 0),
+                "h": span.get('h', 0),
+                "fontSize": span.get('fontSize'),
+                "chars": aspose_chars,      # Replaces older calibrated chars
             })
+            results.append(res)
 
         return JsonResponse({"results": results})
     except Exception as e:

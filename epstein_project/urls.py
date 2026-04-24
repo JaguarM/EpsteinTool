@@ -29,4 +29,7 @@ if 'webgl_mask' in settings.INSTALLED_APPS:
 if 'extracted_text' in settings.INSTALLED_APPS:
     from extracted_text.urls import root_urlpatterns
     urlpatterns += root_urlpatterns  # /widths, /fonts-list
-    urlpatterns += [path('embedded-text-viewer/', include('extracted_text.urls'))]  # /api/extract-spans
+    urlpatterns += [path('embedded-text-viewer/', include('extracted_text.urls'))]  # /api/extract-spans, compare, calibrate
+
+if 'embedded_text_viewer' in settings.INSTALLED_APPS:
+    urlpatterns += [path('embedded-text-viewer/', include('embedded_text_viewer.urls'))]  # /api/charpos

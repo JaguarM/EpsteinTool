@@ -60,9 +60,9 @@ def extract_pdf(pdf_bytes: bytes) -> dict:
             page_images.append(None)
             continue
 
-        img_bytes, img_w, img_h, img_rect = img_result
+        img_bytes, img_rect = img_result
         page_images.append(base64.b64encode(img_bytes).decode())
-        all_spans.extend(_extract_spans(page, page_num, img_w, img_h, img_rect))
+        all_spans.extend(_extract_spans(page, page_num, img_rect))
 
     doc.close()
     return {
@@ -82,11 +82,8 @@ def _get_page_image(doc: fitz.Document, page_index: int):
     """
     Extract the largest embedded raster image from a PDF page (by placement
     area), crop it to a standard 8.5×11 aspect ratio, and return
-    (png_bytes, img_w, img_h, img_rect).
-
-    img_h is the *original* (pre-crop) image height in pixels; this is used
-    by _extract_spans to derive an independent scale_y that matches the PDF
-    coordinate space, rather than assuming the image is perfectly square.
+    (png_bytes, img_rect).  img_rect is the PDF placement rectangle (points)
+    used by _extract_spans to compute the PAGE_W/PAGE_H → viewer-pixel scale.
 
     Returns None if no suitable image is found.
     """
@@ -123,8 +120,6 @@ def _get_page_image(doc: fitz.Document, page_index: int):
         return None
 
     img_bytes = base_image["image"]
-    img_w = base_image["width"]
-    img_h = base_image["height"]   # original height before any crop
 
     # Crop to standard 8.5 × 11 letter-size ratio
     with Image.open(BytesIO(img_bytes)) as pil:
@@ -138,36 +133,34 @@ def _get_page_image(doc: fitz.Document, page_index: int):
         pil.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-    return img_bytes, img_w, img_h, best_rect
+    return img_bytes, best_rect
 
 
-def _extract_spans(page: fitz.Page, page_num: int,
-                   img_w: int, img_h: int, img_rect: fitz.Rect) -> list:
+def _extract_spans(page: fitz.Page, page_num: int, img_rect: fitz.Rect) -> list:
     """
     Extract all text spans from a PDF page and convert their coordinates from
     PDF points to image pixels (the same space as the page image).
 
     Scale logic:
-      - scale_x = original_image_width  / img_rect.width
-      - scale_y = original_image_height / img_rect.height
+      - scale_x = PAGE_W / img_rect.width
+      - scale_y = PAGE_H / img_rect.height
 
-    Using the actual image dimensions in both axes avoids the drift that arises
-    when the PDF page height differs from the standard 792 pt (e.g. 810 pt
-    scans).  The two scales are typically equal for standard-letter PDFs but
-    can diverge for non-standard page sizes or images with slightly different
-    aspect ratios.
+    Using PAGE_W/PAGE_H (not raw image pixels) means ETV overlay positions are
+    always in the same space as the CSS --scale-factor zoom, regardless of the
+    embedded image's native DPI resolution (96, 150, 300, …).
     """
-    scale_x = img_w / img_rect.width  if img_rect.width  else 1.0
-    scale_y = img_h / img_rect.height if img_rect.height else scale_x
-    max_y = int(round(img_w * (PAGE_H / PAGE_W)))  # bottom of the cropped image
+    scale_x = PAGE_W / img_rect.width  if img_rect.width  else 1.0
+    scale_y = PAGE_H / img_rect.height if img_rect.height else scale_x
+    max_y = PAGE_H  # crop boundary in viewer pixel space
 
     rawdict = page.get_text("rawdict", flags=fitz.TEXT_PRESERVE_WHITESPACE)
     spans = []
 
-    for block in rawdict.get("blocks", []):
+    for b_idx, block in enumerate(rawdict.get("blocks", [])):
         if block.get("type") != 0:   # 0 = text block
             continue
-        for line in block.get("lines", []):
+        lines = block.get("lines", [])
+        for l_idx, line in enumerate(lines):
             # Merge adjacent spans on the same line that share font/size/flags/color.
             # PDFs often split a single visual run into many tiny spans; merging them
             # gives calibration more characters per training sample and avoids
@@ -186,12 +179,21 @@ def _extract_spans(page: fitz.Page, page_num: int,
 
                     b1 = last.get("bbox")
                     b2 = span.get("bbox")
-                    if b1 and b2:
-                        last["bbox"] = (
-                            min(b1[0], b2[0]), min(b1[1], b2[1]),
-                            max(b1[2], b2[2]), max(b1[3], b2[3]),
-                        )
-                    last["chars"] = last.get("chars", []) + span.get("chars", [])
+
+                    # Calculate gap between this span and the last
+                    gap = (b2[0] - b1[2]) if (b1 and b2) else 0
+                    em_size = span.get("size", 12)
+
+                    # If gap is suspiciously large, do not merge them
+                    if gap > (em_size * 1.5):
+                        merged_spans.append(span.copy())
+                    else:
+                        if b1 and b2:
+                            last["bbox"] = (
+                                min(b1[0], b2[0]), min(b1[1], b2[1]),
+                                max(b1[2], b2[2]), max(b1[3], b2[3]),
+                            )
+                        last["chars"] = last.get("chars", []) + span.get("chars", [])
                 else:
                     merged_spans.append(span.copy())
 
@@ -218,14 +220,17 @@ def _extract_spans(page: fitz.Page, page_num: int,
 
                 # Per-character x-offsets and advance widths relative to span
                 raw_chars = span.get("chars", [])
-                chars = []
-                built_text_chars = []
                 em_px = span.get("size", 12.0) * scale_x
+
+                # Split characters into groups when encountering a tab or wide gap
+                char_groups = []
+                current_group = []
+                consecutive_spaces = 0
 
                 for ci, ch in enumerate(raw_chars):
                     if not (ch.get("bbox") and ch.get("c")):
                         continue
-                    rel_x = (ch["bbox"][0] - img_rect.x0) * scale_x - x0
+
                     # Advance = distance to next char's x; last char → span right edge
                     if ci < len(raw_chars) - 1 and raw_chars[ci + 1].get("bbox"):
                         adv = (raw_chars[ci + 1]["bbox"][0] - ch["bbox"][0]) * scale_x
@@ -233,41 +238,97 @@ def _extract_spans(page: fitz.Page, page_num: int,
                         adv = x1 - ((ch["bbox"][0] - img_rect.x0) * scale_x)
 
                     c_char = ch["c"]
-                    # Classify unusually wide spaces as tabs (advance > 0.8 em)
-                    if c_char == " " and adv > (em_px * 0.8):
-                        c_char = "\t"
+                    if c_char == " ":
+                        consecutive_spaces += 1
+                    else:
+                        consecutive_spaces = 0
 
-                    built_text_chars.append(c_char)
-                    chars.append({
-                        "c": c_char,
-                        "x": round(rel_x, 2),
-                        "w": round(adv, 2),
-                    })
+                    # Calculate the true empty gap after the character's bounding box
+                    ch_natural_w = (ch["bbox"][2] - ch["bbox"][0]) * scale_x
+                    true_gap = adv - ch_natural_w
 
-                text = "".join(built_text_chars)
-                if not text.strip():
-                    continue
+                    # Split if explicit tab, unusual gap space, or >1 consecutive spaces
+                    if c_char == "\t" or (c_char == " " and true_gap > (em_px * 0.4)) or consecutive_spaces > 1:
+                        if current_group:
+                            char_groups.append(current_group)
+                            current_group = []
+                    elif true_gap > (em_px * 0.5):
+                        # Huge invisible gap after a regular character. Include it, clamp width, and split.
+                        current_group.append((ch, ch_natural_w))
+                        if current_group:
+                            char_groups.append(current_group)
+                        current_group = []
+                    else:
+                        if c_char != " " or consecutive_spaces == 1:
+                            current_group.append((ch, adv))
+
+                if current_group:
+                    char_groups.append(current_group)
 
                 size_pt = span.get("size", 12.0)
 
-                entry = {
-                    "page":     page_num,
-                    "text":     text,
-                    "x":        round(x0, 2),
-                    "y":        round(y0, 2),
-                    "w":        round(x1 - x0, 2),
-                    "h":        round(y1 - y0, 2),
-                    "fontSize": round(size_pt * scale_y, 2),
-                    "sizePt":   round(size_pt, 4),
-                    "font":     font,
-                    "flags":    span.get("flags", 0),
-                    "lineId":   None,  # assigned below
-                }
-                if chars:
-                    entry["chars"] = chars
-                spans.append(entry)
+                for group in char_groups:
+                    chars = []
+                    built_text_chars = []
+                    group_x0 = float('inf')
+                    group_x1 = float('-inf')
 
-    # Group spans into lines by vertical proximity (3 px tolerance)
+                    for ch, adv in group:
+                        c_char = ch["c"]
+                        x0g = (ch["bbox"][0] - img_rect.x0) * scale_x
+                        char_tail = x0g + adv
+
+                        if x0g < group_x0: group_x0 = x0g
+                        if char_tail > group_x1: group_x1 = char_tail
+
+                        ch_natural_w = (ch["bbox"][2] - ch["bbox"][0]) * scale_x
+                        true_gap = adv - ch_natural_w
+
+                        # Detect if PyMuPDF omitted a space token
+                        insert_space = c_char != " " and c_char != "\t" and (0.15 * em_px) < true_gap <= (0.5 * em_px)
+                        actual_ch_w = ch_natural_w if insert_space else adv
+
+                        built_text_chars.append(c_char)
+                        chars.append({
+                            "c": c_char,
+                            "x": round(x0g - group_x0, 2),
+                            "w": round(actual_ch_w, 2),
+                        })
+
+                        if insert_space:
+                            space_x = x0g + ch_natural_w
+                            built_text_chars.append(" ")
+                            chars.append({
+                                "c": " ",
+                                "x": round(space_x - group_x0, 2),
+                                "w": round(true_gap, 2)
+                            })
+
+                    text = "".join(built_text_chars)
+                    if not text.strip():
+                        continue
+
+                    entry = {
+                        "page":       page_num,
+                        "text":       text,
+                        "x":          round(group_x0, 2),
+                        "y":          round(y0, 2),
+                        "w":          round(group_x1 - group_x0, 2),
+                        "h":          round(y1 - y0, 2),
+                        "fontSize":   round(size_pt * scale_y, 2),
+                        "sizePt":     round(size_pt, 4),
+                        "font":       font,
+                        "flags":      span.get("flags", 0),
+                        "lineId":     None,  # assigned below by proximity grouping
+                        "_blockLineId": f"{page_num}_{b_idx}_{l_idx}",
+                        "blockId":    f"{page_num}_{b_idx}",
+                        "isBlockEnd": bool(l_idx == len(lines) - 1),
+                    }
+                    if chars:
+                        entry["chars"] = chars
+                    spans.append(entry)
+
+    # Group spans into lines by vertical proximity (3 px tolerance) for legacy output sorting
     if spans:
         spans.sort(key=lambda s: s["y"])
         line_num = 1
@@ -276,6 +337,33 @@ def _extract_spans(page: fitz.Page, page_num: int,
             if abs(s["y"] - last_y) > 3.0:
                 line_num += 1
                 last_y = s["y"]
-            s["lineId"] = f"{page_num}_{line_num}"
+            s["lineId"] = f"{s.get('page', page_num)}_{line_num}"
+
+    # Compute blockW: the container width each span must fill under justification.
+    # For mid-line spans this is the gap to the next span; for line-terminal spans
+    # it is the distance to the block's widest right edge.
+    block_rights: dict = {}
+    lines_map: dict = {}
+    for span in spans:
+        bid = span.get("blockId")
+        if bid:
+            r = span.get("x", 0.0) + span.get("w", 0.0)
+            if bid not in block_rights or r > block_rights[bid]:
+                block_rights[bid] = r
+        lid = span.get("_blockLineId")
+        if lid:
+            lines_map.setdefault(lid, []).append(span)
+
+    for lid, line_spans in lines_map.items():
+        line_spans.sort(key=lambda s: s.get("x", 0.0))
+        for i, span in enumerate(line_spans):
+            bid = span.get("blockId")
+            if not bid:
+                continue
+            if i < len(line_spans) - 1:
+                next_span = line_spans[i + 1]
+                span["blockW"] = round(next_span.get("x", 0.0) - span.get("x", 0.0), 2)
+            else:
+                span["blockW"] = round(block_rights[bid] - span.get("x", 0.0), 2)
 
     return spans

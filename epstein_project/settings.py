@@ -10,7 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-import webgl_mask
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -43,11 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'aspose',
     'redaction_matching',
     'guesser_core',
     'embedded_text_viewer',
-    'webgl_mask',
     'extracted_text',
+    'webgl_mask',
 ]
 
 MIDDLEWARE = [
@@ -132,3 +132,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
+STATICFILES_DIRS = [BASE_DIR / 'assets']
