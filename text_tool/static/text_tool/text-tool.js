@@ -9,7 +9,7 @@
 
 let lastSelectedTextItem = null;
 
-const TEXT_SELECTORS  = '.etv-span'; // .redaction-label elements also carry this class
+const TEXT_SELECTORS = '.etv-span'; // .redaction-label elements also carry this class
 const TOOLBAR_SELECTORS = '#unified-options-bar-container, #fabric-options-bar';
 
 function deselectAllText() {
@@ -59,7 +59,7 @@ document.addEventListener('focusin', (e) => {
 document.addEventListener('focusout', (e) => {
     if (!e.target.closest(TEXT_SELECTORS)) return;
     const goingTo = e.relatedTarget;
-    const stayingInText    = goingTo?.closest(TEXT_SELECTORS);
+    const stayingInText = goingTo?.closest(TEXT_SELECTORS);
     const stayingInToolbar = goingTo?.closest(TOOLBAR_SELECTORS);
     if (!stayingInText && !stayingInToolbar) deselectAllText();
 });
@@ -67,7 +67,7 @@ document.addEventListener('focusout', (e) => {
 // Route clicks to the right element
 document.addEventListener('mousedown', (e) => {
     const textEl = e.target.closest('.etv-span')
-                || e.target.closest('.redaction-overlay')?.querySelector('.etv-span');
+        || e.target.closest('.redaction-overlay')?.querySelector('.etv-span');
     const inToolbar = e.target.closest(TOOLBAR_SELECTORS);
 
     if (textEl) {
@@ -97,7 +97,7 @@ function syncBarToSpan(el) {
     if (ff && normFont) {
         const opt = Array.from(ff.options).find(o =>
             o.value.toLowerCase() === normFont.toLowerCase() ||
-            o.text.toLowerCase()  === normFont.toLowerCase()
+            o.text.toLowerCase() === normFont.toLowerCase()
         );
         if (opt) ff.value = opt.value;
     }
@@ -113,11 +113,11 @@ function syncBarToSpan(el) {
     // --- Bold / Italic / Underline / Strikethrough ---
     // renderEmbeddedTextOverlay already converts PDF font-name hints (e.g. "Times-Bold")
     // into real fontWeight/fontStyle inline styles, so reading them here is sufficient.
-    const isBold      = el.style.fontWeight === 'bold' || el.style.fontWeight === '700';
-    const isItalic    = el.style.fontStyle === 'italic';
-    const decor       = el.style.textDecoration || '';
+    const isBold = el.style.fontWeight === 'bold' || el.style.fontWeight === '700';
+    const isItalic = el.style.fontStyle === 'italic';
+    const decor = el.style.textDecoration || '';
     const isUnderline = decor.includes('underline');
-    const isStrike    = decor.includes('line-through');
+    const isStrike = decor.includes('line-through');
 
     document.getElementById('fabric-bold')?.classList.toggle('active', isBold);
     document.getElementById('fabric-italic')?.classList.toggle('active', isItalic);
@@ -127,6 +127,26 @@ function syncBarToSpan(el) {
     // --- Letter Spacing ---
     const lsInput = document.getElementById('fabric-letter-spacing');
     if (lsInput) lsInput.value = (parseFloat(el.style.letterSpacing) || 0).toFixed(2);
+
+    // --- Space Width (Redaction Labels Only) ---
+    const isRedaction = el.dataset.redactionIdx !== undefined;
+    let swVal = 4;
+    let swDisp = '-';
+    if (isRedaction) {
+        const idx = parseInt(el.dataset.redactionIdx);
+        if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
+            const r = state.redactions[idx];
+            if (r.settings && r.settings.spaceWidth !== undefined) {
+                swVal = r.settings.spaceWidth;
+                swDisp = swVal + 'px';
+            } else {
+                swVal = 4;
+                swDisp = 'auto';
+            }
+        }
+    }
+    document.querySelectorAll('[id="fabric-space-width"]').forEach(input => input.value = swVal);
+    document.querySelectorAll('[id="fabric-space-width-display"]').forEach(disp => disp.textContent = swDisp);
 
     // --- Color ---
     const colorInput = document.getElementById('fabric-color');
@@ -154,11 +174,11 @@ function applyFormatting() {
     const el = lastSelectedTextItem;
     if (!el) return;
 
-    const bold      = document.getElementById('fabric-bold')?.classList.contains('active');
-    const italic    = document.getElementById('fabric-italic')?.classList.contains('active');
+    const bold = document.getElementById('fabric-bold')?.classList.contains('active');
+    const italic = document.getElementById('fabric-italic')?.classList.contains('active');
     const underline = document.getElementById('fabric-underline')?.classList.contains('active');
-    const strike    = document.getElementById('fabric-strikethrough')?.classList.contains('active');
-    
+    const strike = document.getElementById('fabric-strikethrough')?.classList.contains('active');
+
     el.style.fontWeight = bold ? 'bold' : 'normal';
     el.style.fontStyle = italic ? 'italic' : 'normal';
     el.style.textDecoration = [underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ') || 'none';
@@ -178,13 +198,13 @@ function persistChangesToState(el) {
         const idx = parseInt(el.dataset.redactionIdx);
         if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions[idx]) {
             const r = state.redactions[idx];
-            r.settings.fontFamily    = el.style.fontFamily;
-            r.settings.fontSize      = parseInt(el.style.getPropertyValue('--etv-fs')) || r.settings.fontSize;
-            r.settings.bold          = el.style.fontWeight === 'bold';
-            r.settings.italic        = el.style.fontStyle === 'italic';
+            r.settings.fontFamily = el.style.fontFamily;
+            r.settings.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || r.settings.fontSize;
+            r.settings.bold = el.style.fontWeight === 'bold';
+            r.settings.italic = el.style.fontStyle === 'italic';
             r.settings.textDecoration = el.style.textDecoration;
-            r.settings.letterSpacing  = el.style.letterSpacing;
-            r.settings.color          = el.style.getPropertyValue('--etv-color') || el.style.color;
+            r.settings.letterSpacing = el.style.letterSpacing;
+            r.settings.color = el.style.getPropertyValue('--etv-color') || el.style.color;
             if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
         }
         return;
@@ -192,18 +212,18 @@ function persistChangesToState(el) {
 
     // Regular ETV spans — sync to etvState.spans[]
     if (el.classList.contains('etv-span')) {
-        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer','') || 1);
+        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer', '') || 1);
         const pageSpans = etvState.spans.filter(s => s.page === pageNum);
         const spanIdx = parseInt(el.dataset.index);
         const s = pageSpans[spanIdx];
         if (s) {
-            s.font          = el.style.fontFamily;
-            s.fontSize      = parseInt(el.style.getPropertyValue('--etv-fs')) || s.fontSize;
-            s.fontWeight    = el.style.fontWeight;
-            s.fontStyle     = el.style.fontStyle;
+            s.font = el.style.fontFamily;
+            s.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || s.fontSize;
+            s.fontWeight = el.style.fontWeight;
+            s.fontStyle = el.style.fontStyle;
             s.textDecoration = el.style.textDecoration;
-            s.letterSpacing  = el.style.letterSpacing;
-            s.color          = el.style.getPropertyValue('--etv-color');
+            s.letterSpacing = el.style.letterSpacing;
+            s.color = el.style.getPropertyValue('--etv-color');
         }
     }
 }
@@ -269,6 +289,27 @@ document.getElementById('fabric-letter-spacing')?.addEventListener('change', (e)
         persistChangesToState(lastSelectedTextItem);
         broadcastChange(lastSelectedTextItem);
     }
+});
+
+['input', 'change'].forEach(evt => {
+    document.addEventListener(evt, (e) => {
+        if (e.target.id === 'fabric-space-width') {
+            document.querySelectorAll('[id="fabric-space-width-display"]').forEach(d => {
+                d.textContent = e.target.value + 'px';
+            });
+
+            if (lastSelectedTextItem && lastSelectedTextItem.dataset.redactionIdx !== undefined) {
+                const idx = parseInt(lastSelectedTextItem.dataset.redactionIdx);
+                if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
+                    state.redactions[idx].settings.spaceWidth = parseFloat(e.target.value);
+                    if (typeof updateAllMatchesView === 'function') updateAllMatchesView(idx);
+                    if (evt === 'change' && typeof calculateWidthsForRedaction === 'function') {
+                        calculateWidthsForRedaction(idx);
+                    }
+                }
+            }
+        }
+    });
 });
 
 document.getElementById('fabric-color')?.addEventListener('input', (e) => {

@@ -449,12 +449,10 @@ document.addEventListener('focusin', e => {
 
 document.getElementById('toggle-embedded-viewer')?.addEventListener('click', async () => {
   etvState.active = !etvState.active;
-  const etvBar = document.getElementById('etv-bar');
-  const etvBtn = document.getElementById('toggle-embedded-viewer');
+  document.getElementById('toggle-embedded-viewer').classList.toggle('active', etvState.active);
+  document.getElementById('etv-bar').classList.toggle('hidden', !etvState.active);
 
   if (etvState.active) {
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(etvBar, etvBtn);
-    else { etvBar.classList.remove('hidden'); etvBtn.classList.add('active'); }
     try {
       if (!etvState.fetched) {
         await etvFetchSpans(typeof state !== 'undefined' ? (state.currentFile || null) : null);
@@ -462,8 +460,6 @@ document.getElementById('toggle-embedded-viewer')?.addEventListener('click', asy
     } catch {}
     etvRenderAll();
   } else {
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(null, null);
-    else { etvBar.classList.add('hidden'); etvBtn.classList.remove('active'); }
     etvClearAll();
   }
 });
@@ -518,13 +514,8 @@ document.getElementById('toggle-embedded-viewer')?.addEventListener('click', asy
 document.getElementById('toggle-fmt')?.addEventListener('click', () => {
   const bar = document.getElementById('fabric-options-bar');
   const btn = document.getElementById('toggle-fmt');
-  if (bar.classList.contains('hidden')) {
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(bar, btn);
-    else { bar.classList.remove('hidden'); btn.classList.add('active'); }
-  } else {
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(null, null);
-    else { bar.classList.add('hidden'); btn.classList.remove('active'); }
-  }
+  const visible = bar.classList.toggle('hidden');
+  btn.classList.toggle('active', !visible);
 });
 
 /** Push current inline styles of a span element into the toolbar. */

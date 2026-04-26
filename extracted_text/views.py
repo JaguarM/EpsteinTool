@@ -24,19 +24,22 @@ def calculate_widths(request):
         ligatures = bool(data.get('ligatures', True))
         use_calibration = bool(data.get('use_calibration', False))
         spans = data.get('spans', [])
+        space_width = data.get('space_width')
+        if space_width is not None:
+            space_width = float(space_width)
 
         calibrations = None
         if use_calibration and spans:
             from .logic.calibrate import calibrate_document
             calibrations = calibrate_document(spans, font_name=font_name, scale=scale/100.0)
 
-        widths = get_text_widths(texts, font_name, font_size, force_uppercase, scale / 100.0, kerning, ligatures)
+        widths = get_text_widths(texts, font_name, font_size, force_uppercase, scale / 100.0, kerning, ligatures, space_width=space_width)
 
         if calibrations and len(calibrations) > 0:
             cal = calibrations[0]
             widths = []
             for t in texts:
-                cw = cal.predict_width(t.upper() if force_uppercase else t, font_size_pt=font_size, kerning=kerning, ligatures=ligatures)
+                cw = cal.predict_width(t.upper() if force_uppercase else t, font_size_pt=font_size, kerning=kerning, ligatures=ligatures, line_space_px=space_width)
                 widths.append({"text": t, "width": cw})
 
         return JsonResponse({"results": widths})

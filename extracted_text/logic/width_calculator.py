@@ -4,7 +4,7 @@ except ImportError:
     hb = None
 import os
 
-def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, ligatures=True):
+def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, ligatures=True, space_width=None):
     """
     Calculates pixel widths for a list of text strings data.
     Matches exact shaping rules with Harfbuzz from the typography engine.
@@ -42,6 +42,13 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
         # Create features dict
         features = {"kern": bool(kerning), "liga": bool(ligatures)}
         
+        # Find the glyph ID for the space character so we can override it
+        space_buf = hb.Buffer()
+        space_buf.add_str(" ")
+        space_buf.guess_segment_properties()
+        hb.shape(font, space_buf, features)
+        space_glyph_id = space_buf.glyph_infos[0].codepoint if space_buf.glyph_infos else None
+
         for text in texts:
             if not text:
                 results.append({"text": text, "width": 0})
@@ -57,8 +64,11 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
             
             # Apply identical per-glyph rendering math from typography_engine
             total_advance = 0
-            for info in buf.glyph_positions:
-                pixel_advance = (info.x_advance / upem) * font_size * scale_factor
+            for pos, info in zip(buf.glyph_positions, buf.glyph_infos):
+                if space_width is not None and space_glyph_id is not None and info.codepoint == space_glyph_id:
+                    pixel_advance = float(space_width)
+                else:
+                    pixel_advance = (pos.x_advance / upem) * font_size * scale_factor
                 total_advance += pixel_advance
                 
             results.append({"text": text, "width": total_advance})

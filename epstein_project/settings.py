@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'redaction_matching',
     'guesser_core',
     'embedded_text_viewer',
+    'text_tool',
     'extracted_text',
     'webgl_mask',
 ]

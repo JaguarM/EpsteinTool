@@ -106,11 +106,32 @@ function cmpRenderOnPage() {
     items.forEach(({ span, row }) => {
       const cls = row.error_pct != null ? errClass(row.error_pct) : 'err-bad';
       const el  = document.createElement('div');
-      el.className = `cmp-span-marker ${cls}`;
+      
+      // Make it a valid text-tool.js span
+      el.className = `cmp-span-marker etv-span ${cls}`;
+      el.dataset.cmpIdx = cmpState.results.indexOf(row);
+      el.tabIndex = 0; // Make it focusable so toolbar sync works natively
+      
       el.style.setProperty('--etv-x', `${span.x}px`);
       el.style.setProperty('--etv-y', `${span.y}px`);
       el.style.setProperty('--etv-w', `${span.w}px`);
       el.style.setProperty('--etv-h', `${span.h}px`);
+      el.style.setProperty('--etv-fs', `${span.fontSize}px`);
+      
+      el.style.fontFamily = span.font || 'times.ttf';
+      if (span.fontWeight) el.style.fontWeight = span.fontWeight;
+      if (span.fontStyle) el.style.fontStyle = span.fontStyle;
+      if (span.letterSpacing) el.style.letterSpacing = span.letterSpacing;
+      
+      if (row.chars && typeof renderChars === 'function') {
+          renderChars(el, row.chars);
+      } else {
+          el.textContent = row.text;
+      }
+      
+      // Prevent manual typing into it since it's driven by the backend chars
+      el.contentEditable = 'false';
+
       if (row.error_pct != null) {
         let hoverText = `${row.text}\nError: ${row.error_pct >= 0 ? '+' : ''}${row.error_pct.toFixed(2)}%`;
         if (row.calibrated_px != null) {
@@ -525,5 +546,53 @@ document.getElementById('fabric-font-family')?.addEventListener('change', () => 
 cmpEls.showOnPage?.addEventListener('change', e => {
   cmpState.showOnPage = e.target.checked;
   cmpState.showOnPage ? cmpRenderOnPage() : cmpClearPageOverlay();
+});
+
+// Single-span recalculation when modified by the text formatting toolbar
+document.addEventListener('text-format-changed', async (e) => {
+    const el = e.detail.element;
+    if (el.classList.contains('cmp-span-marker') && el.dataset.cmpIdx !== undefined) {
+        const idx = parseInt(el.dataset.cmpIdx);
+        const span = cmpState.comparedSpans[idx];
+        if (!span) return;
+        
+        const fontName = el.style.fontFamily || 'times.ttf';
+        const fontSize = parseFloat(el.style.getPropertyValue('--etv-fs')) || span.fontSize;
+        
+        span.font = fontName;
+        span.fontSize = fontSize;
+        span.fontWeight = el.style.fontWeight;
+        span.fontStyle = el.style.fontStyle;
+        span.letterSpacing = el.style.letterSpacing;
+        span.sizePt = fontSize / (parseFloat(cmpEls.scale.value) || (4/3));
+        
+        try {
+            const resp = await fetch('/embedded-text-viewer/api/compare', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                spans: [span], font: fontName,
+                scale: parseFloat(cmpEls.scale.value) || (4 / 3),
+                kerning: cmpEls.kerning.checked, ligatures: cmpEls.ligatures.checked, 
+                correction: parseFloat(cmpEls.correction.value) || 1.0,
+                use_calibration: calState.loaded,
+              }),
+            });
+            const data = await resp.json();
+            if (data.results && data.results.length > 0) {
+                cmpState.results[idx] = data.results[0];
+                cmpRenderOnPage();
+                buildTable(cmpState.results); 
+                
+                // Re-select the newly created element so toolbar doesn't break
+                const newMarker = document.querySelector(`.cmp-span-marker[data-cmp-idx="${idx}"]`);
+                if (newMarker && typeof selectTextElement === 'function') {
+                    selectTextElement(newMarker);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to recalculate span:', err);
+        }
+    }
 });
 

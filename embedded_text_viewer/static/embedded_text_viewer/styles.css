@@ -403,23 +403,13 @@ body, html {
 
 .cmp-span-marker {
   position: absolute;
-  left:        calc(var(--etv-x, 0px) * var(--scale-factor, 1));
-  top:         calc(var(--etv-y, 0px) * var(--scale-factor, 1));
-  width:       calc(var(--etv-w, 0px) * var(--scale-factor, 1));
-  height:      calc(var(--etv-h, 0px) * var(--scale-factor, 1));
-  font-size:   calc(var(--etv-fs, 16px) * var(--scale-factor, 1));
-  line-height: calc(var(--etv-h,  16px) * var(--scale-factor, 1));
+  left:   calc(var(--etv-x, 0px) * var(--scale-factor, 1));
+  top:    calc(var(--etv-y, 0px) * var(--scale-factor, 1));
+  width:  calc(var(--etv-w, 0px) * var(--scale-factor, 1));
+  height: calc(var(--etv-h, 0px) * var(--scale-factor, 1));
   border-radius: 2px;
   pointer-events: auto;
   cursor: default;
-  overflow: visible;
-  white-space: pre;
-  color: var(--cmp-text-color, rgba(180,180,180,0.55));
-}
-.cmp-span-marker > i {
-  position: absolute;
-  left: calc(var(--ch-x, 0px) * var(--scale-factor, 1));
-  font-style: inherit; white-space: pre;
 }
 .cmp-span-marker.err-good {
   background: rgba(129,201,149,0.18);
@@ -433,18 +423,14 @@ body, html {
   background: rgba(242,139,130,0.18);
   border: 1px solid rgba(242,139,130,0.65);
 }
-.cmp-end-line {
-  position: absolute;
-  top: -4px; bottom: -4px; width: 2px;
-  pointer-events: none; z-index: 10;
-}
-.cmp-pdf-end {
-  left: calc(var(--etv-w, 0px) * var(--scale-factor, 1) - 1px);
-  background: #f28b82;
-}
-.cmp-hb-end {
-  left: calc(var(--hb-w, 0px) * var(--scale-factor, 1) - 1px);
-  background: repeating-linear-gradient(to bottom, #81c995 0px, #81c995 4px, transparent 4px, transparent 7px);
+
+.cmp-span-marker.selected,
+.cmp-span-marker:focus {
+  outline: none;
+  background: rgba(138,180,248,0.3) !important;
+  box-shadow: 0 0 0 2px #8ab4f8 !important;
+  border-color: #8ab4f8 !important;
+  z-index: 100;
 }
 
 /* ── Calibration summary ──────────────────────────────────── */
