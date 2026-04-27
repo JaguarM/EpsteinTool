@@ -99,7 +99,7 @@ async function cmpRenderOnPage() {
     if (!span) return;
     const page = span.page || 1;
     if (!byPage[page]) byPage[page] = [];
-    byPage[page].push({ span, row });
+    byPage[page].push({ span, row, idx: i });
   });
 
   Object.entries(byPage).forEach(([page, items]) => {
@@ -109,7 +109,7 @@ async function cmpRenderOnPage() {
     const overlay = document.createElement('div');
     overlay.className = 'cmp-page-overlay';
 
-    items.forEach(({ span, row }) => {
+    items.forEach(({ span, row, idx }) => {
       const cls = row.error_pct != null ? errClass(row.error_pct) : 'err-bad';
       const el  = document.createElement('div');
       el.className = `cmp-span-marker ${cls}`;
@@ -123,7 +123,7 @@ async function cmpRenderOnPage() {
       if (ttfName) el.style.fontFamily = `"etv_${ttfName}"`;
       el.style.setProperty('--cmp-text-color', 'rgba(74, 144, 226, 0.7)');
 
-      // Per-character nodes
+      // Per-character nodes (or whole-span fallback when no char data)
       if (row.chars && row.chars.length) {
         for (const ch of row.chars) {
           const chEl = document.createElement('i');
@@ -131,6 +131,11 @@ async function cmpRenderOnPage() {
           chEl.style.setProperty('--ch-x', `${ch.x}px`);
           el.appendChild(chEl);
         }
+      } else {
+        const chEl = document.createElement('i');
+        chEl.textContent = row.text || span.text || '';
+        chEl.style.setProperty('--ch-x', '0px');
+        el.appendChild(chEl);
       }
 
       // PDF end-of-text vertical line (red)
@@ -162,6 +167,8 @@ async function cmpRenderOnPage() {
         el.title = `${row.text}: ${row.error || '?'}`;
       }
 
+      el.dataset.cmpIdx = String(idx);
+      el.addEventListener('click', () => selectRow(idx));
       overlay.appendChild(el);
     });
 
@@ -282,6 +289,11 @@ function selectRow(idx) {
   // Highlight row
   cmpEls.tbody.querySelectorAll('tr').forEach(tr => {
     tr.classList.toggle('cmp-selected', parseInt(tr.dataset.idx) === idx);
+  });
+
+  // Highlight page overlay marker
+  document.querySelectorAll('.cmp-span-marker').forEach(m => {
+    m.classList.toggle('cmp-selected', parseInt(m.dataset.cmpIdx) === idx);
   });
 
   const row  = cmpState.results[idx];
@@ -417,6 +429,11 @@ async function runComparison() {
   const justify    = cmpEls.justify?.checked ?? true;
   const pageFilter = typeof state !== 'undefined' ? state.currentPage : 1;
 
+  const spaceWidthEl  = document.getElementById('fabric-space-width');
+  const space_width   = spaceWidthEl ? (parseFloat(spaceWidthEl.value) || null) : null;
+  const forceUpperEl  = document.getElementById('force-uppercase');
+  const force_uppercase = forceUpperEl ? forceUpperEl.checked : false;
+
   // Filter spans
   let toCompare = spans;
   if (pageFilter > 0) {
@@ -440,6 +457,7 @@ async function runComparison() {
       body: JSON.stringify({
         spans: toCompare, font: fontName,
         scale, kerning, ligatures, justify, correction,
+        space_width, force_uppercase,
         use_calibration: calState.loaded,
       }),
     });
@@ -565,6 +583,10 @@ document.getElementById('fabric-font-family')?.addEventListener('change', () => 
     scheduleRerun();
   }
 });
+
+// Rerun when text_tool settings that affect width change
+document.getElementById('fabric-space-width')?.addEventListener('change', scheduleRerun);
+document.getElementById('force-uppercase')?.addEventListener('change', scheduleRerun);
 
 // Show-on-page overlay toggle
 cmpEls.showOnPage?.addEventListener('change', e => {

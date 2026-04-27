@@ -403,13 +403,23 @@ body, html {
 
 .cmp-span-marker {
   position: absolute;
-  left:   calc(var(--etv-x, 0px) * var(--scale-factor, 1));
-  top:    calc(var(--etv-y, 0px) * var(--scale-factor, 1));
-  width:  calc(var(--etv-w, 0px) * var(--scale-factor, 1));
-  height: calc(var(--etv-h, 0px) * var(--scale-factor, 1));
+  left:        calc(var(--etv-x,  0px) * var(--scale-factor, 1));
+  top:         calc(var(--etv-y,  0px) * var(--scale-factor, 1));
+  width:       calc(var(--etv-w,  0px) * var(--scale-factor, 1));
+  height:      calc(var(--etv-h,  0px) * var(--scale-factor, 1));
+  font-size:   calc(var(--etv-fs, 12px) * var(--scale-factor, 1));
+  line-height: calc(var(--etv-h,  12px) * var(--scale-factor, 1));
+  color: var(--cmp-text-color, rgba(74, 144, 226, 0.7));
+  white-space: pre;
+  overflow: visible;
   border-radius: 2px;
   pointer-events: auto;
   cursor: default;
+}
+.cmp-span-marker > i {
+  position: absolute;
+  left: calc(var(--ch-x, 0px) * var(--scale-factor, 1));
+  font-style: inherit; white-space: pre;
 }
 .cmp-span-marker.err-good {
   background: rgba(129,201,149,0.18);
@@ -425,6 +435,7 @@ body, html {
 }
 
 .cmp-span-marker.selected,
+.cmp-span-marker.cmp-selected,
 .cmp-span-marker:focus {
   outline: none;
   background: rgba(138,180,248,0.3) !important;

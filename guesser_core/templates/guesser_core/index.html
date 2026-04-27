@@ -174,7 +174,7 @@
 
   <script src="{% static 'guesser_core/state.js' %}"></script>
   {% if 'redaction_matching' in active_plugins %}
-  <script src="{% static 'redaction_matching/api.js' %}"></script>
+  <script src="{% static 'redaction_matching/api.js' %}?v=1"></script>
   {% endif %}
   {% if 'webgl_mask' in active_plugins %}
   <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
@@ -208,7 +208,7 @@
   </script>
 
   {% if 'text_tool' in active_plugins %}
-  <script src="{% static 'text_tool/text-tool.js' %}"></script>
+  <script src="{% static 'text_tool/text-tool.js' %}?v=1"></script>
   {% endif %}
 
   <script>

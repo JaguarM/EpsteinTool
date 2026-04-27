@@ -31,7 +31,7 @@ function injectRedactionOverlays() {
       initDragRedaction(e, idx);
     };
 
-    ['l', 'r'].forEach(edge => {
+    ['l', 'r', 't', 'b'].forEach(edge => {
       const resizer = document.createElement('div');
       resizer.className = `resizer resizer-${edge}`;
       resizer.onmousedown = (e) => initResize(e, idx, edge);

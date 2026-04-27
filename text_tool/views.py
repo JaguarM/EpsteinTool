@@ -2,7 +2,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .logic.width_calculator import get_text_widths, get_available_fonts
+from extracted_text.logic.width_calculator import get_text_widths, get_available_fonts
 
 
 @csrf_exempt

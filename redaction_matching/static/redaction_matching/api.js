@@ -60,6 +60,7 @@
             ligatures: s.lig,
             force_uppercase: s.upper,
             use_calibration: useCal,
+            space_width: s.spaceWidth,
             spans: typeof etvState !== 'undefined' && etvState.spans ? etvState.spans : (typeof state !== 'undefined' && state.spans ? state.spans : [])
           })
         });
@@ -274,7 +275,42 @@
             label.style.color = r.settings.color || '#81c995';
 
             label.style.display = 'flex';
-            label.textContent = r.labelText || '';
+            label.style.justifyContent = 'flex-start';
+            label.innerHTML = '';
+            
+            const textToRender = r.labelText || '';
+            if (textToRender) {
+                const words = textToRender.split(' ');
+                let spaceWidths = [];
+                
+                if (typeof etvState !== 'undefined' && etvState.spans && r.lineId) {
+                    const etvSpan = etvState.spans.find(s => s.lineId === r.lineId && s.page === r.page);
+                    if (etvSpan && etvSpan.chars) {
+                        spaceWidths = etvSpan.chars.filter(c => c.c === ' ' || c.c === '\t').map(c => c.w);
+                    }
+                }
+                
+                words.forEach((word, i) => {
+                    const wordSpan = document.createElement('span');
+                    wordSpan.textContent = word;
+                    label.appendChild(wordSpan);
+                    
+                    if (i < words.length - 1) {
+                        const spaceSpan = document.createElement('span');
+                        spaceSpan.textContent = ' ';
+                        spaceSpan.style.display = 'inline-block';
+                        
+                        if (r.settings.spaceWidth !== undefined) {
+                            spaceSpan.style.width = `calc(${r.settings.spaceWidth}px * var(--scale-factor, 1))`;
+                        } else if (spaceWidths[i] !== undefined && spaceWidths[i] > 0) {
+                            spaceSpan.style.width = `calc(${spaceWidths[i]}px * var(--scale-factor, 1))`;
+                        } else {
+                            spaceSpan.style.whiteSpace = 'pre';
+                        }
+                        label.appendChild(spaceSpan);
+                    }
+                });
+            }
             
             // Premium: Add class for glow effect if we have a match
             if (matches.length > 0) {
