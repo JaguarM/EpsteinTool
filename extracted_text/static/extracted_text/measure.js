@@ -612,16 +612,34 @@ document.getElementById('fabric-font-family')?.addEventListener('change', () => 
   }
 });
 
+let savedManualSpaceWidth = null;
+
 // Justify checkbox — toggle slider disabled state and rerun
 cmpEls.justify?.addEventListener('change', () => {
   const spaceSlider = document.getElementById('fabric-space-width');
-  if (spaceSlider) spaceSlider.disabled = cmpEls.justify.checked;
+  const spaceDisp   = document.getElementById('fabric-space-width-display');
+  if (spaceSlider) {
+    spaceSlider.disabled = cmpEls.justify.checked;
+    if (cmpEls.justify.checked) {
+      // Save manual value before we start overwriting it with justified values
+      savedManualSpaceWidth = spaceSlider.value;
+    } else if (savedManualSpaceWidth !== null) {
+      // Restore manual value when justify is turned off
+      spaceSlider.value = savedManualSpaceWidth;
+      if (spaceDisp) spaceDisp.textContent = savedManualSpaceWidth + 'px';
+      // Fire change event to sync with text-tool state if a label is selected
+      spaceSlider.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
   scheduleRerun();
 });
 // Set initial slider state from the default checked value
 (function initJustifySlider() {
   const spaceSlider = document.getElementById('fabric-space-width');
-  if (spaceSlider && cmpEls.justify?.checked) spaceSlider.disabled = true;
+  if (spaceSlider && cmpEls.justify?.checked) {
+    savedManualSpaceWidth = spaceSlider.value;
+    spaceSlider.disabled = true;
+  }
 })();
 
 // Rerun when text_tool settings that affect width change

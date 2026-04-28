@@ -444,6 +444,23 @@ body, html {
   z-index: 100;
 }
 
+/* End-of-span marker lines */
+.cmp-end-line {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 0;
+  pointer-events: none;
+}
+.cmp-pdf-end {
+  left: 100%;
+  border-left: 2px solid rgba(220, 50, 50, 0.85);
+}
+.cmp-hb-end {
+  left: calc(var(--hb-w, 0px) * var(--scale-factor, 1));
+  border-left: 2px dashed rgba(50, 180, 100, 0.85);
+}
+
 /* ── Calibration summary ──────────────────────────────────── */
 #cmp-cal-summary {
   padding: 10px 14px;

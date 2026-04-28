@@ -9,13 +9,14 @@
           </label>
         </div>
       </div>
+      {% if 'text_tool' not in active_plugins %}
       <div class="options-divider"></div>
       <div class="options-group">
         <div class="options-group-header">Display</div>
         <div class="options-group-controls">
           <span class="options-label">Color</span>
           <input type="color" id="etv-color" value="#0064ff" title="Span color">
-          
+
           <span class="options-label" style="margin-left: 8px;">Opacity</span>
           <input type="range" id="etv-opacity" min="0" max="100" value="85" title="Span opacity">
           <span id="etv-opacity-display" class="options-label">85%</span>
@@ -33,11 +34,11 @@
           </select>
         </div>
       </div>
-
-
+      {% endif %}
     </div>
 
-    <!-- Fabric Options Bar (Formatting Ribbon) -->
+    <!-- Fabric Options Bar (Formatting Ribbon) — only when text_tool is not providing it -->
+    {% if 'text_tool' not in active_plugins %}
     <div id="fabric-options-bar" class="options-bar hidden">
       <div class="options-divider"></div>
 
@@ -99,3 +100,4 @@
         </div>
       </div>
     </div>
+    {% endif %}
