@@ -39,7 +39,7 @@ const cmpEls = {
   correctionVal:  document.getElementById('cmp-correction-val'),
   kerning:        document.getElementById('cmp-kerning'),
   ligatures:      document.getElementById('cmp-ligatures'),
-  justify:        document.getElementById('cmp-justify'),
+  justify:        document.getElementById('fabric-justified'),
   runBtn:         document.getElementById('cmp-run'),
   autoBtn:        document.getElementById('cmp-auto-calibrate'),
   thead:          document.getElementById('cmp-thead'),
@@ -341,6 +341,23 @@ function selectRow(idx) {
       `;
       cmpEls.inspectorRows.appendChild(infoEl);
     }
+
+    // Justified space width info
+    if (row.justified_space_w != null) {
+      const jswEl = document.createElement('div');
+      jswEl.className = 'cmp-inspector-row';
+      jswEl.innerHTML = `
+        <span class="method-name">Space W. (justify)</span>
+        <span style="color:#81c995">${row.justified_space_w.toFixed(2)} px</span>
+      `;
+      cmpEls.inspectorRows.appendChild(jswEl);
+
+      // Update the slider to reflect this span's computed value
+      const spaceSlider = document.getElementById('fabric-space-width');
+      const spaceDisp   = document.getElementById('fabric-space-width-display');
+      if (spaceSlider) spaceSlider.value = row.justified_space_w.toFixed(1);
+      if (spaceDisp)   spaceDisp.textContent = row.justified_space_w.toFixed(1) + 'px';
+    }
   }
 }
 
@@ -426,11 +443,12 @@ async function runComparison() {
   const correction = parseFloat(cmpEls.correction.value) || 1.0;
   const kerning    = cmpEls.kerning.checked;
   const ligatures  = cmpEls.ligatures.checked;
-  const justify    = cmpEls.justify?.checked ?? true;
+  const justify    = cmpEls.justify?.checked ?? false;
   const pageFilter = typeof state !== 'undefined' ? state.currentPage : 1;
 
   const spaceWidthEl  = document.getElementById('fabric-space-width');
-  const space_width   = spaceWidthEl ? (parseFloat(spaceWidthEl.value) || null) : null;
+  // When justify is active the slider is read-only; don't send a manual override
+  const space_width   = justify ? null : (spaceWidthEl ? (parseFloat(spaceWidthEl.value) || null) : null);
   const forceUpperEl  = document.getElementById('force-uppercase');
   const force_uppercase = forceUpperEl ? forceUpperEl.checked : false;
 
@@ -472,6 +490,17 @@ async function runComparison() {
 
     buildTable(cmpState.results);
     cmpRenderOnPage();
+
+    // When justify is active, update the Space W. slider to show the computed value
+    if (justify && spaceWidthEl) {
+      const sel = cmpState.selected;
+      const src = sel != null ? cmpState.results[sel] : cmpState.results.find(r => r.justified_space_w != null);
+      if (src?.justified_space_w != null) {
+        spaceWidthEl.value = src.justified_space_w.toFixed(1);
+        const disp = document.getElementById('fabric-space-width-display');
+        if (disp) disp.textContent = src.justified_space_w.toFixed(1) + 'px';
+      }
+    }
   } catch (err) {
     cmpEls.empty.textContent = `Error: ${err.message}`;
     cmpEls.empty.style.display = '';
@@ -575,7 +604,6 @@ cmpEls.correction?.addEventListener('input', () => {
 // Auto-rerun when these settings change (after a short debounce)
 cmpEls.kerning?.addEventListener('change',   scheduleRerun);
 cmpEls.ligatures?.addEventListener('change', scheduleRerun);
-cmpEls.justify?.addEventListener('change',   scheduleRerun);
 document.getElementById('fabric-font-family')?.addEventListener('change', () => {
   // Only change the HarfBuzz Accuracy Inspector calculation if NO individual span is selected,
   // and the inspector button/panel is actively open.
@@ -583,6 +611,18 @@ document.getElementById('fabric-font-family')?.addEventListener('change', () => 
     scheduleRerun();
   }
 });
+
+// Justify checkbox — toggle slider disabled state and rerun
+cmpEls.justify?.addEventListener('change', () => {
+  const spaceSlider = document.getElementById('fabric-space-width');
+  if (spaceSlider) spaceSlider.disabled = cmpEls.justify.checked;
+  scheduleRerun();
+});
+// Set initial slider state from the default checked value
+(function initJustifySlider() {
+  const spaceSlider = document.getElementById('fabric-space-width');
+  if (spaceSlider && cmpEls.justify?.checked) spaceSlider.disabled = true;
+})();
 
 // Rerun when text_tool settings that affect width change
 document.getElementById('fabric-space-width')?.addEventListener('change', scheduleRerun);

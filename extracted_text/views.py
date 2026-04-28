@@ -3,7 +3,7 @@ from pathlib import Path
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .logic.width_calculator import get_text_widths, get_available_fonts
+from .logic.width_calculator import get_text_widths, get_available_fonts, get_justified_space_width
 
 
 @csrf_exempt
@@ -143,6 +143,7 @@ def compare_geometry(request):
         kerning = bool(data.get('kerning', True))
         ligatures = bool(data.get('ligatures', True))
         correction = float(data.get('correction', 1.0))
+        justify = bool(data.get('justify', False))
         space_width = data.get('space_width')
         if space_width is not None:
             space_width = float(space_width)
@@ -154,11 +155,29 @@ def compare_geometry(request):
             actual_px = span.get('w', 0.0)
             sz_pt = span.get("sizePt", span.get("fontSize", 12.0 * scale) / scale)
 
+            # When justify is enabled and the span has a container width (blockW),
+            # compute the per-space width that makes the total match blockW.
+            span_space_width = space_width
+            justified_space_w = None
+            if justify:
+                block_w = span.get('blockW')
+                if block_w and block_w > 0:
+                    jsw = get_justified_space_width(
+                        text, block_w, font_name, sz_pt,
+                        force_uppercase, scale * correction,
+                        kerning, ligatures,
+                    )
+                    if jsw is not None:
+                        span_space_width = jsw
+                        justified_space_w = jsw
+
             widths = get_text_widths(
                 [text], font_name, sz_pt, force_uppercase,
-                scale * correction, kerning, ligatures, space_width=space_width,
+                scale * correction, kerning, ligatures, space_width=span_space_width,
             )
-            comparison_px = widths[0].get('width', 0.0) if widths else 0.0
+            width_result = widths[0] if widths else {}
+            comparison_px = width_result.get('width', 0.0)
+            char_positions = width_result.get('chars', [])
             error_px = comparison_px - actual_px
             error_pct = (error_px / actual_px * 100) if actual_px > 0 else 0
 
@@ -178,8 +197,10 @@ def compare_geometry(request):
                 "w": span.get('w', 0),
                 "h": span.get('h', 0),
                 "fontSize": span.get('fontSize'),
-                "chars": [],
+                "chars": char_positions,
             })
+            if justified_space_w is not None:
+                res["justified_space_w"] = round(justified_space_w, 4)
             results.append(res)
 
         return JsonResponse({"results": results})
