@@ -160,7 +160,7 @@ def compare_geometry(request):
             span_space_width = space_width
             justified_space_w = None
             if justify:
-                block_w = span.get('blockW')
+                block_w = actual_px
                 if block_w and block_w > 0:
                     jsw = get_justified_space_width(
                         text, block_w, font_name, sz_pt,
