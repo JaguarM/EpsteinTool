@@ -529,7 +529,7 @@ function syncFormatBar(el) {
 
   const fsPx = parseFloat(el.style.getPropertyValue('--etv-fs')) || 12;
   const sizeInput = document.getElementById('fabric-font-size');
-  if (sizeInput) sizeInput.value = Math.round(fsPx * 100) / 100;
+  if (sizeInput) sizeInput.value = Math.round(fsPx * 0.75 * 100) / 100;
 
   document.getElementById('fabric-bold')?.classList.toggle('active',
     el.style.fontWeight === 'bold' || el.style.fontWeight === '700');
@@ -654,13 +654,13 @@ function _applyFontSize(el, size) {
 
 // Apply in real-time while typing / using spinners (fires before focus can be lost)
 document.getElementById('fabric-font-size')?.addEventListener('input', e => {
-  const size = Math.max(1, parseFloat(e.target.value) || 12);
+  const size = Math.max(1, (parseFloat(e.target.value) || 12) / 0.75);
   _applyFontSize(selectedSpan, size);
 });
 
 // On commit (Enter / blur): also trigger width recalculation for redaction labels
 document.getElementById('fabric-font-size')?.addEventListener('change', async e => {
-  const size = Math.max(1, parseFloat(e.target.value) || 12);
+  const size = Math.max(1, (parseFloat(e.target.value) || 12) / 0.75);
   _applyFontSize(selectedSpan, size);
   if (selectedSpan?.dataset.redactionIdx !== undefined && typeof calculateAllWidths === 'function') {
     document.getElementById('fabric-font-size').disabled = true;
@@ -670,6 +670,7 @@ document.getElementById('fabric-font-size')?.addEventListener('change', async e 
 });
 ['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'].forEach(id => {
   document.getElementById(id)?.addEventListener('click', () => {
+    if (window.UnifiedTextBox) return; // let text_tool handle this
     document.getElementById(id).classList.toggle('active');
     applyFormat();
   });
@@ -808,7 +809,7 @@ window.addEmbeddedTextSpan = function(pageNum, x, y) {
   
   const snapY  = neat ? neat.y        : y - 10;
   const snapH  = neat ? neat.h        : 20;
-  const snapFS = neat ? neat.fontSize : (parseFloat(document.getElementById('fabric-font-size')?.value) || 16);
+  const snapFS = neat ? neat.fontSize : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75);
   const snapFF = neat ? neat.font     : (document.getElementById('fabric-font-family')?.value || 'serif');
   const lineId = neat ? neat.lineId   : `manual_${Date.now()}`;
 

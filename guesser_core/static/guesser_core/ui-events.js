@@ -1,12 +1,6 @@
-/* ETV span DOM lookup — used for Redaction → ETV sync */
-function getETVSpanEl(span) {
-  if (typeof etvState === 'undefined') return null;
-  const overlay = document.querySelector(`#pageContainer${span.page} .etv-overlay`);
-  if (!overlay) return null;
-  const pageSpans = etvState.spans.filter(sp => sp.page === span.page);
-  const idx = pageSpans.indexOf(span);
-  if (idx === -1) return null;
-  return overlay.querySelector(`.etv-span[data-idx="${idx}"]`);
+/* UTB span element lookup — used for Redaction → text span sync */
+function getUTBGroupEl(box) {
+  return document.querySelector(`.utb-group[data-id="${box.id}"]`) || null;
 }
 
 /* Zoom Handlers */
@@ -60,12 +54,12 @@ function initResize(e, idx, edge) {
   const startPtsHeight = r.height;
   const scaleFactor = state.currentZoom;
 
-  // Capture connected ETV spans for vertical-edge sync (t/b only)
-  const connectedSpans = (r.lineId !== null && typeof etvState !== 'undefined')
-    ? etvState.spans.filter(s => s.lineId === r.lineId && s.page === r.page)
+  // Capture connected UTB embedded spans for vertical-edge sync (t/b only)
+  const connectedBoxes = (r.lineId !== null && typeof utbState !== 'undefined')
+    ? utbState.boxes.filter(b => b.type === 'embedded' && b.lineId === r.lineId && b.page === r.page)
     : [];
-  const spanStartYs = connectedSpans.map(s => s.y);
-  const spanStartHs = connectedSpans.map(s => s.h);
+  const boxStartYs = connectedBoxes.map(b => b.y);
+  const boxStartHs = connectedBoxes.map(b => b.h);
 
   const tol = r.settings.tol || 0;
   const isUpper = r.settings.upper;
@@ -97,23 +91,19 @@ function initResize(e, idx, edge) {
       overlay.style.setProperty('--px-height', `${r.height}px`);
     }
 
-    // Sync connected ETV spans for vertical resize (t/b edges only)
-    for (let i = 0; i < connectedSpans.length; i++) {
-      const s = connectedSpans[i];
+    // Sync connected UTB embedded spans for vertical resize (t/b edges only)
+    for (let i = 0; i < connectedBoxes.length; i++) {
+      const b = connectedBoxes[i];
       if (edge === 't') {
-        const actualDy = Math.min(dy, spanStartHs[i] - 1);
-        s.y = spanStartYs[i] + actualDy;
-        s.h = spanStartHs[i] - actualDy;
+        const actualDy = Math.min(dy, boxStartHs[i] - 1);
+        b.y = boxStartYs[i] + actualDy;
+        b.h = boxStartHs[i] - actualDy;
       } else if (edge === 'b') {
-        s.h = Math.max(1, spanStartHs[i] + dy);
+        b.h = Math.max(1, boxStartHs[i] + dy);
       } else {
         continue;
       }
-      const el = getETVSpanEl(s);
-      if (el) {
-        el.style.setProperty('--etv-y', `${s.y}px`);
-        el.style.setProperty('--etv-h', `${s.h}px`);
-      }
+      if (typeof renderBox === 'function') renderBox(b);
     }
 
     const rowEl = document.getElementById(`match-row-${idx}`);
@@ -201,11 +191,11 @@ function initDragRedaction(e, idx) {
   const startPtsY = r.y;
   const scaleFactor = state.currentZoom;
 
-  // Capture connected ETV spans and their start Y positions for live sync
-  const connectedSpans = (r.lineId !== null && typeof etvState !== 'undefined')
-    ? etvState.spans.filter(s => s.lineId === r.lineId && s.page === r.page)
+  // Capture connected UTB embedded spans and their start Y positions for live sync
+  const connectedBoxes = (r.lineId !== null && typeof utbState !== 'undefined')
+    ? utbState.boxes.filter(b => b.type === 'embedded' && b.lineId === r.lineId && b.page === r.page)
     : [];
-  const spanStartYs = connectedSpans.map(s => s.y);
+  const boxStartYs = connectedBoxes.map(b => b.y);
 
   function onMouseMove(moveEvent) {
     const dx = (moveEvent.clientX - startX) / scaleFactor;
@@ -220,11 +210,10 @@ function initDragRedaction(e, idx) {
       overlay.style.setProperty('--px-y', `${r.y}px`);
     }
 
-    // Sync connected ETV spans vertically (X is independent per span)
-    for (let i = 0; i < connectedSpans.length; i++) {
-      connectedSpans[i].y = spanStartYs[i] + dy;
-      const el = getETVSpanEl(connectedSpans[i]);
-      if (el) el.style.setProperty('--etv-y', `${connectedSpans[i].y}px`);
+    // Sync connected UTB embedded spans vertically
+    for (let i = 0; i < connectedBoxes.length; i++) {
+      connectedBoxes[i].y = boxStartYs[i] + dy;
+      if (typeof renderBox === 'function') renderBox(connectedBoxes[i]);
     }
   }
 

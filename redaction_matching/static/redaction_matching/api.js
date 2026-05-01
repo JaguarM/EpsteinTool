@@ -61,7 +61,7 @@
             force_uppercase: s.upper,
             use_calibration: useCal,
             space_width: s.spaceWidth,
-            spans: typeof etvState !== 'undefined' && etvState.spans ? etvState.spans : (typeof state !== 'undefined' && state.spans ? state.spans : [])
+            spans: typeof utbGetSpansCompat === 'function' ? utbGetSpansCompat() : (typeof state !== 'undefined' && state.spans ? state.spans : [])
           })
         });
         
@@ -283,10 +283,10 @@
                 const words = textToRender.split(' ');
                 let spaceWidths = [];
                 
-                if (typeof etvState !== 'undefined' && etvState.spans && r.lineId) {
-                    const etvSpan = etvState.spans.find(s => s.lineId === r.lineId && s.page === r.page);
-                    if (etvSpan && etvSpan.chars) {
-                        spaceWidths = etvSpan.chars.filter(c => c.c === ' ' || c.c === '\t').map(c => c.w);
+                if (r.lineId) {
+                    const lineBox = utbState.boxes.find(b => b.type === 'embedded' && b.lineId === r.lineId && b.page === r.page);
+                    if (lineBox && lineBox.baseCharPositions) {
+                        spaceWidths = lineBox.baseCharPositions.filter(c => c.c === ' ' || c.c === '\t').map(c => c.w);
                     }
                 }
                 
@@ -344,9 +344,8 @@
     // for redaction labels via the el.dataset.redactionIdx branch.
 
     async function handleManualAddBox(pageNum, pxX, pxY) {
-      if (typeof findNearestETVLine !== 'function') return;
-
-      const nearestLine = findNearestETVLine(pageNum, pxY, 2.0); // 2x threshold
+      const nearestLine = typeof utbFindNearestLine === 'function'
+        ? utbFindNearestLine(pageNum, pxY, 2.0) : null;
 
       // Snap geometry and typography from the nearest ETV line, same as addEmbeddedTextSpan
       const finalY      = nearestLine ? nearestLine.y      : pxY;

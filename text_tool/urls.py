@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 
-root_urlpatterns = [
+urlpatterns = [
     path('widths', views.calculate_widths, name='calculate_widths'),
     path('fonts-list', views.list_fonts, name='list_fonts'),
 ]

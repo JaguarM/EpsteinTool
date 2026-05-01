@@ -185,6 +185,9 @@ async function goToPage(pageNum) {
   if (typeof renderEmbeddedTextOverlay === 'function') {
     renderEmbeddedTextOverlay(pageContainer, pageNum);
   }
+  if (typeof renderTextLayer === 'function') {
+    renderTextLayer(pageContainer, pageNum);
+  }
 
   if (typeof injectRedactionOverlays === 'function') injectRedactionOverlays();
 

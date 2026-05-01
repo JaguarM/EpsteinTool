@@ -1,0 +1,222 @@
+// toolbar.js
+// Unified formatting toolbar — reads/writes UnifiedTextBox objects directly.
+// No branching on box.type; one code path for embedded, redaction, and harfbuzz.
+
+(function initToolbar() {
+
+  // ── Helpers ───────────────────────────────────────────────────
+
+  function el(id) { return document.getElementById(id); }
+
+  function getSelected() {
+    return utbState.selectedId ? utbState.getBox(utbState.selectedId) : null;
+  }
+
+  // ── Sync toolbar ← box ────────────────────────────────────────
+
+  /**
+   * Push a box's properties into the toolbar UI.
+   * Called whenever a box is selected.
+   */
+  function syncToolbarToBox(box) {
+    if (!box) return;
+
+    const ffSel = el('fabric-font-family');
+    if (ffSel) {
+      const opt = Array.from(ffSel.options).find(o => o.value === box.fontFamily);
+      if (opt) ffSel.value = opt.value;
+    }
+
+    const fsInput = el('fabric-font-size');
+    if (fsInput) fsInput.value = Math.round(box.fontSize * 0.75 * 100) / 100;
+
+    el('fabric-bold')         ?.classList.toggle('active', box.bold);
+    el('fabric-italic')       ?.classList.toggle('active', box.italic);
+    el('fabric-underline')    ?.classList.toggle('active', box.underline);
+    el('fabric-strikethrough')?.classList.toggle('active', box.strikethrough);
+
+    const colorInput = el('fabric-color');
+    if (colorInput && box.color && box.color.startsWith('#')) {
+      colorInput.value = box.color;
+    }
+
+    const lsInput = el('fabric-letter-spacing');
+    if (lsInput) lsInput.value = (box.letterSpacing || 0).toFixed(2);
+
+    const justCheck = el('fabric-justified');
+    if (justCheck) justCheck.checked = box.justify;
+
+    const swSlider = el('fabric-space-width');
+    const swDisplay = el('fabric-space-width-display');
+    if (swSlider && box.spaceWidth != null) {
+      swSlider.value = box.spaceWidth;
+      if (swDisplay) swDisplay.textContent = `${parseFloat(box.spaceWidth).toFixed(1)}px`;
+    }
+
+    // Show toolbar if hidden
+    // el('fabric-options-bar')?.classList.remove('hidden');
+  }
+
+  // Expose for drag-resize.js and other modules
+  window.syncToolbarToBox = syncToolbarToBox;
+
+  function syncToolbarToSelection() {
+    const box = getSelected();
+    if (box) syncToolbarToBox(box);
+  }
+  window.syncToolbarToSelection = syncToolbarToSelection;
+
+  // ── Persist toolbar → box ─────────────────────────────────────
+
+  /**
+   * Read current toolbar state and write to box, then re-render.
+   */
+  async function persistFromToolbar(box) {
+    if (!box) return;
+
+    const newFamily = el('fabric-font-family')?.value || box.fontFamily;
+    const inputSize = parseFloat(el('fabric-font-size')?.value);
+    const newSize   = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize;
+    const fontChanged = newFamily !== box.fontFamily || newSize !== box.fontSize;
+
+    box.fontFamily    = newFamily;
+    box.fontSize      = newSize;
+    box.bold          = el('fabric-bold')         ?.classList.contains('active') ?? box.bold;
+    box.italic        = el('fabric-italic')       ?.classList.contains('active') ?? box.italic;
+    box.underline     = el('fabric-underline')    ?.classList.contains('active') ?? box.underline;
+    box.strikethrough = el('fabric-strikethrough')?.classList.contains('active') ?? box.strikethrough;
+    box.letterSpacing = parseFloat(el('fabric-letter-spacing')?.value) || 0;
+    box.justify       = el('fabric-justified')?.checked ?? box.justify;
+    if (!box.justify) {
+      box.spaceWidth = parseFloat(el('fabric-space-width')?.value) || box.spaceWidth;
+    }
+
+    // If justify toggled on: compute HarfBuzz space width
+    if (box.justify && box.text && box.w) {
+      const jsw = await fetchJustifiedSpaceWidth(box);
+      if (jsw !== null) box.spaceWidth = jsw;
+    }
+
+    // If font changed on a redaction: recalculate candidate widths
+    if (fontChanged && box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+      const legacyIdx = box._legacyIdx;
+      if (legacyIdx !== undefined && typeof state !== 'undefined' && state.redactions[legacyIdx]) {
+        state.redactions[legacyIdx].settings.fontFamily = box.fontFamily;
+        state.redactions[legacyIdx].settings.fontSize   = box.fontSize;
+        await calculateWidthsForRedaction(legacyIdx);
+      }
+    }
+
+    renderBox(box);
+    // Update space-width display
+    const swDisplay = el('fabric-space-width-display');
+    if (swDisplay && box.spaceWidth != null) {
+      swDisplay.textContent = `${parseFloat(box.spaceWidth).toFixed(1)}px`;
+    }
+  }
+
+  // ── HarfBuzz justified space width ───────────────────────────
+
+  async function fetchJustifiedSpaceWidth(box) {
+    const font  = _ttfForFamily(box.fontFamily);
+    const scale = typeof state !== 'undefined' ? (state.pageWidth / 816 * (4/3)) : (4/3);
+    try {
+      const resp = await fetch('/widths', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode:    'justified',
+          strings: [box.text],
+          block_w: box.w,
+          font:    font,
+          size:    box.sizePt || box.fontSize,
+          scale:   scale * 100,
+          kerning:    box.kerning,
+          ligatures:  box.ligatures,
+        }),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      return data.space_width ?? null;
+    } catch { return null; }
+  }
+
+  // Map CSS family name → TTF filename (for HarfBuzz backend)
+  function _ttfForFamily(family) {
+    const lc = (family || '').toLowerCase().replace(/[\s\-_]/g, '');
+    if (lc.includes('times'))   return 'times.ttf';
+    if (lc.includes('arial'))   return 'arial.ttf';
+    if (lc.includes('calibri')) return 'calibri.ttf';
+    if (lc.includes('courier')) return 'courier_new.ttf';
+    if (lc.includes('segoe'))   return 'segoe_ui.ttf';
+    if (lc.includes('verdana')) return 'verdana.ttf';
+    return 'times.ttf';
+  }
+
+  // ── Event wiring ──────────────────────────────────────────────
+
+  const STYLE_TOGGLES = ['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'];
+
+  STYLE_TOGGLES.forEach(id => {
+    el(id)?.addEventListener('click', () => {
+      el(id).classList.toggle('active');
+      const box = getSelected();
+      if (box) persistFromToolbar(box);
+    });
+  });
+
+  el('fabric-font-family')?.addEventListener('change', () => persistFromToolbar(getSelected()));
+  el('fabric-font-size')  ?.addEventListener('input',  () => {
+    const box = getSelected();
+    if (box) { 
+      const inputSize = parseFloat(el('fabric-font-size').value);
+      box.fontSize = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize; 
+      renderBox(box); 
+    }
+  });
+  el('fabric-font-size')  ?.addEventListener('change', () => persistFromToolbar(getSelected()));
+
+  el('fabric-letter-spacing')?.addEventListener('change', () => persistFromToolbar(getSelected()));
+  el('fabric-color')         ?.addEventListener('input', e => {
+    const box = getSelected();
+    if (box) { box.color = e.target.value; renderBox(box); }
+  });
+
+  el('fabric-justified')?.addEventListener('change', () => persistFromToolbar(getSelected()));
+
+  el('fabric-space-width')?.addEventListener('input', e => {
+    const box = getSelected();
+    if (!box || box.justify) return;
+    box.spaceWidth = parseFloat(e.target.value);
+    const disp = el('fabric-space-width-display');
+    if (disp) disp.textContent = `${box.spaceWidth.toFixed(1)}px`;
+    renderBox(box);
+  });
+
+  // Toggle-fmt button (show/hide toolbar)
+  el('toggle-fmt')?.addEventListener('click', () => {
+    const bar = el('fabric-options-bar');
+    const btn = el('toggle-fmt');
+    if (!bar) return;
+
+    if (bar.classList.contains('hidden')) {
+      // Open: hand off to the global coordinator
+      if (typeof openSubtoolbar === 'function') openSubtoolbar(bar, btn);
+      else { bar.classList.remove('hidden'); btn?.classList.add('active'); }
+    } else {
+      // Close: revert to the default text-options-bar
+      if (typeof openSubtoolbar === 'function') openSubtoolbar(null, null);
+      else { bar.classList.add('hidden'); btn?.classList.remove('active'); }
+    }
+  });
+
+  // Toggle-text-layer button (show/hide SVG layer globally)
+  el('toggle-text-layer')?.addEventListener('click', () => {
+    const btn = el('toggle-text-layer');
+    const active = btn.classList.toggle('active');
+    document.querySelectorAll('svg.text-layer').forEach(svg => {
+      svg.style.display = active ? '' : 'none';
+    });
+  });
+
+})();

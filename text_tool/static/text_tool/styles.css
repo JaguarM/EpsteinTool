@@ -1,96 +1,130 @@
-/* === Embedded Text Viewer Overlay === */
+/* text_tool/styles.css — Unified SVG Text Layer */
 
-.etv-overlay {
+/* ── SVG text layer overlay ─────────────────────────────────── */
+
+.text-layer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 4;
-}
-
-/* Elevate when active tool to bypass redactions */
-.etv-overlay.active-tool {
-  z-index: 50;
-}
-
-.etv-span {
-  position: absolute;
-  color: var(--etv-color, rgba(0, 100, 255, 0.85));
-  font-family: "Times New Roman", Times, serif;
-  white-space: pre;
-  cursor: text;
-  pointer-events: auto; /* ENABLES INTERACTION */
-  left:        calc(var(--etv-x,  0px) * var(--scale-factor, 1));
-  top:         calc(var(--etv-y,  0px) * var(--scale-factor, 1));
-  font-size:   calc(var(--etv-fs, 12px) * var(--scale-factor, 1));
-  height:      calc(var(--etv-h,  12px) * var(--scale-factor, 1));
-  line-height: calc(var(--etv-h,  12px) * var(--scale-factor, 1));
-  user-select: text;
-}
-
-.etv-span:focus,
-.etv-span.selected {
-  outline: none;
-  background-color: rgba(138, 180, 248, 0.15);
-  box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.7);
-  border-radius: 2px;
-  caret-color: #8ab4f8;
-  z-index: 100;
-  color: var(--etv-color, rgba(0, 100, 255, 0.85)) !important; /* Ensure visible in boxes mode */
-}
-
-/* Redaction labels share the etv-span class but get their selection highlight from
-   .redaction-overlay.selected (blue pulse border). Suppress the box-shadow glow here. */
-.etv-span.redaction-label:focus,
-.etv-span.redaction-label.selected {
-  background-color: transparent;
-  box-shadow: none;
-  color: inherit;
-}
-
-/* Boxes mode: fill bounding box, hide text */
-#viewer.etv-boxes-mode .etv-span {
-  color: transparent;
-  background-color: var(--etv-box-bg, rgba(0, 100, 255, 0.25));
-  border: 1px solid var(--etv-color, rgba(0, 100, 255, 0.85));
-  width: calc(var(--etv-w, 0px) * var(--scale-factor, 1));
-  overflow: hidden;
-}
-
-/* ETV Specific Resizers */
-/* Resizers (matching redaction-overlay look) */
-.etv-span .resizer {
-  position: absolute;
-  background: transparent;
-  z-index: 110;
-  display: none;
-}
-
-/* Only show resizers when focused or selected */
-.etv-span:focus .resizer,
-.etv-span.selected .resizer {
-  display: block;
-}
-
-.etv-span .resizer-l { left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
-.etv-span .resizer-r { right: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
-
-.etv-span .resizer:hover {
-  background: rgba(138, 180, 248, 0.5);
-}
-
-/* Ensure char-mode spans have explicit width so absolutely-positioned children are visible */
-.etv-span[data-char-mode] {
-  width: calc(var(--etv-w, 0px) * var(--scale-factor, 1));
   overflow: visible;
+  pointer-events: none; /* let events fall through to page image by default */
+  z-index: 5;
 }
 
-/* Character-level absolute positioning for PDF-precise text overlay */
-.etv-span > i {
-  position: absolute;
-  left: calc(var(--ch-x, 0px) * var(--scale-factor, 1));
-  font-style: inherit;
+/* ── Box groups ──────────────────────────────────────────────── */
+
+.utb-group {
+  pointer-events: all; /* enable interaction on the group */
+}
+
+/* Bounding-box rect — hidden by default, shown when selected */
+.utb-bbox {
+  fill: none;
+  stroke-width: 1;
+  stroke-dasharray: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.utb-group.selected .utb-bbox,
+.utb-group:hover .utb-bbox {
+  opacity: 1;
+}
+
+/* ── Text rendering by type ──────────────────────────────────── */
+
+.utb-text {
+  cursor: default;
+  user-select: none;
+  dominant-baseline: auto;
   white-space: pre;
 }
+
+.utb-group[data-type="embedded"] .utb-text {
+  fill: rgba(0, 100, 255, 0.82);
+}
+
+.utb-group[data-type="redaction"] .utb-text {
+  fill: rgba(129, 201, 149, 0.90);
+}
+
+.utb-group[data-type="harfbuzz"] .utb-text {
+  fill: rgba(255, 140, 0, 0.80);
+}
+
+/* Selection highlight — subtle glow on bbox */
+.utb-group.selected .utb-bbox {
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 3px rgba(138, 180, 248, 0.7));
+}
+
+/* ── Micro-typography character hit areas ────────────────────── */
+
+.utb-char-hit {
+  fill: transparent;
+  stroke: none;
+  cursor: col-resize;
+  pointer-events: all;
+}
+
+.utb-group.micro-typo .utb-char-hit {
+  opacity: 1;
+}
+
+/* Hovered char hit: faint highlight */
+.utb-char-hit:hover {
+  fill: rgba(138, 180, 248, 0.25);
+}
+
+/* ── Micro-typography popover ────────────────────────────────── */
+
+.utb-nudge-popover {
+  position: absolute;
+  background: #202124;
+  border: 1px solid #3c4043;
+  border-radius: 6px;
+  padding: 8px 12px;
+  z-index: 100;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  font-size: 12px;
+  color: #e8eaed;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.utb-nudge-popover label {
+  color: #9aa0a6;
+  font-size: 11px;
+}
+
+.utb-nudge-popover .nudge-char-preview {
+  font-size: 20px;
+  font-family: "Times New Roman", serif;
+  text-align: center;
+  color: #8ab4f8;
+  letter-spacing: 0.05em;
+}
+
+.utb-nudge-popover input[type="range"] {
+  width: 100%;
+  accent-color: #8ab4f8;
+}
+
+.utb-nudge-popover .nudge-value {
+  text-align: right;
+  color: #8ab4f8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Edge resize handles ─────────────────────────────────────── */
+
+.utb-edge {
+  pointer-events: all;
+}
+
+.utb-edge-l { cursor: w-resize; }
+.utb-edge-r { cursor: e-resize; }

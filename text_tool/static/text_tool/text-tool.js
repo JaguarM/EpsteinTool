@@ -1,384 +1,301 @@
-/**
- * =====================================================================
- * TEXT TOOL & FORMATTING MANAGER
- * Handles selection, formatting, and toolbar synchronization for:
- * 1. .etv-span (PDF text overlays)
- * 2. .redaction-label (Manual unredactor guesses)
- * =====================================================================
- */
+// text-tool.js
+// Bootstrap / integration layer for the Unified Text Box system.
+// Wires span fetching and redaction data into utbState, and hooks
+// into the existing pdf-viewer.js lifecycle (loadDocument, goToPage).
 
-let lastSelectedTextItem = null;
+// ── Span fetching ─────────────────────────────────────────────
 
-const TEXT_SELECTORS = '.etv-span'; // .redaction-label elements also carry this class
-const TOOLBAR_SELECTORS = '#unified-options-bar-container, #fabric-options-bar';
+const _utbFetchState = {
+  fetched: false,
+  currentFile: null,
+};
 
-function deselectAllText() {
-    lastSelectedTextItem = null;
-    document.querySelectorAll(TEXT_SELECTORS).forEach(el => {
-        el.classList.remove('selected');
-        el.contentEditable = 'false';
-    });
-    document.querySelectorAll('.redaction-overlay.selected').forEach(o => o.classList.remove('selected'));
+async function utbFetchSpans(file) {
+  if (_utbFetchState.fetched && _utbFetchState.currentFile === file) return;
+
+  try {
+    let resp;
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      resp = await fetch('/embedded-text-viewer/api/extract-spans', { method: 'POST', body: fd });
+    } else {
+      resp = await fetch('/embedded-text-viewer/api/extract-spans');
+    }
+    if (!resp.ok) return;
+
+    const data = await resp.json();
+    const spans = data.spans || [];
+
+    // Remove old embedded boxes so we don't double-render after re-fetch
+    utbState.boxes = utbState.boxes.filter(b => b.type !== 'embedded');
+
+    spans.forEach(span => utbState.addBox(spanToUnified(span)));
+
+    _utbFetchState.fetched     = true;
+    _utbFetchState.currentFile = file;
+
+    // Render on all currently visible pages
+    renderAllTextLayers();
+
+    // Connect redaction boxes to their ETV lines
+    utbConnectRedactionsToLines();
+
+  } catch (err) {
+    console.warn('UTB: span fetch error', err);
+  }
 }
 
-function selectTextElement(el) {
-    if (!el || lastSelectedTextItem === el) return;
-    deselectAllText();
-    lastSelectedTextItem = el;
-    el.classList.add('selected');
-    if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
-    el.focus();
 
-    const redactionParent = el.closest('.redaction-overlay');
-    if (redactionParent) {
-        redactionParent.classList.add('selected');
-        const idx = parseInt(redactionParent.id.replace('redaction-idx-', ''));
-        if (!isNaN(idx) && typeof selectRedaction === 'function') selectRedaction(idx);
-    }
-}
-
-// Sync toolbar on focus — also ensures lastSelectedTextItem is always current.
-// This covers the selectRedaction→label.focus() path where no mousedown fires.
-document.addEventListener('focusin', (e) => {
-    const el = e.target.closest(TEXT_SELECTORS);
-    if (!el) return;
-    if (lastSelectedTextItem !== el) {
-        // Deselect the previous element without calling deselectAllText (which clears el too)
-        if (lastSelectedTextItem) {
-            lastSelectedTextItem.classList.remove('selected');
-            lastSelectedTextItem.contentEditable = 'false';
-        }
-        lastSelectedTextItem = el;
-        el.classList.add('selected');
-        if (!el.classList.contains('redaction-label')) el.contentEditable = 'true'; // labels are read-only
-    }
-    syncBarToSpan(el);
-});
-
-// Deselect when focus leaves text elements (but not when moving to the toolbar)
-document.addEventListener('focusout', (e) => {
-    if (!e.target.closest(TEXT_SELECTORS)) return;
-    const goingTo = e.relatedTarget;
-    const stayingInText = goingTo?.closest(TEXT_SELECTORS);
-    const stayingInToolbar = goingTo?.closest(TOOLBAR_SELECTORS);
-    if (!stayingInText && !stayingInToolbar) deselectAllText();
-});
-
-// Route clicks to the right element
-document.addEventListener('mousedown', (e) => {
-    const textEl = e.target.closest('.etv-span')
-        || e.target.closest('.redaction-overlay')?.querySelector('.etv-span');
-    const inToolbar = e.target.closest(TOOLBAR_SELECTORS);
-
-    if (textEl) {
-        const isNew = lastSelectedTextItem !== textEl;
-        selectTextElement(textEl);
-        // Prevent default on new selection to avoid unwanted cursor jumps into char children
-        if (isNew && e.target !== textEl) e.preventDefault();
-    } else if (!inToolbar) {
-        deselectAllText();
-    }
-});
+// ── Redaction ingestion ───────────────────────────────────────
 
 /**
- * SYNC: Update toolbar inputs to match the styles of the selected element.
- * Reads inline styles directly (not computed) so it works reliably with raw
- * PDF font names and before the browser font cascade resolves.
+ * Convert the legacy state.redactions[] into UnifiedTextBox entries.
+ * Called after loadDocument populates state.redactions.
  */
-function syncBarToSpan(el) {
-    if (!el) return;
+function utbIngestRedactions() {
+  if (typeof state === 'undefined' || !state.redactions) return;
 
-    // --- Font Family ---
-    // etvNormFont (defined in embedded-text-viewer.js) converts raw PDF names
-    // like "ABCDEF+TimesNewRomanPSMT" to browser-safe equivalents.
-    const rawFont = el.style.fontFamily || '';
-    const normFont = (typeof etvNormFont === 'function') ? etvNormFont(rawFont) : rawFont;
-    const ff = document.getElementById('fabric-font-family');
-    if (ff && normFont) {
-        const opt = Array.from(ff.options).find(o =>
-            o.value.toLowerCase() === normFont.toLowerCase() ||
-            o.text.toLowerCase() === normFont.toLowerCase()
-        );
-        if (opt) ff.value = opt.value;
-    }
+  // Remove old redaction boxes
+  utbState.boxes = utbState.boxes.filter(b => b.type !== 'redaction');
 
-    // --- Font Size ---
-    // Always stored unscaled in the --etv-fs CSS custom property.
-    const fsInput = document.getElementById('fabric-font-size');
-    if (fsInput) {
-        const raw = el.style.getPropertyValue('--etv-fs');
-        if (raw) fsInput.value = Math.round(parseFloat(raw));
-    }
+  state.redactions.forEach((r, idx) => {
+    utbState.addBox(redactionToUnified(r, idx));
+  });
 
-    // --- Bold / Italic / Underline / Strikethrough ---
-    // renderEmbeddedTextOverlay already converts PDF font-name hints (e.g. "Times-Bold")
-    // into real fontWeight/fontStyle inline styles, so reading them here is sufficient.
-    const isBold = el.style.fontWeight === 'bold' || el.style.fontWeight === '700';
-    const isItalic = el.style.fontStyle === 'italic';
-    const decor = el.style.textDecoration || '';
-    const isUnderline = decor.includes('underline');
-    const isStrike = decor.includes('line-through');
-
-    document.getElementById('fabric-bold')?.classList.toggle('active', isBold);
-    document.getElementById('fabric-italic')?.classList.toggle('active', isItalic);
-    document.getElementById('fabric-underline')?.classList.toggle('active', isUnderline);
-    document.getElementById('fabric-strikethrough')?.classList.toggle('active', isStrike);
-
-    // --- Letter Spacing ---
-    const lsInput = document.getElementById('fabric-letter-spacing');
-    if (lsInput) lsInput.value = (parseFloat(el.style.letterSpacing) || 0).toFixed(2);
-
-    // --- Space Width ---
-    const isRedaction = el.dataset.redactionIdx !== undefined;
-    let swVal = 4;
-    let swDisp = '-';
-    if (isRedaction) {
-        const idx = parseInt(el.dataset.redactionIdx);
-        if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
-            const r = state.redactions[idx];
-            if (r.settings && r.settings.spaceWidth !== undefined) {
-                swVal = r.settings.spaceWidth;
-                swDisp = swVal + 'px';
-            } else {
-                swVal = 4;
-                swDisp = 'auto';
-            }
-        }
-    } else if (el.classList.contains('etv-span')) {
-        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer', '') || 1);
-        const pageSpans = typeof etvState !== 'undefined' ? etvState.spans.filter(s => s.page === pageNum) : [];
-        const spanIdx = parseInt(el.dataset.idx);
-        const s = pageSpans[spanIdx];
-        if (s && s.spaceWidth !== undefined) {
-            swVal = s.spaceWidth;
-            swDisp = swVal + 'px';
-        } else {
-            swVal = 4;
-            swDisp = 'auto';
-        }
-        if (s && s.justify !== undefined) {
-            document.querySelectorAll('[id="fabric-justified"]').forEach(cb => cb.checked = s.justify);
-        } else {
-            document.querySelectorAll('[id="fabric-justified"]').forEach(cb => cb.checked = true);
-        }
-    }
-    document.querySelectorAll('[id="fabric-space-width"]').forEach(input => input.value = swVal);
-    document.querySelectorAll('[id="fabric-space-width-display"]').forEach(disp => disp.textContent = swDisp);
-
-    // --- Color ---
-    const colorInput = document.getElementById('fabric-color');
-    if (colorInput) {
-        const src = el.style.getPropertyValue('--etv-color') || el.style.color;
-        if (src) colorInput.value = _cssColorToHex(src);
-    }
+  renderAllTextLayers();
 }
 
-/** Convert any CSS color string to a #rrggbb hex value. */
-function _cssColorToHex(color) {
-    if (!color || color === 'initial' || color === 'inherit') return '#000000';
-    if (/^#[0-9a-f]{6}$/i.test(color)) return color;
-    const m = color.match(/\d+/g);
-    if (m && m.length >= 3) {
-        return '#' + ((1 << 24) + (+m[0] << 16) + (+m[1] << 8) + +m[2]).toString(16).slice(1);
+
+// ── Connect redaction UTB boxes to ETV lines ──────────────────
+
+function utbConnectRedactionsToLines() {
+  const embeddedBoxes = utbState.boxes.filter(b => b.type === 'embedded');
+  const redactionBoxes = utbState.boxes.filter(b => b.type === 'redaction');
+
+  redactionBoxes.forEach(rb => {
+    if (rb.lineId !== null) return; // already connected
+
+    const pageEmbedded = embeddedBoxes.filter(b => b.page === rb.page);
+    let bestBox    = null;
+    let bestOverlap = 0;
+
+    for (const eb of pageEmbedded) {
+      const overlap = Math.min(rb.y + rb.h, eb.y + eb.h) - Math.max(rb.y, eb.y);
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestBox     = eb;
+      }
     }
-    return '#000000';
+
+    if (!bestBox || bestOverlap < rb.h * 0.3) return;
+
+    rb.lineId = bestBox.lineId;
+    rb.y      = bestBox.y;
+    rb.h      = bestBox.h;
+
+    // Sync back to legacy state.redactions[] if present
+    if (rb._legacyIdx !== undefined && typeof state !== 'undefined' && state.redactions[rb._legacyIdx]) {
+      state.redactions[rb._legacyIdx].lineId = rb.lineId;
+      state.redactions[rb._legacyIdx].y      = rb.y;
+      state.redactions[rb._legacyIdx].height = rb.h;
+    }
+
+    renderBox(rb);
+  });
 }
 
+
+// ── Tool: add embedded text span ─────────────────────────────
+
 /**
- * ACTIONS: Apply Ribbon changes to the selected object.
+ * Create a new 'embedded' box at the given page coordinates.
+ * Snaps to the nearest ETV line for font/size/position.
  */
-function applyFormatting() {
-    const el = lastSelectedTextItem;
-    if (!el) return;
+window.addEmbeddedTextSpan = function(pageNum, x, y) {
+  const nearest = _utbFindNearestLine(pageNum, y);
 
-    const bold = document.getElementById('fabric-bold')?.classList.contains('active');
-    const italic = document.getElementById('fabric-italic')?.classList.contains('active');
-    const underline = document.getElementById('fabric-underline')?.classList.contains('active');
-    const strike = document.getElementById('fabric-strikethrough')?.classList.contains('active');
+  const newBox = utbState.addBox(new UnifiedTextBox({
+    type:       'embedded',
+    page:       pageNum,
+    text:       'Click to edit',
+    lineId:     nearest ? nearest.lineId : `manual_${Date.now()}`,
+    x:          x,
+    y:          nearest ? nearest.y      : y - 10,
+    w:          120,
+    h:          nearest ? nearest.h      : 20,
+    fontFamily: nearest ? nearest.fontFamily : (document.getElementById('fabric-font-family')?.value || 'Times New Roman'),
+    fontSize:   nearest ? nearest.fontSize   : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75),
+  }));
 
-    el.style.fontWeight = bold ? 'bold' : 'normal';
-    el.style.fontStyle = italic ? 'italic' : 'normal';
-    el.style.textDecoration = [underline && 'underline', strike && 'line-through'].filter(Boolean).join(' ') || 'none';
+  renderBox(newBox);
 
-    persistChangesToState(el);
-    broadcastChange(el);
+  // Select the new box and open toolbar
+  utbState.selectedId = newBox.id;
+  selectBoxInSVG(newBox.id);
+  if (typeof syncToolbarToBox === 'function') syncToolbarToBox(newBox);
+};
+
+function _utbFindNearestLine(pageNum, y, thresholdMultiplier = 2.0) {
+  const pageBoxes = utbState.boxes.filter(b => b.page === pageNum && b.type === 'embedded');
+  if (!pageBoxes.length) return null;
+
+  let nearest  = null;
+  let minDist  = Infinity;
+  for (const b of pageBoxes) {
+    const cy = b.y + b.h / 2;
+    const d  = Math.abs(cy - y);
+    if (d < minDist) { minDist = d; nearest = b; }
+  }
+  return nearest && minDist < nearest.h * thresholdMultiplier ? nearest : null;
 }
 
-/**
- * PERSISTENCE: Save UI changes back to the underlying data model.
- */
-function persistChangesToState(el) {
-    if (!el) return;
 
-    // Redaction labels — detected by data-redaction-idx, regardless of dual etv-span class
-    if (el.dataset.redactionIdx !== undefined) {
-        const idx = parseInt(el.dataset.redactionIdx);
-        if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions[idx]) {
-            const r = state.redactions[idx];
-            r.settings.fontFamily = el.style.fontFamily;
-            r.settings.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || r.settings.fontSize;
-            r.settings.bold = el.style.fontWeight === 'bold';
-            r.settings.italic = el.style.fontStyle === 'italic';
-            r.settings.textDecoration = el.style.textDecoration;
-            r.settings.letterSpacing = el.style.letterSpacing;
-            r.settings.color = el.style.getPropertyValue('--etv-color') || el.style.color;
-            if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(idx);
-        }
-        return;
+// ── Tool: add redaction box ───────────────────────────────────
+// Delegates to api.js's createNewRedaction so the legacy redaction
+// matching system still works, then syncs into utbState.
+window.handleManualAddBox = function(pageNum, x, y) {
+  // Use UTB line snapping for redaction creation
+  {
+    const nearestLine = utbFindNearestLine(pageNum, y, 2.0);
+    const finalY      = nearestLine ? nearestLine.y      : y - 10;
+    const finalH      = nearestLine ? nearestLine.h      : 20;
+    const finalLineId = nearestLine ? nearestLine.lineId : null;
+    const lineFont    = nearestLine?.font;
+    const lineFontSz  = nearestLine?.fontSize;
+    if (typeof createNewRedaction === 'function') {
+      createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
+      // utbIngestRedactions() will be called by the monkey-patched injectRedactionOverlays
+      return;
     }
+  }
 
-    // Regular ETV spans — sync to etvState.spans[]
-    if (el.classList.contains('etv-span')) {
-        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer', '') || 1);
-        const pageSpans = etvState.spans.filter(s => s.page === pageNum);
-        const spanIdx = parseInt(el.dataset.idx);
-        const s = pageSpans[spanIdx];
-        if (s) {
-            s.font = el.style.fontFamily;
-            s.fontSize = parseInt(el.style.getPropertyValue('--etv-fs')) || s.fontSize;
-            s.fontWeight = el.style.fontWeight;
-            s.fontStyle = el.style.fontStyle;
-            s.textDecoration = el.style.textDecoration;
-            s.letterSpacing = el.style.letterSpacing;
-            s.color = el.style.getPropertyValue('--etv-color');
-            const swInput = document.getElementById('fabric-space-width');
-            if (swInput && !swInput.disabled) {
-                let exact = parseFloat(swInput.dataset.exactValue);
-                if (!isNaN(exact) && exact.toFixed(1) === swInput.value) {
-                    s.spaceWidth = exact;
-                } else {
-                    s.spaceWidth = parseFloat(swInput.value) || 4;
-                    delete swInput.dataset.exactValue;
-                }
-            }
-            const justifyCb = document.getElementById('fabric-justified');
-            if (justifyCb) {
-                s.justify = justifyCb.checked;
-            }
-        }
-    }
+  // Fallback: pure UTB creation (no legacy state)
+  const nearest = _utbFindNearestLine(pageNum, y);
+  const defaultFF = document.getElementById('fabric-font-family')?.value || 'Times New Roman';
+  const defaultFS = (parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75;
+
+  const newBox = utbState.addBox(new UnifiedTextBox({
+    type:       'redaction',
+    page:       pageNum,
+    text:       '',
+    lineId:     nearest ? nearest.lineId : null,
+    x:          x,
+    y:          nearest ? nearest.y      : y - 10,
+    w:          nearest ? nearest.w      : 100,
+    h:          nearest ? nearest.h      : 20,
+    fontFamily: nearest ? nearest.fontFamily : defaultFF,
+    fontSize:   nearest ? nearest.fontSize   : defaultFS,
+  }));
+
+  renderBox(newBox);
+  utbState.selectedId = newBox.id;
+  selectBoxInSVG(newBox.id);
+  if (typeof syncToolbarToBox === 'function') syncToolbarToBox(newBox);
+};
+
+
+// ── Lifecycle hooks ───────────────────────────────────────────
+
+// After a PDF is loaded (loadDocument completes), ingest redactions and fetch spans
+const _origLoadDocument = window.loadDocument;
+if (typeof _origLoadDocument === 'function') {
+  window.loadDocument = async function(...args) {
+    utbState.reset();
+    clearAllSVGLayers?.();
+    _utbFetchState.fetched = false;
+    await _origLoadDocument(...args);
+    utbIngestRedactions();
+    const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
+    utbFetchSpans(file);
+  };
 }
 
-/**
- * UI EVENT: Toggle Ribbon Overlay
- */
-document.getElementById('tool-text')?.addEventListener('click', () => {
-    const bar = document.getElementById('fabric-options-bar');
-    if (!bar) return;
-    const isVisible = !bar.classList.toggle('hidden');
-    document.getElementById('tool-text').classList.toggle('active', isVisible);
-
-    // Context Cursor / Visibility
-    document.querySelectorAll('.etv-overlay').forEach(el => el.classList.toggle('active-tool', isVisible));
+// File input change → reset and re-fetch
+document.getElementById('pdf-file')?.addEventListener('change', () => {
+  _utbFetchState.fetched = false;
+  utbState.reset();
+  clearAllSVGLayers?.();
 });
 
-/**
- * UI EVENT: Add Text Tool Mode
- */
-document.getElementById('etv-add-text-btn')?.addEventListener('click', (e) => {
-    const isActive = e.currentTarget.classList.toggle('active');
-    state.activeTool = isActive ? 'text' : null;
-    els.viewer.style.cursor = isActive ? 'text' : 'default';
-    if (isActive && els.toolAddBoxBtn) els.toolAddBoxBtn.classList.remove('active');
-});
+// Auto-fetch spans for the default PDF on load (after embedded-text-viewer also does this)
+setTimeout(() => {
+  if (!_utbFetchState.fetched) {
+    utbFetchSpans(typeof state !== 'undefined' ? (state.currentFile || null) : null);
+  }
+}, 1500);
 
-/**
- * WIRE-UP: Control Listenners
- */
-document.getElementById('fabric-font-family')?.addEventListener('change', (e) => {
-    if (lastSelectedTextItem) {
-        lastSelectedTextItem.style.fontFamily = e.target.value;
-        persistChangesToState(lastSelectedTextItem);
-        broadcastChange(lastSelectedTextItem);
-    }
-});
 
-document.getElementById('fabric-font-size')?.addEventListener('change', (e) => {
-    const px = Math.max(4, parseInt(e.target.value) || 12);
-    if (lastSelectedTextItem) {
-        lastSelectedTextItem.style.setProperty('--etv-fs', `${px}px`);
-        // Redaction labels need the explicit calc() fontSize (not inherited via stylesheet)
-        if (lastSelectedTextItem.dataset.redactionIdx !== undefined) {
-            lastSelectedTextItem.style.fontSize = `calc(${px}px * var(--scale-factor, 1))`;
+// ── Monkey-patches: keep utbState in sync with legacy redaction system ───────
+
+// After injectRedactionOverlays() re-builds the legacy DOM overlays, also
+// refresh the UTB redaction boxes so the SVG layer stays current.
+(function patchInjectRedactionOverlays() {
+  const _orig = window.injectRedactionOverlays;
+  if (typeof _orig !== 'function') {
+    // Not yet defined — set up a deferred patch applied after scripts load
+    document.addEventListener('DOMContentLoaded', () => _applyInjectPatch(), { once: true });
+    setTimeout(_applyInjectPatch, 200);
+    return;
+  }
+  _applyInjectPatch();
+
+  function _applyInjectPatch() {
+    const orig = window.injectRedactionOverlays;
+    if (!orig || orig._utbPatched) return;
+    window.injectRedactionOverlays = function(...args) {
+      orig(...args);
+      utbIngestRedactions();
+    };
+    window.injectRedactionOverlays._utbPatched = true;
+  }
+})();
+
+// After updateAllMatchesView() sets r.labelText, push text changes to UTB boxes.
+(function patchUpdateAllMatchesView() {
+  function _applyPatch() {
+    const orig = window.updateAllMatchesView;
+    if (!orig || orig._utbPatched) return;
+    window.updateAllMatchesView = function(onlyIdx) {
+      orig(onlyIdx);
+      // Sync updated labelText values to UTB redaction boxes
+      if (typeof state === 'undefined' || !state.redactions) return;
+      state.redactions.forEach((r, idx) => {
+        if (onlyIdx !== undefined && onlyIdx !== null && onlyIdx !== idx) return;
+        const box = utbState.boxes.find(b => b.type === 'redaction' && b._legacyIdx === idx);
+        if (box && box.text !== r.labelText) {
+          box.text = r.labelText;
+          renderBox(box);
         }
-        persistChangesToState(lastSelectedTextItem);
-        broadcastChange(lastSelectedTextItem);
-    }
-});
+      });
+    };
+    window.updateAllMatchesView._utbPatched = true;
+  }
+  setTimeout(_applyPatch, 300);
+})();
 
-['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'].forEach(id => {
-    document.getElementById(id)?.addEventListener('click', () => {
-        document.getElementById(id).classList.toggle('active');
-        applyFormatting();
-    });
-});
+// After selectRedaction() highlights the legacy overlay, also select the UTB box.
+(function patchSelectRedaction() {
+  function _applyPatch() {
+    const orig = window.selectRedaction;
+    if (!orig || orig._utbPatched) return;
+    window.selectRedaction = async function(idx) {
+      await orig(idx);
+      const box = utbState.boxes.find(b => b.type === 'redaction' && b._legacyIdx === idx);
+      if (box) {
+        utbState.selectedId = box.id;
+        selectBoxInSVG(box.id);
+        if (typeof syncToolbarToBox === 'function') syncToolbarToBox(box);
+      }
+    };
+    window.selectRedaction._utbPatched = true;
+  }
+  setTimeout(_applyPatch, 300);
+})();
 
-document.getElementById('fabric-letter-spacing')?.addEventListener('change', (e) => {
-    if (lastSelectedTextItem) {
-        const em = parseFloat(e.target.value) || 0;
-        lastSelectedTextItem.style.letterSpacing = em ? `${em}em` : '';
-        persistChangesToState(lastSelectedTextItem);
-        broadcastChange(lastSelectedTextItem);
-    }
-});
 
-['input', 'change'].forEach(evt => {
-    document.addEventListener(evt, (e) => {
-        if (e.target.id === 'fabric-space-width' || e.target.id === 'fabric-justified') {
-            if (e.target.id === 'fabric-space-width') {
-                document.querySelectorAll('[id="fabric-space-width-display"]').forEach(d => {
-                    d.textContent = e.target.value + 'px';
-                });
-            }
+// ── Expose globals ────────────────────────────────────────────
 
-            if (lastSelectedTextItem) {
-                if (lastSelectedTextItem.dataset.redactionIdx !== undefined) {
-                    const idx = parseInt(lastSelectedTextItem.dataset.redactionIdx);
-                    if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
-                        let exact = parseFloat(e.target.dataset.exactValue);
-                        if (!isNaN(exact) && exact.toFixed(1) === e.target.value) {
-                            state.redactions[idx].settings.spaceWidth = exact;
-                        } else {
-                            state.redactions[idx].settings.spaceWidth = parseFloat(e.target.value);
-                            delete e.target.dataset.exactValue;
-                        }
-                        if (typeof updateAllMatchesView === 'function') updateAllMatchesView(idx);
-                        if (evt === 'change' && typeof calculateWidthsForRedaction === 'function') {
-                            calculateWidthsForRedaction(idx);
-                        }
-                    }
-                } else if (lastSelectedTextItem.classList.contains('etv-span')) {
-                    persistChangesToState(lastSelectedTextItem);
-                    if (evt === 'change' && typeof scheduleRerun === 'function') {
-                        scheduleRerun();
-                    }
-                }
-            }
-        }
-    });
-});
-
-document.getElementById('fabric-color')?.addEventListener('input', (e) => {
-    if (lastSelectedTextItem) {
-        lastSelectedTextItem.style.setProperty('--etv-color', e.target.value);
-        lastSelectedTextItem.style.color = e.target.value;
-        persistChangesToState(lastSelectedTextItem);
-        broadcastChange(lastSelectedTextItem);
-    }
-});
-
-function broadcastChange(el) {
-    const event = new CustomEvent('text-format-changed', {
-        detail: {
-            element: el,
-            styles: {
-                fontFamily: el.style.fontFamily,
-                fontSize: el.style.getPropertyValue('--etv-fs'),
-                fontWeight: el.style.fontWeight,
-                fontStyle: el.style.fontStyle,
-                color: el.style.getPropertyValue('--etv-color')
-            }
-        }
-    });
-    document.dispatchEvent(event);
-}
+window.utbFetchSpans               = utbFetchSpans;
+window.utbIngestRedactions         = utbIngestRedactions;
+window.utbConnectRedactionsToLines = utbConnectRedactionsToLines;

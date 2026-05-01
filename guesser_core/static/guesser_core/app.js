@@ -59,7 +59,7 @@
       // Exposed as window.openSubtoolbar so plugin scripts can call it on click
       window.openSubtoolbar = function openSubtoolbar(barToShow, btnToActivate) {
         const toggleETV = document.getElementById('toggle-embedded-viewer');
-        const toggleFmt = document.getElementById('toggle-fmt');
+        const toggleFmt = document.getElementById('toggle-fmt') ?? document.getElementById('tool-text');
         els.textOptionsBar?.classList.add('hidden');
         if (els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
         document.getElementById('etv-bar')?.classList.add('hidden');
@@ -123,10 +123,26 @@
         if (!pageEl) return;
         
         const pageNum = parseInt(pageEl.id.replace('pageContainer', ''));
-        const rect = pageEl.getBoundingClientRect();
-        const scale = state.currentZoom || 1.0;
-        const pxX = (e.clientX - rect.left) / scale;
-        const pxY = (e.clientY - rect.top) / scale;
+
+        // Map screen click → document-space coordinates via the SVG text layer's
+        // getScreenCTM().  This is immune to toolbar layout shifts, scroll offsets
+        // and CSS scale-factor sizing.
+        let pxX, pxY;
+        const svg = pageEl.querySelector('svg.text-layer');
+        if (svg && typeof svg.getScreenCTM === 'function') {
+          const pt = svg.createSVGPoint();
+          pt.x = e.clientX;
+          pt.y = e.clientY;
+          const transformed = pt.matrixTransform(svg.getScreenCTM().inverse());
+          pxX = transformed.x;
+          pxY = transformed.y;
+        } else {
+          // Fallback for pages without an SVG layer yet
+          const rect = pageEl.getBoundingClientRect();
+          const scale = state.currentZoom || 1.0;
+          pxX = (e.clientX - rect.left) / scale;
+          pxY = (e.clientY - rect.top) / scale;
+        }
 
         if (state.activeTool === 'add-box') {
           if (typeof handleManualAddBox === 'function') {
