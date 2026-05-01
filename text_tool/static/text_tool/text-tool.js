@@ -128,7 +128,7 @@ function syncBarToSpan(el) {
     const lsInput = document.getElementById('fabric-letter-spacing');
     if (lsInput) lsInput.value = (parseFloat(el.style.letterSpacing) || 0).toFixed(2);
 
-    // --- Space Width (Redaction Labels Only) ---
+    // --- Space Width ---
     const isRedaction = el.dataset.redactionIdx !== undefined;
     let swVal = 4;
     let swDisp = '-';
@@ -143,6 +143,23 @@ function syncBarToSpan(el) {
                 swVal = 4;
                 swDisp = 'auto';
             }
+        }
+    } else if (el.classList.contains('etv-span')) {
+        const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer', '') || 1);
+        const pageSpans = typeof etvState !== 'undefined' ? etvState.spans.filter(s => s.page === pageNum) : [];
+        const spanIdx = parseInt(el.dataset.idx);
+        const s = pageSpans[spanIdx];
+        if (s && s.spaceWidth !== undefined) {
+            swVal = s.spaceWidth;
+            swDisp = swVal + 'px';
+        } else {
+            swVal = 4;
+            swDisp = 'auto';
+        }
+        if (s && s.justify !== undefined) {
+            document.querySelectorAll('[id="fabric-justified"]').forEach(cb => cb.checked = s.justify);
+        } else {
+            document.querySelectorAll('[id="fabric-justified"]').forEach(cb => cb.checked = true);
         }
     }
     document.querySelectorAll('[id="fabric-space-width"]').forEach(input => input.value = swVal);
@@ -214,7 +231,7 @@ function persistChangesToState(el) {
     if (el.classList.contains('etv-span')) {
         const pageNum = parseInt(el.closest('.page-container')?.id.replace('pageContainer', '') || 1);
         const pageSpans = etvState.spans.filter(s => s.page === pageNum);
-        const spanIdx = parseInt(el.dataset.index);
+        const spanIdx = parseInt(el.dataset.idx);
         const s = pageSpans[spanIdx];
         if (s) {
             s.font = el.style.fontFamily;
@@ -224,6 +241,20 @@ function persistChangesToState(el) {
             s.textDecoration = el.style.textDecoration;
             s.letterSpacing = el.style.letterSpacing;
             s.color = el.style.getPropertyValue('--etv-color');
+            const swInput = document.getElementById('fabric-space-width');
+            if (swInput && !swInput.disabled) {
+                let exact = parseFloat(swInput.dataset.exactValue);
+                if (!isNaN(exact) && exact.toFixed(1) === swInput.value) {
+                    s.spaceWidth = exact;
+                } else {
+                    s.spaceWidth = parseFloat(swInput.value) || 4;
+                    delete swInput.dataset.exactValue;
+                }
+            }
+            const justifyCb = document.getElementById('fabric-justified');
+            if (justifyCb) {
+                s.justify = justifyCb.checked;
+            }
         }
     }
 }
@@ -293,18 +324,33 @@ document.getElementById('fabric-letter-spacing')?.addEventListener('change', (e)
 
 ['input', 'change'].forEach(evt => {
     document.addEventListener(evt, (e) => {
-        if (e.target.id === 'fabric-space-width') {
-            document.querySelectorAll('[id="fabric-space-width-display"]').forEach(d => {
-                d.textContent = e.target.value + 'px';
-            });
+        if (e.target.id === 'fabric-space-width' || e.target.id === 'fabric-justified') {
+            if (e.target.id === 'fabric-space-width') {
+                document.querySelectorAll('[id="fabric-space-width-display"]').forEach(d => {
+                    d.textContent = e.target.value + 'px';
+                });
+            }
 
-            if (lastSelectedTextItem && lastSelectedTextItem.dataset.redactionIdx !== undefined) {
-                const idx = parseInt(lastSelectedTextItem.dataset.redactionIdx);
-                if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
-                    state.redactions[idx].settings.spaceWidth = parseFloat(e.target.value);
-                    if (typeof updateAllMatchesView === 'function') updateAllMatchesView(idx);
-                    if (evt === 'change' && typeof calculateWidthsForRedaction === 'function') {
-                        calculateWidthsForRedaction(idx);
+            if (lastSelectedTextItem) {
+                if (lastSelectedTextItem.dataset.redactionIdx !== undefined) {
+                    const idx = parseInt(lastSelectedTextItem.dataset.redactionIdx);
+                    if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
+                        let exact = parseFloat(e.target.dataset.exactValue);
+                        if (!isNaN(exact) && exact.toFixed(1) === e.target.value) {
+                            state.redactions[idx].settings.spaceWidth = exact;
+                        } else {
+                            state.redactions[idx].settings.spaceWidth = parseFloat(e.target.value);
+                            delete e.target.dataset.exactValue;
+                        }
+                        if (typeof updateAllMatchesView === 'function') updateAllMatchesView(idx);
+                        if (evt === 'change' && typeof calculateWidthsForRedaction === 'function') {
+                            calculateWidthsForRedaction(idx);
+                        }
+                    }
+                } else if (lastSelectedTextItem.classList.contains('etv-span')) {
+                    persistChangesToState(lastSelectedTextItem);
+                    if (evt === 'change' && typeof scheduleRerun === 'function') {
+                        scheduleRerun();
                     }
                 }
             }

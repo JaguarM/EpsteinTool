@@ -155,11 +155,16 @@ def compare_geometry(request):
             actual_px = span.get('w', 0.0)
             sz_pt = span.get("sizePt", span.get("fontSize", 12.0 * scale) / scale)
 
-            # When justify is enabled and the span has a container width (blockW),
-            # compute the per-space width that makes the total match blockW.
-            span_space_width = space_width
+            # Prefer per-span spaceWidth if set, otherwise fallback to global
+            span_space_width = span.get('spaceWidth', space_width)
+            if span_space_width is not None:
+                span_space_width = float(span_space_width)
+
+            # Prefer per-span justify if set, otherwise fallback to global
+            span_justify = span.get('justify', justify)
+
             justified_space_w = None
-            if justify:
+            if span_justify:
                 block_w = actual_px
                 if block_w and block_w > 0:
                     jsw = get_justified_space_width(

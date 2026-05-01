@@ -355,7 +355,10 @@ function selectRow(idx) {
       // Update the slider to reflect this span's computed value
       const spaceSlider = document.getElementById('fabric-space-width');
       const spaceDisp   = document.getElementById('fabric-space-width-display');
-      if (spaceSlider) spaceSlider.value = row.justified_space_w.toFixed(1);
+      if (spaceSlider) {
+        spaceSlider.value = row.justified_space_w.toFixed(1);
+        spaceSlider.dataset.exactValue = row.justified_space_w;
+      }
       if (spaceDisp)   spaceDisp.textContent = row.justified_space_w.toFixed(1) + 'px';
     }
   }
@@ -443,12 +446,12 @@ async function runComparison() {
   const correction = parseFloat(cmpEls.correction.value) || 1.0;
   const kerning    = cmpEls.kerning.checked;
   const ligatures  = cmpEls.ligatures.checked;
-  const justify    = cmpEls.justify?.checked ?? false;
+  // The UI checkbox and slider are now strictly PER-SPAN. We do not send their current state
+  // as the global fallback, because their current state reflects the currently selected span!
+  // Instead, the global defaults are fixed: by default everything is justified, and space_width is auto.
+  const justify    = true; 
+  const space_width   = null;
   const pageFilter = typeof state !== 'undefined' ? state.currentPage : 1;
-
-  const spaceWidthEl  = document.getElementById('fabric-space-width');
-  // When justify is active the slider is read-only; don't send a manual override
-  const space_width   = justify ? null : (spaceWidthEl ? (parseFloat(spaceWidthEl.value) || null) : null);
   const forceUpperEl  = document.getElementById('force-uppercase');
   const force_uppercase = forceUpperEl ? forceUpperEl.checked : false;
 
@@ -497,6 +500,7 @@ async function runComparison() {
       const src = sel != null ? cmpState.results[sel] : cmpState.results.find(r => r.justified_space_w != null);
       if (src?.justified_space_w != null) {
         spaceWidthEl.value = src.justified_space_w.toFixed(1);
+        spaceWidthEl.dataset.exactValue = src.justified_space_w;
         const disp = document.getElementById('fabric-space-width-display');
         if (disp) disp.textContent = src.justified_space_w.toFixed(1) + 'px';
       }
@@ -612,22 +616,14 @@ document.getElementById('fabric-font-family')?.addEventListener('change', () => 
   }
 });
 
-let savedManualSpaceWidth = null;
-
 // Justify checkbox — toggle slider disabled state and rerun
 cmpEls.justify?.addEventListener('change', () => {
   const spaceSlider = document.getElementById('fabric-space-width');
-  const spaceDisp   = document.getElementById('fabric-space-width-display');
   if (spaceSlider) {
     spaceSlider.disabled = cmpEls.justify.checked;
-    if (cmpEls.justify.checked) {
-      // Save manual value before we start overwriting it with justified values
-      savedManualSpaceWidth = spaceSlider.value;
-    } else if (savedManualSpaceWidth !== null) {
-      // Restore manual value when justify is turned off
-      spaceSlider.value = savedManualSpaceWidth;
-      if (spaceDisp) spaceDisp.textContent = savedManualSpaceWidth + 'px';
-      // Fire change event to sync with text-tool state if a label is selected
+    if (!cmpEls.justify.checked) {
+      // Option B (Bake In): Slider retains the computed justified value. 
+      // Fire change event to sync this baked-in value with text-tool state.
       spaceSlider.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }
@@ -637,7 +633,6 @@ cmpEls.justify?.addEventListener('change', () => {
 (function initJustifySlider() {
   const spaceSlider = document.getElementById('fabric-space-width');
   if (spaceSlider && cmpEls.justify?.checked) {
-    savedManualSpaceWidth = spaceSlider.value;
     spaceSlider.disabled = true;
   }
 })();
