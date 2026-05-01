@@ -15,8 +15,8 @@ const state = {
 
   // Unredactor State
   candidates: ['Jeffrey Epstein', 'Ghislaine Maxwell', 'Alan Dershowitz', 'Bill Clinton', 'Donald Trump', 'Prince Andrew', 'Virginia Giuffre', 'Virginia Roberts', 'Jean-Luc Brunel', 'Sarah Kellen', 'Nadia Marcinkova', 'Les Wexner', 'Glenn Dubin', 'Eva Dubin', 'Bill Richardson', 'George Mitchell', 'Leon Black', 'Mort Zuckerman', 'Emmy Tayler', 'Lesley Groff', 'Adriana Ross', 'Juan Alessi', 'Alfredo Rodriguez', 'Adriana Mucinska', 'Nadia Marcinkova', 'Nadia', 'Marcinkova', 'Les Wexner', 'Lex Wexner', 'Lesley Groff', 'Haley Robson', 'William Hammond', 'David Rodgers', 'Gerald Lefcourt'],
-  redactions: [], // now each redaction will have { ...r, settings: {}, widths: {} }
-  selectedRedactionIdx: null,
+  // Legacy redaction array removed — now managed by utbState.boxes
+  // selectedRedactionIdx removed — now utbState.selectedId
 
   // Candidates Pagination/Sort
   page: 1,

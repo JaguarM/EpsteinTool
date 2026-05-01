@@ -20,10 +20,12 @@ function ttfToFabricFont(ttfName) {
 }
 
 async function loadDocument(data, file) {
-  state.redactions = [];
-  state.selectedRedactionIdx = null;
   state.pageImages = [];
   state.numPages = 0;
+  if (typeof utbState !== 'undefined') {
+    utbState.reset();
+    if (typeof clearAllSVGLayers === 'function') clearAllSVGLayers();
+  }
   if (els.allMatchesCard) els.allMatchesCard.style.display = 'none';
   const imgType = data.page_image_type || 'image/png';
   state.pageImages = (data.page_images || []).map(b64 => b64 ? `data:${imgType};base64,${b64}` : null);
@@ -60,32 +62,39 @@ async function loadDocument(data, file) {
   const fabricSizeInput = document.getElementById('fabric-font-size');
   if (fabricSizeInput) fabricSizeInput.value = initialFontSize;
 
-  if (typeof injectRedactionOverlays === 'function') {
-    state.redactions = data.redactions.map(r => ({
-      ...r,
-      lineId: null,
-      settings: {
-        fontFamily: initialFontFamily,
-        fontSize: initialFontSize,
-        tol: parseFloat(els.tol?.value) || 0,
-        kern: els.kern?.checked ?? false,
-        lig: els.lig?.checked ?? false,
-        upper: els.upper?.checked ?? false
-      },
-      widths: {},
-      labelText: '',
-      manualLabel: false
-    }));
+  // Ingest server-detected redaction boxes as native UnifiedTextBox instances
+  if (typeof utbState !== 'undefined' && data.redactions) {
+    data.redactions.forEach(r => {
+      utbState.addBox(new UnifiedTextBox({
+        type:       'redaction',
+        page:       r.page,
+        text:       '',
+        lineId:     null,
+        x: r.x, y: r.y, w: r.width, h: r.height,
+        fontFamily:   initialFontFamily,
+        fontSize:     initialFontSize,
+        kerning:      els.kern?.checked ?? false,
+        ligatures:    els.lig?.checked ?? false,
+        uppercase:    els.upper?.checked ?? false,
+        tolerance:    parseFloat(els.tol?.value) || 0,
+        widths:       {},
+        labelText:    '',
+        manualLabel:  false,
+      }));
+    });
   }
 
   if (typeof calculateAllWidths === 'function') await calculateAllWidths();
-  if (typeof injectRedactionOverlays === 'function') injectRedactionOverlays();
+  if (typeof renderAllTextLayers === 'function') renderAllTextLayers();
 
   if (typeof fetchMasksAsync === 'function') await fetchMasksAsync(file, !file);
 
-  if (state.redactions.length > 0) {
+  const redactionBoxes = typeof utbState !== 'undefined'
+    ? utbState.boxes.filter(b => b.type === 'redaction') : [];
+
+  if (redactionBoxes.length > 0) {
     if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-    if (typeof selectRedaction === 'function') selectRedaction(0);
+    if (typeof selectRedaction === 'function') selectRedaction(redactionBoxes[0].id);
   } else {
     if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
   }
@@ -188,8 +197,6 @@ async function goToPage(pageNum) {
   if (typeof renderTextLayer === 'function') {
     renderTextLayer(pageContainer, pageNum);
   }
-
-  if (typeof injectRedactionOverlays === 'function') injectRedactionOverlays();
 
   if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
 }

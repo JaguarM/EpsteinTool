@@ -222,7 +222,7 @@ async function etvFetchSpans(file) {
     etvState.fetched = true;
     etvState.fetchingFile = file;
     if (window.setHarfBuzzStatus) window.setHarfBuzzStatus(`Loaded ${etvState.spans.length} spans.`);
-    if (typeof connectRedactionsToETVLines === 'function') connectRedactionsToETVLines();
+    if (typeof utbConnectRedactionsToLines === 'function') utbConnectRedactionsToLines();
   } catch (err) {
     console.error('ETV: fetch error', err);
     if (window.setHarfBuzzStatus) window.setHarfBuzzStatus('Error extracting spans.');
@@ -281,9 +281,11 @@ function addDragHandlers(el, span) {
       return pageOverlay.querySelector(`.etv-span[data-idx="${idx}"]`);
     });
 
-    // Capture connected redactions and their start Y positions for live sync
-    const connectedReds = typeof getConnectedRedactions === 'function' ? getConnectedRedactions(span.lineId, span.page) : [];
-    const redStartYs = connectedReds.map(({ r }) => r.y);
+    // Capture connected redaction UTB boxes for live vertical sync
+    const connectedReds = (typeof utbState !== 'undefined' && span.lineId)
+      ? utbState.boxes.filter(b => b.type === 'redaction' && b.lineId === span.lineId && b.page === span.page)
+      : [];
+    const redStartYs = connectedReds.map(b => b.y);
 
     function onMove(e) {
       const dx = (e.clientX - startX) / scale;
@@ -300,12 +302,10 @@ function addDragHandlers(el, span) {
         if (currentEl) currentEl.style.setProperty('--etv-y', `${lineSpans[i].y}px`);
       }
 
-      // 3. Sync connected redaction overlays vertically
+      // 3. Sync connected redaction boxes vertically via SVG
       for (let i = 0; i < connectedReds.length; i++) {
-        const { r, idx } = connectedReds[i];
-        r.y = redStartYs[i] + dy;
-        const ov = document.getElementById(`redaction-idx-${idx}`);
-        if (ov) ov.style.setProperty('--px-y', `${r.y}px`);
+        connectedReds[i].y = redStartYs[i] + dy;
+        if (typeof renderBox === 'function') renderBox(connectedReds[i]);
       }
     }
     function onUp() {
@@ -436,13 +436,7 @@ document.addEventListener('mousedown', e => {
   }
 });
 
-// Since redaction labels aren't processed by etvRenderPage, use event delegation
-// to detect when api.js calls label.focus() to unify them with the text toolbar.
-document.addEventListener('focusin', e => {
-  if (e.target && e.target.classList && e.target.classList.contains('etv-span')) {
-    selectSpan(e.target);
-  }
-});
+// Redaction label focusin delegation removed — UTB handles selection directly.
 
 
 // ── Toggle button ─────────────────────────────────────────────
@@ -565,28 +559,7 @@ document.getElementById('fabric-font-family')?.addEventListener('change', async 
   if (selectedSpan) {
     const family = e.target.value;
 
-    // Handle Redaction UI elements via the same generic UI flow
-    if (selectedSpan.dataset.redactionIdx !== undefined) {
-      const idx = parseInt(selectedSpan.dataset.redactionIdx);
-      if (typeof state !== 'undefined' && state.redactions && state.redactions[idx]) {
-        state.redactions[idx].settings.fontFamily = family;
-        selectedSpan.style.fontFamily = family;
-        
-        if (typeof calculateAllWidths === 'function') {
-          document.getElementById('fabric-font-family').disabled = true;
-          try {
-            // Note: calculateAllWidths internally triggers updateAllMatchesView and renderCandidates for the selected span
-            await calculateAllWidths();
-          } catch (err) {
-            console.error('Failed to recalculate redaction widths', err);
-          }
-          document.getElementById('fabric-font-family').disabled = false;
-        }
-      }
-      return;
-    }
-
-    // Standard Embedded Text span handling
+    // Standard Embedded Text span handling (redaction handling removed — toolbar.js manages redactions)
     const span = selectedSpan._etvSpan;
     if (span) {
       span.font = family;
@@ -636,15 +609,7 @@ document.getElementById('fabric-font-family')?.addEventListener('change', async 
 });
 function _applyFontSize(el, size) {
   if (!el) return;
-  if (el.dataset.redactionIdx !== undefined) {
-    const idx = parseInt(el.dataset.redactionIdx);
-    if (!isNaN(idx) && typeof state !== 'undefined' && state.redactions?.[idx]) {
-      state.redactions[idx].settings.fontSize = size;
-      el.style.setProperty('--etv-fs', `${size}px`);
-      el.style.fontSize = `calc(${size}px * var(--scale-factor, 1))`;
-    }
-    return;
-  }
+  // Redaction label font-size handling removed — toolbar.js manages redactions
   const span = el._etvSpan;
   if (span) {
     span.fontSize = size;
@@ -658,15 +623,11 @@ document.getElementById('fabric-font-size')?.addEventListener('input', e => {
   _applyFontSize(selectedSpan, size);
 });
 
-// On commit (Enter / blur): also trigger width recalculation for redaction labels
+// On commit (Enter / blur)
 document.getElementById('fabric-font-size')?.addEventListener('change', async e => {
   const size = Math.max(1, (parseFloat(e.target.value) || 12) / 0.75);
   _applyFontSize(selectedSpan, size);
-  if (selectedSpan?.dataset.redactionIdx !== undefined && typeof calculateAllWidths === 'function') {
-    document.getElementById('fabric-font-size').disabled = true;
-    try { await calculateAllWidths(); } catch (err) { console.error('Width recalc failed', err); }
-    document.getElementById('fabric-font-size').disabled = false;
-  }
+  // Redaction width recalculation removed — toolbar.js handles this
 });
 ['fabric-bold', 'fabric-italic', 'fabric-underline', 'fabric-strikethrough'].forEach(id => {
   document.getElementById(id)?.addEventListener('click', () => {
@@ -685,51 +646,8 @@ document.getElementById('fabric-letter-spacing')?.addEventListener('change', e =
   if (selectedSpan) selectedSpan.style.letterSpacing = `${parseFloat(e.target.value) || 0}em`;
 });
 
-
-/* ---------- Redaction ↔ ETV connection helpers ----------------------- */
-
-// After ETV spans are loaded, assign lineId to any redaction that sits on a text line
-// and snap the redaction's Y/height to match the ETV span exactly.
-// Uses maximum vertical overlap (not a probe-Y heuristic) to find the correct line.
-function connectRedactionsToETVLines() {
-  if (!state || !state.redactions) return;
-  state.redactions.forEach((r, redIdx) => {
-    if (r.lineId !== null) return;
-
-    const pageSpans = etvState.spans.filter(s => s.page === r.page);
-    let bestSpan = null;
-    let bestOverlap = 0;
-
-    for (const s of pageSpans) {
-      const overlap = Math.min(r.y + r.height, s.y + s.h) - Math.max(r.y, s.y);
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap;
-        bestSpan = s;
-      }
-    }
-
-    // Require at least 30% of the redaction height to overlap before connecting
-    if (!bestSpan || bestOverlap < r.height * 0.3) return;
-
-    r.lineId   = bestSpan.lineId;
-    r.y        = bestSpan.y;
-    r.height   = bestSpan.h;
-    const overlay = document.getElementById(`redaction-idx-${redIdx}`);
-    if (overlay) {
-      overlay.style.setProperty('--px-y',      `${r.y}px`);
-      overlay.style.setProperty('--px-height', `${r.height}px`);
-    }
-  });
-  if (typeof calculateAllWidths === 'function') calculateAllWidths();
-}
-
-// Return all redactions (with their global index) whose lineId matches the given line.
-function getConnectedRedactions(lineId, page) {
-  if (!lineId || !typeof state === 'undefined' || !state.redactions) return [];
-  return state.redactions
-    .map((r, idx) => ({ r, idx }))
-    .filter(({ r }) => r.lineId === lineId && r.page === page);
-}
+// connectRedactionsToETVLines() and getConnectedRedactions() removed —
+// redaction↔line connection is now handled by utbConnectRedactionsToLines() in text-tool.js.
 
 /* ---------- Hook: call on every pdf-file change to auto-fetch spans ------------ */
 (function hookFileUpload() {

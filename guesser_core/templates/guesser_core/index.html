@@ -169,22 +169,19 @@
 
   <div id="sidebar-backdrop" class="hidden"></div>
 
-  <script src="{% static 'guesser_core/state.js' %}"></script>
+  <script src="{% static 'guesser_core/state.js' %}?v=2"></script>
   {% if 'redaction_matching' in active_plugins %}
-  <script src="{% static 'redaction_matching/api.js' %}?v=1"></script>
+  <script src="{% static 'redaction_matching/api.js' %}?v=2"></script>
   {% endif %}
   {% if 'webgl_mask' in active_plugins %}
   <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
   {% endif %}
-  <script src="{% static 'guesser_core/pdf-viewer.js' %}"></script>
+  <script src="{% static 'guesser_core/pdf-viewer.js' %}?v=2"></script>
   {% if 'embedded_text_viewer' in active_plugins %}
   <script src="{% static 'embedded_text_viewer/embedded-text-viewer.js' %}"></script>
   {% endif %}
-  {% if 'redaction_matching' in active_plugins %}
-  <script src="{% static 'redaction_matching/redaction-matching.js' %}"></script>
-  {% endif %}
-  <script src="{% static 'guesser_core/ui-events.js' %}"></script>
-  <script src="{% static 'guesser_core/app.js' %}"></script>
+  <script src="{% static 'guesser_core/ui-events.js' %}?v=2"></script>
+  <script src="{% static 'guesser_core/app.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/mobile.js' %}"></script>
 
   <!-- Polyfill for Fabric.js v5 using 'alphabetical' textBaseline which causes browser warnings -->
@@ -203,12 +200,12 @@
 
   {% if 'text_tool' in active_plugins %}
   <!-- Unified Text Box system — load in dependency order -->
-  <script src="{% static 'text_tool/unified-text-box.js' %}?v=1"></script>
-  <script src="{% static 'text_tool/svg-renderer.js' %}?v=1"></script>
-  <script src="{% static 'text_tool/drag-resize.js' %}?v=1"></script>
-  <script src="{% static 'text_tool/toolbar.js' %}?v=1"></script>
-  <script src="{% static 'text_tool/micro-typo.js' %}?v=1"></script>
-  <script src="{% static 'text_tool/text-tool.js' %}?v=1"></script>
+  <script src="{% static 'text_tool/unified-text-box.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/svg-renderer.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/drag-resize.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/toolbar.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/micro-typo.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/text-tool.js' %}?v=2"></script>
   {% endif %}
 
   <script>

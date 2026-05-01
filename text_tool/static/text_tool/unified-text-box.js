@@ -43,10 +43,11 @@ class UnifiedTextBox {
     this.charAdvances = data.charAdvances || {};
 
     // Redaction-only fields
-    this.widths     = data.widths     || {};  // candidate → pixel width
-    this.labelText  = data.labelText  || '';
-    this.tolerance  = data.tolerance  || 3;
+    this.widths      = data.widths      || {};  // candidate → pixel width
+    this.labelText   = data.labelText   || '';
+    this.tolerance   = data.tolerance   ?? 3;
     this.manualLabel = data.manualLabel || false;
+    this.uppercase   = data.uppercase   || false;  // force-uppercase display
 
     // Render font override (e.g. 'times.ttf') — null = use fontFamily
     this.renderFont = data.renderFont || null;
@@ -88,9 +89,9 @@ const utbState = {
   },
 
   reset() {
-    this.boxes        = [];
-    this.selectedId   = null;
-    this.microTypoId  = null;
+    this.boxes = [];
+    this.selectedId = null;
+    this.microTypoId = null;
     this.microTypoCharIdx = null;
   },
 };
@@ -125,35 +126,8 @@ function spanToUnified(span) {
   });
 }
 
-/**
- * Convert an existing redaction dict (from state.redactions[]) to UnifiedTextBox.
- * Redaction schema: {page, x, y, width, height, lineId, settings:{fontFamily, fontSize, ...},
- *                    widths:{}, labelText, manualLabel}
- */
-function redactionToUnified(r, legacyIdx) {
-  const s = r.settings || {};
-  return new UnifiedTextBox({
-    type:    'redaction',
-    page:    r.page,
-    text:    r.labelText || '',
-    lineId:  r.lineId || null,
-    x: r.x, y: r.y, w: r.width, h: r.height,
-    fontFamily:   s.fontFamily  || 'Times New Roman',
-    fontSize:     s.fontSize    || 12,
-    bold:         !!s.bold,
-    italic:       !!s.italic,
-    letterSpacing: parseFloat(s.letterSpacing) || 0,
-    color:        s.color || null,
-    kerning:      !!s.kern,
-    ligatures:    !!s.lig,
-    widths:       r.widths      || {},
-    labelText:    r.labelText   || '',
-    tolerance:    s.tol         || 3,
-    manualLabel:  r.manualLabel || false,
-    // keep a back-reference so redaction matching code can sync
-    _legacyIdx:   legacyIdx,
-  });
-}
+// redactionToUnified() removed — redactions are now created natively as
+// UnifiedTextBox instances; there is no legacy state.redactions[] to convert from.
 
 /**
  * Normalize a raw PDF font name to a CSS-safe family string.
@@ -176,7 +150,6 @@ function normUtbFont(name) {
 window.UnifiedTextBox     = UnifiedTextBox;
 window.utbState           = utbState;
 window.spanToUnified      = spanToUnified;
-window.redactionToUnified = redactionToUnified;
 window.normUtbFont        = normUtbFont;
 
 

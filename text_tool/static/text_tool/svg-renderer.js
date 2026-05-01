@@ -82,7 +82,7 @@ function computeXPositions(box) {
  * SVG <text> y is the baseline, not the top.
  */
 function computeBaseline(box) {
-  return box.y + box.h * 0.85;
+  return (box.y || 0) + (box.h || 0) * 0.85;
 }
 
 
@@ -122,10 +122,10 @@ function _updateBBox(g, box) {
     rect.classList.add('utb-bbox');
     g.insertBefore(rect, g.firstChild);
   }
-  rect.setAttribute('x',      box.x);
-  rect.setAttribute('y',      box.y);
-  rect.setAttribute('width',  box.w);
-  rect.setAttribute('height', box.h);
+  rect.setAttribute('x',      box.x  || 0);
+  rect.setAttribute('y',      box.y  || 0);
+  rect.setAttribute('width',  box.w  || 0);
+  rect.setAttribute('height', box.h  || 0);
   rect.setAttribute('stroke', UTB_TYPE_STROKE[box.type] || 'rgba(128,128,128,0.6)');
 }
 

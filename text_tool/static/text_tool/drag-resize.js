@@ -64,12 +64,6 @@
       for (let i = 0; i < linkedReds.length; i++) {
         linkedReds[i].y = origRedYs[i] + dy;
         renderBox(linkedReds[i]);
-        // Also sync legacy redaction overlay divs if still present
-        const legacyIdx = linkedReds[i]._legacyIdx;
-        if (legacyIdx !== undefined) {
-          const ov = document.getElementById(`redaction-idx-${legacyIdx}`);
-          if (ov) ov.style.setProperty('--px-y', `${linkedReds[i].y}px`);
-        }
       }
     }
 
@@ -104,6 +98,47 @@
         box.w = origW - clamped;
       }
       renderBox(box);
+
+      // Live match-list update for redaction boxes during resize
+      if (box.type === 'redaction' && typeof state !== 'undefined') {
+        const rowEl = document.getElementById(`match-row-${box.id}`);
+        if (rowEl && rowEl.children.length >= 3) {
+          rowEl.children[1].textContent = box.w.toFixed(2);
+
+          const matches = state.candidates.filter(c => {
+            const w = box.widths?.[c];
+            return w !== undefined && Math.abs(w - box.w) <= (box.tolerance || 0);
+          });
+          const isUpper = box.uppercase;
+          const fontStyle = `font-family: ${box.fontFamily || 'inherit'};`;
+          rowEl.children[2].innerHTML = matches.length
+            ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
+            : `<span class="no-match">No obvious matches</span>`;
+
+          // Update label text
+          if (!box.manualLabel) {
+            box.text = matches.length > 0 ? (isUpper ? matches[0].toUpperCase() : matches[0]) : '';
+            box.labelText = box.text;
+            renderBox(box);
+          }
+        }
+
+        // Update summary counts
+        const redBoxes = utbState.boxes.filter(b => b.type === 'redaction');
+        let matchCount = 0;
+        redBoxes.forEach(rb => {
+          const has = state.candidates.some(c =>
+            rb.widths?.[c] !== undefined && Math.abs(rb.widths[c] - rb.w) <= (rb.tolerance || 0)
+          );
+          if (has) matchCount++;
+        });
+        if (els.allMatchesSummary) {
+          els.allMatchesSummary.textContent = `${matchCount} of ${redBoxes.length} redactions have potential matches.`;
+        }
+        const progress = redBoxes.length ? (matchCount / redBoxes.length) * 100 : 0;
+        const progressBar = document.getElementById('match-progress-bar');
+        if (progressBar) progressBar.style.width = `${progress}%`;
+      }
     }
 
     function onUp() {
@@ -156,6 +191,11 @@
     selectBoxInSVG(box.id);
     if (typeof syncToolbarToBox === 'function') syncToolbarToBox(box);
 
+    // If it's a redaction, also select it in the sidebar
+    if (box.type === 'redaction' && typeof selectRedaction === 'function') {
+      selectRedaction(box.id);
+    }
+
     // Open the formatting toolbar if hidden
     const fbar = document.getElementById('fabric-options-bar');
     if (fbar?.classList.contains('hidden')) fbar.classList.remove('hidden');
@@ -163,10 +203,12 @@
     initDrag(e, box, svgEl);
   });
 
-  // Deselect when clicking outside any SVG layer or toolbar
+  // Deselect when clicking outside any SVG layer, toolbar, or sidebar
   document.addEventListener('mousedown', e => {
     if (e.target.closest('svg.text-layer')) return;
     if (e.target.closest('#fabric-options-bar')) return;
+    if (e.target.closest('#unified-options-bar-container')) return;
+    if (e.target.closest('#tools-sidebar')) return;
     if (e.target.closest('.utb-nudge-popover')) return;
     if (utbState.selectedId) {
       utbState.selectedId = null;

@@ -1,7 +1,7 @@
 // text-tool.js
 // Bootstrap / integration layer for the Unified Text Box system.
-// Wires span fetching and redaction data into utbState, and hooks
-// into the existing pdf-viewer.js lifecycle (loadDocument, goToPage).
+// Wires span fetching into utbState, and hooks into the existing
+// pdf-viewer.js lifecycle (loadDocument, goToPage).
 
 // ── Span fetching ─────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ async function utbFetchSpans(file) {
     // Render on all currently visible pages
     renderAllTextLayers();
 
-    // Connect redaction boxes to their ETV lines
+    // Connect redaction boxes to their nearest text lines
     utbConnectRedactionsToLines();
 
   } catch (err) {
@@ -47,27 +47,7 @@ async function utbFetchSpans(file) {
 }
 
 
-// ── Redaction ingestion ───────────────────────────────────────
-
-/**
- * Convert the legacy state.redactions[] into UnifiedTextBox entries.
- * Called after loadDocument populates state.redactions.
- */
-function utbIngestRedactions() {
-  if (typeof state === 'undefined' || !state.redactions) return;
-
-  // Remove old redaction boxes
-  utbState.boxes = utbState.boxes.filter(b => b.type !== 'redaction');
-
-  state.redactions.forEach((r, idx) => {
-    utbState.addBox(redactionToUnified(r, idx));
-  });
-
-  renderAllTextLayers();
-}
-
-
-// ── Connect redaction UTB boxes to ETV lines ──────────────────
+// ── Connect redaction UTB boxes to embedded text lines ────────
 
 function utbConnectRedactionsToLines() {
   const embeddedBoxes = utbState.boxes.filter(b => b.type === 'embedded');
@@ -93,13 +73,6 @@ function utbConnectRedactionsToLines() {
     rb.lineId = bestBox.lineId;
     rb.y      = bestBox.y;
     rb.h      = bestBox.h;
-
-    // Sync back to legacy state.redactions[] if present
-    if (rb._legacyIdx !== undefined && typeof state !== 'undefined' && state.redactions[rb._legacyIdx]) {
-      state.redactions[rb._legacyIdx].lineId = rb.lineId;
-      state.redactions[rb._legacyIdx].y      = rb.y;
-      state.redactions[rb._legacyIdx].height = rb.h;
-    }
 
     renderBox(rb);
   });
@@ -152,25 +125,20 @@ function _utbFindNearestLine(pageNum, y, thresholdMultiplier = 2.0) {
 
 
 // ── Tool: add redaction box ───────────────────────────────────
-// Delegates to api.js's createNewRedaction so the legacy redaction
-// matching system still works, then syncs into utbState.
+// Delegates to api.js createNewRedaction which creates UTB boxes directly.
 window.handleManualAddBox = function(pageNum, x, y) {
-  // Use UTB line snapping for redaction creation
-  {
-    const nearestLine = utbFindNearestLine(pageNum, y, 2.0);
+  if (typeof createNewRedaction === 'function') {
+    const nearestLine = _utbFindNearestLine(pageNum, y, 2.0);
     const finalY      = nearestLine ? nearestLine.y      : y - 10;
     const finalH      = nearestLine ? nearestLine.h      : 20;
     const finalLineId = nearestLine ? nearestLine.lineId : null;
     const lineFont    = nearestLine?.font;
     const lineFontSz  = nearestLine?.fontSize;
-    if (typeof createNewRedaction === 'function') {
-      createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
-      // utbIngestRedactions() will be called by the monkey-patched injectRedactionOverlays
-      return;
-    }
+    createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
+    return;
   }
 
-  // Fallback: pure UTB creation (no legacy state)
+  // Fallback: pure UTB creation (no redaction_matching plugin)
   const nearest = _utbFindNearestLine(pageNum, y);
   const defaultFF = document.getElementById('fabric-font-family')?.value || 'Times New Roman';
   const defaultFS = (parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75;
@@ -197,7 +165,7 @@ window.handleManualAddBox = function(pageNum, x, y) {
 
 // ── Lifecycle hooks ───────────────────────────────────────────
 
-// After a PDF is loaded (loadDocument completes), ingest redactions and fetch spans
+// After a PDF is loaded (loadDocument completes), fetch spans
 const _origLoadDocument = window.loadDocument;
 if (typeof _origLoadDocument === 'function') {
   window.loadDocument = async function(...args) {
@@ -205,7 +173,6 @@ if (typeof _origLoadDocument === 'function') {
     clearAllSVGLayers?.();
     _utbFetchState.fetched = false;
     await _origLoadDocument(...args);
-    utbIngestRedactions();
     const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
     utbFetchSpans(file);
   };
@@ -218,7 +185,7 @@ document.getElementById('pdf-file')?.addEventListener('change', () => {
   clearAllSVGLayers?.();
 });
 
-// Auto-fetch spans for the default PDF on load (after embedded-text-viewer also does this)
+// Auto-fetch spans for the default PDF on load
 setTimeout(() => {
   if (!_utbFetchState.fetched) {
     utbFetchSpans(typeof state !== 'undefined' ? (state.currentFile || null) : null);
@@ -226,76 +193,7 @@ setTimeout(() => {
 }, 1500);
 
 
-// ── Monkey-patches: keep utbState in sync with legacy redaction system ───────
-
-// After injectRedactionOverlays() re-builds the legacy DOM overlays, also
-// refresh the UTB redaction boxes so the SVG layer stays current.
-(function patchInjectRedactionOverlays() {
-  const _orig = window.injectRedactionOverlays;
-  if (typeof _orig !== 'function') {
-    // Not yet defined — set up a deferred patch applied after scripts load
-    document.addEventListener('DOMContentLoaded', () => _applyInjectPatch(), { once: true });
-    setTimeout(_applyInjectPatch, 200);
-    return;
-  }
-  _applyInjectPatch();
-
-  function _applyInjectPatch() {
-    const orig = window.injectRedactionOverlays;
-    if (!orig || orig._utbPatched) return;
-    window.injectRedactionOverlays = function(...args) {
-      orig(...args);
-      utbIngestRedactions();
-    };
-    window.injectRedactionOverlays._utbPatched = true;
-  }
-})();
-
-// After updateAllMatchesView() sets r.labelText, push text changes to UTB boxes.
-(function patchUpdateAllMatchesView() {
-  function _applyPatch() {
-    const orig = window.updateAllMatchesView;
-    if (!orig || orig._utbPatched) return;
-    window.updateAllMatchesView = function(onlyIdx) {
-      orig(onlyIdx);
-      // Sync updated labelText values to UTB redaction boxes
-      if (typeof state === 'undefined' || !state.redactions) return;
-      state.redactions.forEach((r, idx) => {
-        if (onlyIdx !== undefined && onlyIdx !== null && onlyIdx !== idx) return;
-        const box = utbState.boxes.find(b => b.type === 'redaction' && b._legacyIdx === idx);
-        if (box && box.text !== r.labelText) {
-          box.text = r.labelText;
-          renderBox(box);
-        }
-      });
-    };
-    window.updateAllMatchesView._utbPatched = true;
-  }
-  setTimeout(_applyPatch, 300);
-})();
-
-// After selectRedaction() highlights the legacy overlay, also select the UTB box.
-(function patchSelectRedaction() {
-  function _applyPatch() {
-    const orig = window.selectRedaction;
-    if (!orig || orig._utbPatched) return;
-    window.selectRedaction = async function(idx) {
-      await orig(idx);
-      const box = utbState.boxes.find(b => b.type === 'redaction' && b._legacyIdx === idx);
-      if (box) {
-        utbState.selectedId = box.id;
-        selectBoxInSVG(box.id);
-        if (typeof syncToolbarToBox === 'function') syncToolbarToBox(box);
-      }
-    };
-    window.selectRedaction._utbPatched = true;
-  }
-  setTimeout(_applyPatch, 300);
-})();
-
-
 // ── Expose globals ────────────────────────────────────────────
 
 window.utbFetchSpans               = utbFetchSpans;
-window.utbIngestRedactions         = utbIngestRedactions;
 window.utbConnectRedactionsToLines = utbConnectRedactionsToLines;

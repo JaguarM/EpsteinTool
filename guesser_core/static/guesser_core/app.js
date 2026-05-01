@@ -206,19 +206,20 @@
       if (els.nameInput) els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
       [els.kern, els.lig, els.upper, els.tol].filter(Boolean).forEach(el =>
         el.addEventListener('change', () => {
-          if (state.selectedRedactionIdx !== null && state.redactions[state.selectedRedactionIdx]) {
-            const r = state.redactions[state.selectedRedactionIdx];
-            r.settings.tol = parseFloat(els.tol?.value) || 0;
-            r.settings.kern = els.kern?.checked ?? r.settings.kern;
-            r.settings.lig = els.lig?.checked ?? r.settings.lig;
-            r.settings.upper = els.upper?.checked ?? r.settings.upper;
+          if (typeof utbState === 'undefined' || !utbState.selectedId) return;
+          const box = utbState.getBox(utbState.selectedId);
+          if (!box || box.type !== 'redaction') return;
 
-            if (el === els.tol) {
-              // Tolerance doesn't need re-fetch, just re-filter for the selected redaction
-              if (typeof updateAllMatchesView === 'function') updateAllMatchesView(state.selectedRedactionIdx);
-            } else {
-              if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(state.selectedRedactionIdx);
-            }
+          box.tolerance  = parseFloat(els.tol?.value) || 0;
+          box.kerning    = els.kern?.checked ?? box.kerning;
+          box.ligatures  = els.lig?.checked ?? box.ligatures;
+          box.uppercase  = els.upper?.checked ?? box.uppercase;
+
+          if (el === els.tol) {
+              // Tolerance doesn't need re-fetch, just re-filter
+              if (typeof updateAllMatchesView === 'function') updateAllMatchesView(box.id);
+          } else {
+              if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(box.id);
           }
         })
       );

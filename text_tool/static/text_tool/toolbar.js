@@ -97,14 +97,9 @@
       if (jsw !== null) box.spaceWidth = jsw;
     }
 
-    // If font changed on a redaction: recalculate candidate widths
-    if (fontChanged && box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
-      const legacyIdx = box._legacyIdx;
-      if (legacyIdx !== undefined && typeof state !== 'undefined' && state.redactions[legacyIdx]) {
-        state.redactions[legacyIdx].settings.fontFamily = box.fontFamily;
-        state.redactions[legacyIdx].settings.fontSize   = box.fontSize;
-        await calculateWidthsForRedaction(legacyIdx);
-      }
+    // Always recalculate candidate widths for redactions when toolbar properties are applied
+    if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+      await calculateWidthsForRedaction(box.id);
     }
 
     renderBox(box);
@@ -172,6 +167,9 @@
       const inputSize = parseFloat(el('fabric-font-size').value);
       box.fontSize = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize; 
       renderBox(box); 
+      if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+        calculateWidthsForRedaction(box.id);
+      }
     }
   });
   el('fabric-font-size')  ?.addEventListener('change', () => persistFromToolbar(getSelected()));
