@@ -30,11 +30,12 @@ class UnifiedTextBox {
     this.letterSpacing = data.letterSpacing || 0;
     this.color         = data.color      || null;  // null = per-type default
 
-    // Justification
+    // Word spacing
     this.kerning   = data.kerning   || false;
     this.ligatures = data.ligatures || false;
-    this.justify   = data.justify   || false;
-    this.spaceWidth = data.spaceWidth || null; // null = HarfBuzz auto
+    this.defaultSpaceWidth = data.defaultSpaceWidth ?? true; // true = use native font spacing
+    this.spaceWidth = data.spaceWidth || null;               // manual override (used when defaultSpaceWidth is false)
+    this.nativeSpaceWidth = data.nativeSpaceWidth || null;   // cached HarfBuzz natural space advance
 
     // Per-character positioning: [{c, x, w}] offsets relative to box.x
     this.baseCharPositions = data.baseCharPositions || null;

@@ -43,14 +43,19 @@
     const lsInput = el('fabric-letter-spacing');
     if (lsInput) lsInput.value = (box.letterSpacing || 0).toFixed(2);
 
-    const justCheck = el('fabric-justified');
-    if (justCheck) justCheck.checked = box.justify;
+    // Default Space Width checkbox
+    const defaultSwCheck = el('fabric-default-sw');
+    if (defaultSwCheck) defaultSwCheck.checked = box.defaultSpaceWidth;
 
-    const swSlider = el('fabric-space-width');
+    // Space Width slider
+    const swSlider  = el('fabric-space-width');
     const swDisplay = el('fabric-space-width-display');
-    if (swSlider && box.spaceWidth != null) {
-      swSlider.value = box.spaceWidth;
-      if (swDisplay) swDisplay.textContent = `${parseFloat(box.spaceWidth).toFixed(1)}px`;
+    if (swSlider) {
+      swSlider.disabled = box.defaultSpaceWidth;
+      if (box.spaceWidth != null) {
+        swSlider.value = box.spaceWidth;
+        if (swDisplay) swDisplay.textContent = `${parseFloat(box.spaceWidth).toFixed(1)}px`;
+      }
     }
 
     // Show toolbar if hidden
@@ -86,15 +91,12 @@
     box.underline     = el('fabric-underline')    ?.classList.contains('active') ?? box.underline;
     box.strikethrough = el('fabric-strikethrough')?.classList.contains('active') ?? box.strikethrough;
     box.letterSpacing = parseFloat(el('fabric-letter-spacing')?.value) || 0;
-    box.justify       = el('fabric-justified')?.checked ?? box.justify;
-    if (!box.justify) {
-      box.spaceWidth = parseFloat(el('fabric-space-width')?.value) || box.spaceWidth;
-    }
+    box.defaultSpaceWidth = el('fabric-default-sw')?.checked ?? box.defaultSpaceWidth;
 
-    // If justify toggled on: compute HarfBuzz space width
-    if (box.justify && box.text && box.w) {
-      const jsw = await fetchJustifiedSpaceWidth(box);
-      if (jsw !== null) box.spaceWidth = jsw;
+    if (box.defaultSpaceWidth) {
+      box.spaceWidth = null; // use native font spacing
+    } else {
+      box.spaceWidth = parseFloat(el('fabric-space-width')?.value) || box.spaceWidth;
     }
 
     // Always recalculate candidate widths for redactions when toolbar properties are applied
@@ -110,9 +112,13 @@
     }
   }
 
-  // ── HarfBuzz justified space width ───────────────────────────
+  // ── Natural space width helper ─────────────────────────────
 
-  async function fetchJustifiedSpaceWidth(box) {
+  /**
+   * Fetch the HarfBuzz natural space advance for the box's current font/size.
+   * Used to initialise the slider when unchecking "Default".
+   */
+  async function fetchNaturalSpaceWidth(box) {
     const font  = _ttfForFamily(box.fontFamily);
     const scale = typeof state !== 'undefined' ? (state.pageWidth / 816 * (4/3)) : (4/3);
     try {
@@ -120,9 +126,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode:    'justified',
-          strings: [box.text],
-          block_w: box.w,
+          strings: [' '],
           font:    font,
           size:    box.sizePt || box.fontSize,
           scale:   scale * 100,
@@ -132,7 +136,8 @@
       });
       if (!resp.ok) return null;
       const data = await resp.json();
-      return data.space_width ?? null;
+      // The width of a single space character = the natural space advance
+      return data.results?.[0]?.width ?? null;
     } catch { return null; }
   }
 
@@ -180,11 +185,44 @@
     if (box) { box.color = e.target.value; renderBox(box); }
   });
 
-  el('fabric-justified')?.addEventListener('change', () => persistFromToolbar(getSelected()));
+  // "Default" checkbox: toggle native vs manual space width
+  el('fabric-default-sw')?.addEventListener('change', async () => {
+    const box = getSelected();
+    if (!box) return;
 
+    const isDefault = el('fabric-default-sw').checked;
+    box.defaultSpaceWidth = isDefault;
+
+    const swSlider  = el('fabric-space-width');
+    const swDisplay = el('fabric-space-width-display');
+
+    if (!isDefault) {
+      // User unchecked "Default" → initialise slider to the font's natural space width
+      const naturalSW = await fetchNaturalSpaceWidth(box);
+      if (naturalSW !== null) {
+        box.spaceWidth = naturalSW;
+        box.nativeSpaceWidth = naturalSW;
+        if (swSlider) swSlider.value = naturalSW;
+        if (swDisplay) swDisplay.textContent = `${naturalSW.toFixed(1)}px`;
+      }
+    } else {
+      box.spaceWidth = null;
+    }
+
+    if (swSlider) swSlider.disabled = isDefault;
+
+    renderBox(box);
+
+    // Recalculate candidate widths for redactions
+    if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+      await calculateWidthsForRedaction(box.id);
+    }
+  });
+
+  // Space width slider (live drag)
   el('fabric-space-width')?.addEventListener('input', e => {
     const box = getSelected();
-    if (!box || box.justify) return;
+    if (!box || box.defaultSpaceWidth) return;
     box.spaceWidth = parseFloat(e.target.value);
     const disp = el('fabric-space-width-display');
     if (disp) disp.textContent = `${box.spaceWidth.toFixed(1)}px`;

@@ -58,21 +58,44 @@ function clearAllSVGLayers() {
  * Compute the array of absolute x positions for each character in a box.
  * When baseCharPositions is available, each char's x = box.x + char.x + charAdvances[i].
  * When not available, returns a single value [box.x].
+ *
+ * If box.spaceWidth is set (manual override, defaultSpaceWidth === false),
+ * each space character's width is overridden and all subsequent characters
+ * are shifted by the accumulated delta from the native space widths.
  */
 function computeXPositions(box) {
   if (!box.baseCharPositions || !box.baseCharPositions.length) {
     return [box.x];
   }
 
+  // Determine if we need to apply a manual space-width override
+  const hasSpaceOverride = box.spaceWidth != null && !box.defaultSpaceWidth;
+
+  // Compute the average native space width from baseCharPositions
+  let nativeSpaceW = null;
+  if (hasSpaceOverride) {
+    const spaceChars = box.baseCharPositions.filter(cp => cp.c === ' ');
+    if (spaceChars.length > 0) {
+      nativeSpaceW = spaceChars.reduce((sum, cp) => sum + (cp.w || 0), 0) / spaceChars.length;
+    }
+  }
+
   // charAdvances[i] is a manual per-character nudge.  We accumulate all prior
   // nudges so that shifting char i also shifts chars i+1, i+2, … by the same
   // amount — matching the SVG <text x="…"> array contract.
   let cumulativeDelta = 0;
+  let spaceAdjust = 0; // accumulated shift from space-width overrides
   const xs = [];
   for (let i = 0; i < box.baseCharPositions.length; i++) {
     const cp = box.baseCharPositions[i];
     cumulativeDelta += (box.charAdvances[i] || 0);
-    xs.push(box.x + cp.x + cumulativeDelta);
+    xs.push(box.x + cp.x + cumulativeDelta + spaceAdjust);
+
+    // After placing a space character, accumulate the width delta for
+    // all subsequent characters
+    if (hasSpaceOverride && nativeSpaceW != null && cp.c === ' ') {
+      spaceAdjust += (box.spaceWidth - nativeSpaceW);
+    }
   }
   return xs;
 }
@@ -164,6 +187,22 @@ function _updateText(g, box) {
 
   if (box.letterSpacing) text.setAttribute('letter-spacing', `${box.letterSpacing}em`);
   else                   text.removeAttribute('letter-spacing');
+
+  // Word spacing: for boxes without per-character positions (Path B),
+  // use the SVG word-spacing attribute as a delta from native width.
+  // For boxes WITH per-character positions, the override is applied
+  // inside computeXPositions() above.
+  if (xs.length === 1 && box.spaceWidth != null && !box.defaultSpaceWidth) {
+    // word-spacing is additive: it adds to the default space advance.
+    // If nativeSpaceWidth is cached, compute the delta; otherwise use
+    // spaceWidth directly as an approximation.
+    const delta = box.nativeSpaceWidth != null
+      ? (box.spaceWidth - box.nativeSpaceWidth)
+      : box.spaceWidth;
+    text.setAttribute('word-spacing', `${delta}px`);
+  } else {
+    text.removeAttribute('word-spacing');
+  }
 
   // Per-character x array or single x position
   if (xs.length === 1) {
