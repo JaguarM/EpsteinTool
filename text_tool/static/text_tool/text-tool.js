@@ -43,6 +43,22 @@ async function utbFetchSpans(file) {
         }
         span.fontSize = normalizedPt / 0.75;
       });
+
+      // Apply the exact same logic to redaction boxes to fix the race condition
+      utbState.boxes.filter(b => b.type === 'redaction').forEach(box => {
+        const pt = box.fontSize * 0.75;
+        let normalizedPt;
+        if (Math.abs(pt - documentBasePt) <= 1.0) {
+          normalizedPt = documentBasePt;
+        } else {
+          normalizedPt = Math.round(pt);
+        }
+        
+        if (box.fontSize !== normalizedPt / 0.75) {
+          box.fontSize = normalizedPt / 0.75;
+          if (typeof renderBox === 'function') renderBox(box);
+        }
+      });
     }
 
     // Remove old embedded boxes so we don't double-render after re-fetch
@@ -58,6 +74,11 @@ async function utbFetchSpans(file) {
 
     // Connect redaction boxes to their nearest text lines
     utbConnectRedactionsToLines();
+
+    // Now that redactions are normalized and connected, recalculate candidate widths
+    if (typeof calculateAllWidths === 'function') {
+      calculateAllWidths();
+    }
 
   } catch (err) {
     console.warn('UTB: span fetch error', err);
