@@ -42,7 +42,7 @@ async function loadDocument(data, file) {
   renderThumbnails();
 
   const autoScale = data.suggested_scale || 178;
-  const autoSize = data.suggested_size || 12;
+  const autoSize = Math.round(data.suggested_size || 12);
   const autoFont = data.suggested_font || null;
 
   // Derive initial font family (CSS name) and size (px)

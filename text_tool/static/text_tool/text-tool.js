@@ -27,6 +27,24 @@ async function utbFetchSpans(file) {
     const data = await resp.json();
     const spans = data.spans || [];
 
+    // Normalize font sizes (convert to pt, snap to median or round, convert back to px)
+    if (spans.length > 0) {
+      const ptSizes = spans.map(s => s.fontSize * 0.75).sort((a, b) => a - b);
+      const medianPt = ptSizes[Math.floor(ptSizes.length / 2)];
+      const documentBasePt = Math.round(medianPt);
+
+      spans.forEach(span => {
+        const pt = span.fontSize * 0.75;
+        let normalizedPt;
+        if (Math.abs(pt - documentBasePt) <= 1.0) {
+          normalizedPt = documentBasePt;
+        } else {
+          normalizedPt = Math.round(pt);
+        }
+        span.fontSize = normalizedPt / 0.75;
+      });
+    }
+
     // Remove old embedded boxes so we don't double-render after re-fetch
     utbState.boxes = utbState.boxes.filter(b => b.type !== 'embedded');
 
