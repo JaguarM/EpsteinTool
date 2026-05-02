@@ -5,8 +5,10 @@ from django.conf import settings
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('guesser_core.urls')),
-    path('', include('text_tool.urls')),  # /widths, /fonts-list (canonical)
 ]
+
+if 'text_tool' in settings.INSTALLED_APPS:
+    urlpatterns += [path('', include('text_tool.urls'))]  # /widths, /fonts-list (canonical)
 
 if 'webgl_mask' in settings.INSTALLED_APPS:
     urlpatterns += [path('', include('webgl_mask.urls'))]
