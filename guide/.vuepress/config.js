@@ -21,7 +21,7 @@ export default defineUserConfig({
           '/setup-and-deployment/setup-deployment.md',
           '/setup-and-deployment/local-development.md',
           '/setup-and-deployment/production-deployment.md',
-          '/setup-and-deployment/TROUBLESHOOTING.md',
+          '/setup-and-deployment/troubleshooting.md',
         ],
       },
       {
