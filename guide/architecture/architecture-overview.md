@@ -45,7 +45,8 @@ EpsteinTool/
 │   │   ├── width_calculator.py     # HarfBuzz width measurement
 │   │   └── extract_fonts.py        # Dominant font detection
 │   ├── templates/                  # Toolbars injected into guesser_core UI
-│   └── static/text_tool/           # text-tool.js (Fabric.js canvas wrapper)
+│   └── static/text_tool/           # unified-text-box.js, svg-renderer.js, drag-resize.js,
+│                                   # toolbar.js, micro-typo.js, inline-edit.js, text-tool.js
 │
 ├── webgl_mask/                     # Plugin App (Visual GPU Masks)
 │   ├── views.py                    # /webgl/masks

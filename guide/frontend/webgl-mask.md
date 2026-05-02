@@ -1,6 +1,6 @@
 # WebGL Mask — `webgl-mask.js`
 
-[webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays...
+[webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays.
 
 ## Architecture
 
@@ -11,67 +11,73 @@ POST /webgl/masks
     ↓
 `refreshWebGLCanvases()`
     ↓
-`initWebGLOverlay()` (for visible pages)
+`initWebGLOverlay()` (for visible pages via IntersectionObserver)
     ↓
-Load as LUMINANCE texture (NEAREST filtering)
+Two LUMINANCE textures: uPage (LINEAR) + uMask (NEAREST)
     ↓
-Fragment shader: maskVal × uColor × uOpacity → pre-multiplied alpha
+Fragment shader: multiplicative alpha recovery → grayscale output
     ↓
-CSS mix-blend-mode: screen → composited over PDF
+CSS mix-blend-mode: normal — canvas composited directly over PDF
 ```
 
 ## Functions
 
 ### `fetchMasksAsync(file, isDefault)`
-Asynchronously requests all masks for the current document from the `/webgl/masks` endpoint. Once received, it stores them in `state.maskImages` and calls `refreshWebGLCanvases()`.
+Asynchronously requests all masks from `/webgl/masks`. Stores results in `state.maskImages` and calls `refreshWebGLCanvases()`.
 
 ### `setupWebGLOverlay(pageContainer, canvas, pageNum)`
-Registers a page container with the `IntersectionObserver`. When a page becomes visible:
-1. `initWebGLOverlay(canvas, pageNum)` is called.
-2. If `state.maskImages[pageNum-1]` exists, the texture is loaded.
-3. If no mask data exists yet (still loading), the canvas remains hidden until `refreshWebGLCanvases()` triggers.
+Registers a page container with the `IntersectionObserver`. When a page becomes visible, `initWebGLOverlay(canvas, pageNum)` is called. Pages with no mask data are skipped until `refreshWebGLCanvases()` triggers after async load.
 
 **Texture setup:**
 - Format: `gl.LUMINANCE` (single-channel grayscale)
-- Filtering: `gl.NEAREST` (no blurring — preserves hard pixel boundaries)
+- Page texture: `gl.LINEAR` filtering
+- Mask texture: `gl.NEAREST` filtering (preserves hard pixel boundaries)
 - Wrapping: `gl.CLAMP_TO_EDGE`
 
 ### `clearWebGLContexts()`
-Destroys all active WebGL contexts. Called when navigating between pages.
+Destroys all active WebGL contexts. Called when navigating between documents.
 
-### `updateWebGLUniforms()`
-Called when the user changes mask color or opacity controls. Pipes the new values directly into GPU uniforms for instant 60fps updates without re-uploading textures.
+### `updateWebGLUniforms(specificPage?)`
+Reads `els.edgeSubtract.value / 255.0` → `uStrength` uniform and redraws. No texture re-upload needed — instant 60fps updates.
 
 ## Shaders
 
 ### Vertex Shader
-Draws a full-screen quad covering the canvas bounds.
+Draws a full-screen quad; maps clip-space coords to UV with Y-flip.
 
 ### Fragment Shader
 ```glsl
-float maskVal = texture2D(uMask, vTexCoord).r;
-float alpha = maskVal * uOpacity;
-vec3 invColor = 1.0 - uColor;
-gl_FragColor = vec4(invColor * alpha, alpha);
+float page = texture2D(uPage, vTexCoord).r;
+float mask = texture2D(uMask, vTexCoord).r;
+float alpha = mask * uStrength;
+float result;
+if (mask > 0.999) {
+  // Interior: fully covered, original unrecoverable — show white
+  result = uStrength;
+} else {
+  // Border/clear: invert anti-aliasing multiplication
+  result = min(page / max(1.0 - alpha, 0.001), 1.0);
+}
+gl_FragColor = vec4(vec3(result), 1.0);
 ```
 
-- `maskVal`: 0.0 (unredacted) to 1.0 (fully redacted)
-- `uColor`: user-selected RGB tint color
-- `uOpacity`: slider-controlled opacity (0–255 → 0.0–1.0)
+**Three pixel cases:**
 
-Combined with CSS `mix-blend-mode: screen`:
-- **Black mask color** → inverted to white → brightens the PDF underneath
-- **White mask color** → inverted to black → no visible change
-- **Edge pixels** (gray values from anti-aliased borders) → proportional blend
+| Pixel type | `mask` | Behaviour |
+|---|---|---|
+| Interior | 1.0 | Outputs `uStrength` (white at full slider) |
+| Border | 0 < m < 1 | `page / (1 - mask × strength)` — recovers original via division |
+| Clear | 0.0 | `page / 1.0` — passes through unchanged |
+
+The multiplicative recovery correctly reverses anti-aliasing: dark text under a border pixel stays dark; a white background pixel is scaled back to white.
 
 ## UI Controls
 
 | Control | ID | Effect |
 |---------|-----|--------|
-| Mask color | `mask-color` | RGB value passed to `uColor` uniform |
-| Mask opacity | `edge-subtract` | 0–255 range passed to `uOpacity` uniform |
+| Reveal strength | `edge-subtract` | 0–255 → `uStrength` uniform |
 | WebGL toggle | `toggle-webgl` | Shows/hides all `.webgl-overlay` canvases |
 
 ## Context Limits
 
-Browsers enforce ~16 simultaneous WebGL contexts. The lazy instantiation strategy ensures contexts are only allocated for pages with actual redactions, preventing `CONTEXT_LOST_WEBGL` crashes on large documents.
+Browsers enforce ~16 simultaneous WebGL contexts. The lazy `IntersectionObserver` strategy ensures contexts are only allocated for pages with actual redactions, preventing `CONTEXT_LOST_WEBGL` crashes on large documents.

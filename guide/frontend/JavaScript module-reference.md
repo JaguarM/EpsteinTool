@@ -8,30 +8,34 @@ The scripts must load in this exact order because later modules depend on global
 
 | Order | File | Defines | Depends On |
 |-------|------|---------|------------|
-| 1 | [state.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/state.js) | `state`, `els` | DOM elements |
-| 2 | [api.js](https://github.com/JaguarM/EpsteinTool/blob/main/redaction_matching/static/redaction_matching/api.js) | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `updateAllMatchesView` | `state`, `els` |
-| 3 | [webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync` | `state`, `els` |
-| 4 | [pdf-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/pdf-viewer.js) | `handleFileUpload`, `goToPage`, `injectRedactionOverlays` | `state`, `els`, `api.js`, `webgl-mask.js` |
-| 5 | [embedded-text-viewer.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/embedded-text-viewer.js) | `createETVOverlay`, `findNearestETVLine`, `connectRedactionsToETVLines`, `initDragETV` | `state`, `els`, `pdf-viewer.js` |
-| 6 | [redaction-matching.js](https://github.com/JaguarM/EpsteinTool/blob/main/redaction_matching/static/redaction_matching/redaction-matching.js) | `injectMatchingLabel` | `api.js` |
-| 7 | [ui-events.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/ui-events.js) | `updateCSSZoom`, `processZoomFromText`, `initResize`, `initDragRedaction`, `renderThumbnails` | `state`, `els` |
-| 8 | [app.js](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/static/guesser_core/app.js) | IIFE — wires all event listeners | All above |
-| 9 | [text-tool.js](https://github.com/JaguarM/EpsteinTool/blob/main/embedded_text_viewer/static/embedded_text_viewer/text-tool.js) | Formatting Toolbar Bridge (CustomEvents) | `state`, `els`, `app.js` |
+| 1 | `guesser_core/state.js` | `state`, `els` | DOM elements |
+| 2 | `redaction_matching/api.js` | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `createNewRedaction` | `state`, `els` |
+| 3 | `webgl_mask/webgl-mask.js` | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync` | `state`, `els` |
+| 4 | `guesser_core/pdf-viewer.js` | `handleFileUpload`, `goToPage`, `loadDocument` | `state`, `els`, `api.js`, `webgl-mask.js` |
+| 5 | `guesser_core/ui-events.js` | `updateCSSZoom`, `processZoomFromText`, `renderThumbnails` | `state`, `els` |
+| 6 | `guesser_core/app.js` | IIFE — wires all event listeners | All above |
+| 7 | `text_tool/unified-text-box.js` | `UnifiedTextBox`, `utbState`, `spanToUnified`, `normUtbFont` | — |
+| 8 | `text_tool/svg-renderer.js` | `renderBox`, `renderTextLayer`, `renderAllTextLayers`, `selectBoxInSVG`, `computeXPositions` | `utbState` |
+| 9 | `text_tool/drag-resize.js` | IIFE — SVG-native drag/resize event delegation | `utbState`, `renderBox` |
+| 10 | `text_tool/toolbar.js` | `syncToolbarToBox`, `syncToolbarToSelection`, `persistFromToolbar` | `utbState`, `renderBox` |
+| 11 | `text_tool/micro-typo.js` | `enterMicroTypo`, `exitMicroTypo` | `utbState`, `computeXPositions`, `renderBox` |
+| 12 | `text_tool/inline-edit.js` | `enterInlineEdit`, `commitInlineEdit`, `cancelInlineEdit` | `utbState`, `renderBox`, `exitMicroTypo` |
+| 13 | `text_tool/text-tool.js` | `utbFetchSpans`, `utbConnectRedactionsToLines`, `addEmbeddedTextSpan`, `handleManualAddBox` | `utbState`, `renderBox`, all above |
 
 ## External Libraries
 
 | Library | CDN | Purpose |
 |---------|-----|---------|
-| Fabric.js 5.3.1 | cloudflare | Canvas-based text overlays with drag/resize |
+| Fabric.js 5.3.1 | cloudflare | Legacy canvas — still loaded but not used for text rendering |
 | Material Symbols | Google Fonts | Toolbar icons |
 | Inter font | Google Fonts | UI typography |
 
 ## Module Documentation
 
 - [State Management](state-management.md) — `state` object schema and `els` DOM cache
-- [PDF Viewer](pdf-viewer.md) — File upload, page navigation, redaction overlay rendering
+- [PDF Viewer](pdf-viewer.md) — File upload, page navigation, rendering
 - [API & Candidate Logic](api-and-logic.md) — Width calculation, candidate matching, sort/pagination
 - [UI Events](ui-events.md) — Zoom, resize, drag, thumbnails
-- [Embedded Text Viewer](embedded-text-viewer.md) — Automatic text spans, bidirectional sync, snapping
-- [Formatting Bridge](text-tool.md) — Shared options bar and formatting bridge
+- [SVG Text Layer](embedded-text-viewer.md) — `UnifiedTextBox` data model, SVG rendering, inline editing, micro-typography
+- [Toolbar & Text Tool](text-tool.md) — Formatting toolbar controls, span fetching, lifecycle hooks
 - [WebGL Mask](webgl-mask.md) — GPU-accelerated redaction mask rendering

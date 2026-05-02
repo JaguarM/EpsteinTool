@@ -27,9 +27,11 @@ Every piece of text is stored as a `UnifiedTextBox` instance inside the global `
   letterSpacing: float,
   color: string|null,   // null = per-type default color
 
-  // Justification
-  kerning, ligatures, justify: bool,
-  spaceWidth: float|null,  // null = HarfBuzz auto-computed
+  // Word Spacing
+  kerning, ligatures: bool,
+  defaultSpaceWidth: bool,    // true = use native font spacing
+  spaceWidth: float|null,     // manual override (used when defaultSpaceWidth is false)
+  nativeSpaceWidth: float|null, // cached HarfBuzz natural space advance
 
   // Per-character positioning (from PDF extraction or HarfBuzz)
   baseCharPositions: [{c, x, w}]|null,
@@ -54,6 +56,7 @@ utbState = {
   selectedId: null,
   microTypoId: null,
   microTypoCharIdx: null,
+  editingId: null,     // id of box in inline-text-edit mode
   // addBox / getBox / removeBox / updateBox / getPageBoxes / reset
 }
 ```
@@ -173,11 +176,56 @@ The `lineId` field groups all boxes that belong to the same horizontal line of t
 
 ---
 
-## Micro-Typography Mode
+## Interaction Modes
 
-Double-clicking any `<text class="utb-text">` element enters micro-typography mode for that box (requires `baseCharPositions`).
+The text layer supports three mutually exclusive interaction modes on a selected span:
+
+| Mode | Trigger | `utbState` field | Available for |
+|------|---------|-----------------|---------------|
+| **Selection** (default) | Single-click a span | `selectedId` | All types |
+| **Inline Text Edit** | Double-click a span | `editingId` | `embedded`, `harfbuzz` only |
+| **Micro-Typography Nudge** | Nudge button in toolbar | `microTypoId` | Spans with `baseCharPositions` |
+
+Entering one mode automatically exits the other. Escape exits whichever mode is active.
+
+---
+
+## Inline Text Editing — `inline-edit.js`
+
+Double-clicking an `embedded` or `harfbuzz` span enters inline text edit mode. Redaction spans are excluded (their text is machine-managed by the match engine).
+
+1. `enterInlineEdit(box)`:
+   - Guards: only `embedded` / `harfbuzz` types. Exits micro-typo if active.
+   - Sets `utbState.editingId = box.id`.
+   - Adds `.editing` class to the `<g>` group (dashed blue glow on bbox).
+   - Hides the SVG `<text>` element.
+   - Inserts a `<foreignObject>` sized to the bounding box, containing an `<input type="text">` pre-filled with `box.text`.
+   - The input is styled WYSIWYG: matching `fontFamily`, `fontSize`, `color`, `fontWeight`, `fontStyle`.
+   - Auto-focuses and selects all text.
+
+2. **Committing** (`commitInlineEdit()`):
+   - Reads the input value → `box.text = value`.
+   - Removes the `<foreignObject>`, unhides the `<text>`.
+   - Re-renders via `renderBox(box)`.
+   - Clears `utbState.editingId`.
+
+3. **Cancelling** (`cancelInlineEdit()`):
+   - Same cleanup but discards changes (original text preserved).
+
+4. **Event bindings**:
+   - `Enter` → commit.
+   - `Escape` → cancel.
+   - `blur` (click-away) → commit.
+   - `mousedown` / `click` on the `<foreignObject>` are stopped from bubbling to prevent drag-resize from intercepting.
+
+---
+
+## Micro-Typography Mode — `micro-typo.js`
+
+Clicking the **Nudge** button (`#fabric-nudge-mode`) in the toolbar enters micro-typography mode for the selected box (requires `baseCharPositions`).
 
 1. `enterMicroTypo(box)`:
+   - Guards: box must have `baseCharPositions`, and `editingId` must be null.
    - Adds `.micro-typo` class to the `<g>` group.
    - Creates one invisible `<rect class="utb-char-hit" data-char-idx="N">` per character, sized to that character's advance width.
 2. Clicking a hit rect opens a nudge popover with a slider (−20 to +20 px, step 0.1).
@@ -187,6 +235,6 @@ Double-clicking any `<text class="utb-text">` element enters micro-typography mo
    - Updates the SVG `<text>` element with a single `setAttribute('x', ...)` call — no DOM reflow.
    - Repositions all hit rects to match.
 4. **Escape** closes the popover (first press) or exits micro-typo mode (second press).
-5. Double-clicking outside any text element also exits the mode.
+5. Clicking the Nudge button again also exits the mode.
 
 The nudge popover is an absolutely-positioned `<div class="utb-nudge-popover">` placed relative to the `.page-container` element.

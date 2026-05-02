@@ -62,6 +62,24 @@ Each item in `state.redactions` is created by `handleFileUpload()`:
 }
 ```
 
+> **Note:** Redaction boxes have been migrated to the `UnifiedTextBox` system. They are now stored as `type='redaction'` entries in `utbState.boxes[]` (see [SVG Text Layer](embedded-text-viewer.md)). The `state.redactions[]` array above is legacy and no longer the source of truth for redaction data.
+
+### `utbState` — Unified Text Box State
+
+All text on the page (embedded PDF text, redaction labels, HarfBuzz recreations) is managed through the global `utbState` object defined in `text_tool/unified-text-box.js`:
+
+```javascript
+const utbState = {
+  boxes: [],              // UnifiedTextBox[] — single array for all text
+  selectedId: null,       // id of currently selected box
+  microTypoId: null,      // id of box in micro-typography nudge mode
+  microTypoCharIdx: null, // index of the character being nudged
+  editingId: null,        // id of box in inline-text-edit mode
+};
+```
+
+See [SVG Text Layer](embedded-text-viewer.md) for the full `UnifiedTextBox` data model.
+
 ## `els` — DOM Element Cache
 
 All DOM elements are cached at load time to avoid repeated `getElementById` calls:

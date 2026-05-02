@@ -16,10 +16,11 @@
 | `#fabric-italic` | `box.italic` | Toggle button |
 | `#fabric-underline` | `box.underline` | Toggle button |
 | `#fabric-strikethrough` | `box.strikethrough` | Toggle button |
-| `#fabric-letter-spacing` | `box.letterSpacing` | em units |
 | `#fabric-color` | `box.color` | Hex color; `null` = per-type default |
-| `#fabric-justified` | `box.justify` | Checkbox; triggers HarfBuzz space-width fetch when enabled |
-| `#fabric-space-width` | `box.spaceWidth` | Slider; active only when `box.justify` is false |
+| `#fabric-nudge-mode` | — | Toggle button; enters/exits micro-typography nudge mode on the selected span. Disabled when the span has no `baseCharPositions`. |
+| `#fabric-letter-spacing` | `box.letterSpacing` | em units |
+| `#fabric-default-sw` | `box.defaultSpaceWidth` | Checkbox; when checked, uses the font's native space width. Uncheck for manual slider control. |
+| `#fabric-space-width` | `box.spaceWidth` | Slider; active only when `#fabric-default-sw` is unchecked |
 
 ---
 
@@ -44,7 +45,7 @@ Reads from the `UnifiedTextBox` and pushes values into the toolbar UI. Called wh
 fsInput.value = Math.round(box.fontSize * 0.75 * 100) / 100;  // px → pt
 ```
 
-Also sets font family, bold/italic/underline/strikethrough active states, letter spacing, color, justify checkbox, and space-width slider.
+Also sets font family, bold/italic/underline/strikethrough active states, letter spacing, color, Default Space Width checkbox, space-width slider, and nudge button state (active if micro-typo mode is active for this box, disabled if box lacks `baseCharPositions`).
 
 ---
 
@@ -57,32 +58,42 @@ const inputSize = parseFloat(el('fabric-font-size').value);
 box.fontSize = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize;  // pt → px
 ```
 
-If `box.justify` was just enabled and the box has text and a width, `fetchJustifiedSpaceWidth(box)` is called to auto-compute `box.spaceWidth` via HarfBuzz.
+If `box.defaultSpaceWidth` is unchecked and the box has text, the manual `box.spaceWidth` from the slider is used.
 
 If `box.type === 'redaction'` and font or size changed, `calculateWidthsForRedaction(box.id)` is called to recalculate the candidate-word width map.
 
 ---
 
-## HarfBuzz Justified Space Width
+## Natural Space Width
 
-When the Justify checkbox is enabled:
+When the "Default" checkbox is unchecked, the slider is initialized to the font's natural space advance by calling the HarfBuzz backend:
 
 ```js
 POST /widths
 {
-  mode: 'justified',
-  strings: [box.text],
-  block_w: box.w,
+  strings: [' '],
   font: 'times.ttf',        // derived from box.fontFamily
   size: box.sizePt || box.fontSize,
   scale: state.pageWidth / 816 * (4/3) * 100,
   kerning: box.kerning,
   ligatures: box.ligatures,
 }
-→ { space_width: float }    // per-space pixel width
+→ { results: [{ width: float }] }    // natural space advance
 ```
 
-The result is written to `box.spaceWidth`. The space-width slider is then disabled (because justify mode controls spacing automatically).
+The result is written to `box.spaceWidth` and `box.nativeSpaceWidth`. When the checkbox is re-checked, `box.spaceWidth` is set to `null` (native font spacing).
+
+---
+
+## Nudge Button
+
+The **Nudge** button (`#fabric-nudge-mode`) in the Style group enters micro-typography mode on the selected span:
+
+- **Click** when a span is selected and has `baseCharPositions` → calls `enterMicroTypo(box)`.
+- **Click** again (or press Escape) → calls `exitMicroTypo()`.
+- The button is **disabled** when no span is selected or the span lacks per-character positions.
+
+This replaced the old double-click gesture, which is now used for inline text editing (see `inline-edit.js`).
 
 ---
 
@@ -96,8 +107,9 @@ The result is written to `box.spaceWidth`. The space-width slider is then disabl
 | `click` | bold/italic/underline/strikethrough buttons | Toggle `.active`, `persistFromToolbar` |
 | `change` | `#fabric-letter-spacing` | `persistFromToolbar` |
 | `input` | `#fabric-color` | `box.color = value`, `renderBox` |
-| `change` | `#fabric-justified` | `persistFromToolbar` + HarfBuzz space-width fetch |
+| `change` | `#fabric-default-sw` | Toggle native vs manual space width; fetch natural width via HarfBuzz when unchecking |
 | `input` | `#fabric-space-width` | Live `box.spaceWidth = value`, `renderBox`, update display label |
+| `click` | `#fabric-nudge-mode` | Toggle micro-typography mode on selected span |
 
 ---
 
