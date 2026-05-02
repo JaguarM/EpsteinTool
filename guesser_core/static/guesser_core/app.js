@@ -58,14 +58,11 @@
       // Subtoolbars are mutually exclusive tabs; null = default (text options bar)
       // Exposed as window.openSubtoolbar so plugin scripts can call it on click
       window.openSubtoolbar = function openSubtoolbar(barToShow, btnToActivate) {
-        const toggleETV = document.getElementById('toggle-embedded-viewer');
         const toggleFmt = document.getElementById('toggle-fmt') ?? document.getElementById('tool-text');
         els.textOptionsBar?.classList.add('hidden');
         if (els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
-        document.getElementById('etv-bar')?.classList.add('hidden');
         document.getElementById('fabric-options-bar')?.classList.add('hidden');
         els.toggleWebglBtn?.classList.remove('active');
-        toggleETV?.classList.remove('active');
         toggleFmt?.classList.remove('active');
         if (!barToShow) {
           els.textOptionsBar?.classList.remove('hidden');

@@ -58,6 +58,13 @@
       }
     }
 
+    // Nudge button state
+    const nudgeBtn = el('fabric-nudge-mode');
+    if (nudgeBtn) {
+      nudgeBtn.classList.toggle('active', utbState.microTypoId === box.id);
+      nudgeBtn.disabled = !box.baseCharPositions?.length;
+    }
+
     // Show toolbar if hidden
     // el('fabric-options-bar')?.classList.remove('hidden');
   }
@@ -227,6 +234,25 @@
     const disp = el('fabric-space-width-display');
     if (disp) disp.textContent = `${box.spaceWidth.toFixed(1)}px`;
     renderBox(box);
+  });
+
+  // Nudge mode button (micro-typography)
+  el('fabric-nudge-mode')?.addEventListener('click', () => {
+    const box = getSelected();
+    if (!box) return;
+
+    // If already in micro-typo mode, exit
+    if (utbState.microTypoId === box.id) {
+      if (typeof exitMicroTypo === 'function') exitMicroTypo();
+      el('fabric-nudge-mode')?.classList.remove('active');
+      return;
+    }
+
+    // Enter micro-typo mode if the box has character positions
+    if (box.baseCharPositions?.length && typeof enterMicroTypo === 'function') {
+      enterMicroTypo(box);
+      el('fabric-nudge-mode')?.classList.add('active');
+    }
   });
 
   // Toggle-fmt button (show/hide toolbar)

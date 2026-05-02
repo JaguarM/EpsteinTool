@@ -177,9 +177,6 @@
   <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
   {% endif %}
   <script src="{% static 'guesser_core/pdf-viewer.js' %}?v=2"></script>
-  {% if 'embedded_text_viewer' in active_plugins %}
-  <script src="{% static 'embedded_text_viewer/embedded-text-viewer.js' %}"></script>
-  {% endif %}
   <script src="{% static 'guesser_core/ui-events.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/app.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/mobile.js' %}"></script>
@@ -205,6 +202,7 @@
   <script src="{% static 'text_tool/drag-resize.js' %}?v=2"></script>
   <script src="{% static 'text_tool/toolbar.js' %}?v=2"></script>
   <script src="{% static 'text_tool/micro-typo.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/inline-edit.js' %}?v=2"></script>
   <script src="{% static 'text_tool/text-tool.js' %}?v=2"></script>
   {% endif %}
 

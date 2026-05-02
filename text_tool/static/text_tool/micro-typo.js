@@ -1,5 +1,5 @@
 // micro-typo.js
-// Double-click a text box to enter Micro-Typography Mode.
+// Enter Micro-Typography Mode via the toolbar Nudge button.
 // Each character gets an invisible hit rect; clicking shows a nudge slider
 // that adjusts charAdvances[i] — the per-character x delta.
 // A single SVG <text> x-attribute write reflects the change with no DOM reflow.
@@ -13,8 +13,12 @@
 
   function enterMicroTypo(box) {
     if (!box.baseCharPositions?.length) return; // nothing to adjust without char positions
+    if (utbState.editingId) return; // don't enter while inline-edit is active
 
     exitMicroTypo(); // clean up previous session
+
+    // Exit inline edit if somehow still lingering
+    if (typeof commitInlineEdit === 'function') commitInlineEdit();
 
     utbState.microTypoId = box.id;
 
@@ -146,21 +150,6 @@
 
   // ── Event wiring ──────────────────────────────────────────────
 
-  // Double-click on a utb-text element → enter micro-typo mode
-  document.addEventListener('dblclick', e => {
-    const textEl = e.target.closest('.utb-text');
-    if (!textEl) {
-      // Double-click outside → exit mode
-      exitMicroTypo();
-      return;
-    }
-    const group = textEl.closest('.utb-group');
-    if (!group) return;
-    const box = utbState.getBox(group.dataset.id);
-    if (!box) return;
-    enterMicroTypo(box);
-  });
-
   // Click on a char hit rect → show nudge popover
   document.addEventListener('click', e => {
     const hitEl = e.target.closest('.utb-char-hit');
@@ -190,3 +179,4 @@
   window.exitMicroTypo  = exitMicroTypo;
 
 })();
+

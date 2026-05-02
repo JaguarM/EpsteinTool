@@ -42,7 +42,7 @@ async function loadDocument(data, file) {
   renderThumbnails();
 
   const autoScale = data.suggested_scale || 178;
-  const autoSize = Math.round(data.suggested_size || 12);
+  const autoSize = data.suggested_size || 12;
   const autoFont = data.suggested_font || null;
 
   // Derive initial font family (CSS name) and size (px)
@@ -51,7 +51,8 @@ async function loadDocument(data, file) {
     const fabricFont = ttfToFabricFont(autoFont);
     if (fabricFont) initialFontFamily = fabricFont;
   }
-  const initialFontSize = autoSize * autoScale / 100; // keep as float for accurate width matching
+  // Convert point size to 96 DPI pixel space (1pt = 1.333px)
+  const initialFontSize = autoSize / 0.75;
 
   // Sync fabric toolbar to the document's detected font/size
   const fabricSel = document.getElementById('fabric-font-family');

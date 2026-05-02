@@ -63,6 +63,7 @@ const utbState = {
   selectedId: null,   // id of currently selected box
   microTypoId: null,  // id of box in micro-typography mode
   microTypoCharIdx: null,
+  editingId: null,    // id of box in inline-text-edit mode
 
   addBox(data) {
     const box = data instanceof UnifiedTextBox ? data : new UnifiedTextBox(data);
@@ -94,6 +95,7 @@ const utbState = {
     this.selectedId = null;
     this.microTypoId = null;
     this.microTypoCharIdx = null;
+    this.editingId = null;
   },
 };
 
