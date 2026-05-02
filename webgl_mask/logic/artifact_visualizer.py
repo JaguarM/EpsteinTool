@@ -1,17 +1,10 @@
-import os, sys
+import os
 import numpy as np
 import cv2
 from io import BytesIO
 from PIL import Image
 import base64
 import fitz
-
-try:
-    from guesser_core.logic.BoxDetector import find_redaction_boxes_in_image
-except ImportError:
-    # Standalone execution
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from BoxDetector import find_redaction_boxes_in_image
 
 # You can edit the source PDF path here
 SOURCE_PDF = "efta00018586.pdf"
@@ -126,42 +119,50 @@ def build_mask_array(rendered):
     if not np.any(black_mask):
         return None
 
-    border = dilate(black_mask) & ~black_mask
+    outer1 = dilate(black_mask)
+    border1 = outer1 & ~black_mask
+    border2 = dilate(outer1) & ~outer1
 
     m = np.zeros(rendered.shape, dtype=np.uint8)
     m[black_mask] = 255
-    _apply_edge_lines(m, border, black_mask, rendered)
+    _apply_edge_lines(m, border1, border2, outer1, black_mask, rendered)
     return m
 
 
-def _apply_edge_lines(m, border, black_mask, rendered):
+def _apply_edge_lines(m, border1, border2, outer1, black_mask, rendered):
     """
-    Splits the border ring into horizontal-edge pixels (black above/below) and
+    Splits the border rings into horizontal-edge pixels (black above/below) and
     vertical-edge pixels (black left/right), then scans each set independently.
     Each contiguous run gets one uniform value: 255 - max(rendered[run]).
+    Top/bottom edges use two rings (border1 + border2); left/right use one.
     No pixel is touched by both scans, so uniformity is preserved.
     """
-    # Pixels where the redaction is directly above or below → top/bottom edges
-    h_border = border & (
+    # Ring 1: pixels directly adjacent to black_mask vertically → top/bottom row 1
+    h_border1 = border1 & (
         np.roll(black_mask, 1, axis=0) | np.roll(black_mask, -1, axis=0)
     )
-    # Everything else (left/right edges + pure diagonal corners) → vertical scan
-    v_border = border & ~h_border
+    v_border1 = border1 & ~h_border1
 
-    # Horizontal scan on h_border
-    for y in range(h_border.shape[0]):
-        row = h_border[y]
-        if not np.any(row):
-            continue
-        padded = np.concatenate(([False], row, [False]))
-        diff = np.diff(padded.astype(np.int8))
-        for sx, ex in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
-            val = 255 - int(rendered[y, sx:ex].max())
-            m[y, sx:ex] = val
+    # Ring 2 (top/bottom only): pixels directly adjacent to outer1 vertically → top/bottom row 2
+    h_border2 = border2 & (
+        np.roll(outer1, 1, axis=0) | np.roll(outer1, -1, axis=0)
+    )
 
-    # Vertical scan on v_border
-    for x in range(v_border.shape[1]):
-        col = v_border[:, x]
+    # Horizontal scan on both h_border rings independently
+    for h_border in (h_border1, h_border2):
+        for y in range(h_border.shape[0]):
+            row = h_border[y]
+            if not np.any(row):
+                continue
+            padded = np.concatenate(([False], row, [False]))
+            diff = np.diff(padded.astype(np.int8))
+            for sx, ex in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
+                val = 255 - int(rendered[y, sx:ex].max())
+                m[y, sx:ex] = val
+
+    # Vertical scan on v_border1 (left/right edges stay at 1 ring)
+    for x in range(v_border1.shape[1]):
+        col = v_border1[:, x]
         if not np.any(col):
             continue
         padded = np.concatenate(([False], col, [False]))

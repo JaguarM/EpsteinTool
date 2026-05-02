@@ -107,7 +107,17 @@ async function initWebGLOverlay(canvas, pageNum) {
           void main() {
             float page = texture2D(uPage, vTexCoord).r;
             float mask = texture2D(uMask, vTexCoord).r;
-            gl_FragColor = vec4(vec3(min(page + mask * uStrength, 1.0)), 1.0);
+            float alpha = mask * uStrength;
+            float result;
+            if (mask > 0.999) {
+              // Fully redacted interior (mask == 1.0): page ≈ 0 so division recovers nothing.
+              // Original content is unrecoverable — just show white.
+              result = uStrength;
+            } else {
+              // Anti-aliased border or clear pixel: invert the alpha blend multiplicatively.
+              result = min(page / max(1.0 - alpha, 0.001), 1.0);
+            }
+            gl_FragColor = vec4(vec3(result), 1.0);
           }
         `;
 
