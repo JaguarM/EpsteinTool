@@ -27,13 +27,18 @@ async function utbFetchSpans(file) {
     const data = await resp.json();
     const spans = data.spans || [];
 
-    // Normalize font sizes (convert to pt, snap to median or round, convert back to px)
+    // Normalize font sizes and detect most used font
     if (spans.length > 0) {
       const ptSizes = spans.map(s => s.fontSize * 0.75).sort((a, b) => a - b);
       const medianPt = ptSizes[Math.floor(ptSizes.length / 2)];
       const documentBasePt = Math.round(medianPt);
 
+      const fontCounts = {};
+      let maxCount = 0;
+      let mostUsedFont = 'Times New Roman';
+
       spans.forEach(span => {
+        // Font size normalization
         const pt = span.fontSize * 0.75;
         let normalizedPt;
         if (Math.abs(pt - documentBasePt) <= 1.0) {
@@ -42,7 +47,24 @@ async function utbFetchSpans(file) {
           normalizedPt = Math.round(pt);
         }
         span.fontSize = normalizedPt / 0.75;
+
+        // Font family frequency count
+        const f = typeof normUtbFont === 'function' ? normUtbFont(span.font) : (span.font || 'Times New Roman');
+        if (f) {
+          fontCounts[f] = (fontCounts[f] || 0) + 1;
+          if (fontCounts[f] > maxCount) {
+            maxCount = fontCounts[f];
+            mostUsedFont = f;
+          }
+        }
       });
+
+      // Sync fabric toolbar to the most used font
+      const fabricSel = document.getElementById('fabric-font-family');
+      if (fabricSel && Array.from(fabricSel.options).find(o => o.value === mostUsedFont)) {
+        fabricSel.value = mostUsedFont;
+        if (typeof textOptions !== 'undefined') textOptions.fontFamily = mostUsedFont;
+      }
 
       // Apply the exact same logic to redaction boxes to fix the race condition
       utbState.boxes.filter(b => b.type === 'redaction').forEach(box => {
@@ -54,10 +76,17 @@ async function utbFetchSpans(file) {
           normalizedPt = Math.round(pt);
         }
         
+        let changed = false;
         if (box.fontSize !== normalizedPt / 0.75) {
           box.fontSize = normalizedPt / 0.75;
-          if (typeof renderBox === 'function') renderBox(box);
+          changed = true;
         }
+        if (box.fontFamily !== mostUsedFont) {
+          box.fontFamily = mostUsedFont;
+          changed = true;
+        }
+        
+        if (changed && typeof renderBox === 'function') renderBox(box);
       });
     }
 

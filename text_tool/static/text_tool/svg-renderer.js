@@ -7,15 +7,15 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // Type → fill color (rgba)
 const UTB_TYPE_COLORS = {
-  embedded:  'rgba(0, 100, 255, 0.82)',
+  embedded: 'rgba(0, 100, 255, 0.82)',
   redaction: 'rgba(129, 201, 149, 0.90)',
-  harfbuzz:  'rgba(255, 140, 0, 0.80)',
+  harfbuzz: 'rgba(255, 140, 0, 0.80)',
 };
 
 const UTB_TYPE_STROKE = {
-  embedded:  'rgba(0, 100, 255, 0.6)',
+  embedded: 'rgba(0, 100, 255, 0.6)',
   redaction: 'rgba(80, 180, 110, 0.8)',
-  harfbuzz:  'rgba(220, 100, 0, 0.7)',
+  harfbuzz: 'rgba(220, 100, 0, 0.7)',
 };
 
 
@@ -29,7 +29,7 @@ function getOrCreateSVGLayer(pageContainer, pageNum) {
   let svg = pageContainer.querySelector(`.text-layer[data-page="${pageNum}"]`);
   if (svg) return svg;
 
-  const pw = state?.pageWidth  || 816;
+  const pw = state?.pageWidth || 816;
   const ph = state?.pageHeight || 1056;
 
   svg = document.createElementNS(SVG_NS, 'svg');
@@ -102,10 +102,10 @@ function computeXPositions(box) {
 
 /**
  * Compute baseline Y: approximately 85% down from the top of the bounding box.
- * SVG <text> y is the baseline, not the top.
+ * SVG <text> y is the baseline, not the top. TODO: -2 Temporary fix. 
  */
 function computeBaseline(box) {
-  return (box.y || 0) + (box.h || 0) * 0.85;
+  return (box.y || 0) + (box.h || 0) * 0.85 - 2;
 }
 
 
@@ -125,7 +125,7 @@ function renderBox(box) {
   let g = svg.querySelector(`[data-id="${box.id}"]`);
   if (!g) {
     g = document.createElementNS(SVG_NS, 'g');
-    g.dataset.id   = box.id;
+    g.dataset.id = box.id;
     g.dataset.type = box.type;
     g.classList.add('utb-group');
     svg.appendChild(g);
@@ -145,10 +145,10 @@ function _updateBBox(g, box) {
     rect.classList.add('utb-bbox');
     g.insertBefore(rect, g.firstChild);
   }
-  rect.setAttribute('x',      box.x  || 0);
-  rect.setAttribute('y',      box.y  || 0);
-  rect.setAttribute('width',  box.w  || 0);
-  rect.setAttribute('height', box.h  || 0);
+  rect.setAttribute('x', box.x || 0);
+  rect.setAttribute('y', box.y || 0);
+  rect.setAttribute('width', box.w || 0);
+  rect.setAttribute('height', box.h || 0);
   rect.setAttribute('stroke', UTB_TYPE_STROKE[box.type] || 'rgba(128,128,128,0.6)');
 }
 
@@ -161,20 +161,20 @@ function _updateText(g, box) {
     g.appendChild(text);
   }
 
-  const xs       = computeXPositions(box);
+  const xs = computeXPositions(box);
   const baseline = computeBaseline(box);
 
-  text.setAttribute('y',           baseline);
-  text.setAttribute('font-size',   box.fontSize);
+  text.setAttribute('y', baseline);
+  text.setAttribute('font-size', box.fontSize);
   text.setAttribute('font-family', _svgFontFamily(box));
-  
+
   // Use inline style to ensure it overrides the CSS stylesheet colors
   text.style.fill = box.color || UTB_TYPE_COLORS[box.type] || 'rgba(0,0,255,0.8)';
 
-  if (box.bold)   text.setAttribute('font-weight', 'bold');
-  else            text.removeAttribute('font-weight');
+  if (box.bold) text.setAttribute('font-weight', 'bold');
+  else text.removeAttribute('font-weight');
   if (box.italic) text.setAttribute('font-style', 'italic');
-  else            text.removeAttribute('font-style');
+  else text.removeAttribute('font-style');
 
   const textDecorations = [];
   if (box.underline) textDecorations.push('underline');
@@ -186,7 +186,7 @@ function _updateText(g, box) {
   }
 
   if (box.letterSpacing) text.setAttribute('letter-spacing', `${box.letterSpacing}em`);
-  else                   text.removeAttribute('letter-spacing');
+  else text.removeAttribute('letter-spacing');
 
   // Word spacing: for boxes without per-character positions (Path B),
   // use the SVG word-spacing attribute as a delta from native width.
@@ -224,11 +224,11 @@ function _updateEdgeHandles(g, box) {
     const h = document.createElementNS(SVG_NS, 'rect');
     h.classList.add('utb-edge', `utb-edge-${edge}`);
     h.dataset.edge = edge;
-    h.setAttribute('y',      box.y);
+    h.setAttribute('y', box.y);
     h.setAttribute('height', box.h);
-    h.setAttribute('width',  handleW);
-    h.setAttribute('x',      edge === 'l' ? box.x : box.x + box.w - handleW);
-    h.setAttribute('fill',   'transparent');
+    h.setAttribute('width', handleW);
+    h.setAttribute('x', edge === 'l' ? box.x : box.x + box.w - handleW);
+    h.setAttribute('fill', 'transparent');
     h.style.cursor = 'ew-resize';
     g.appendChild(h);
   }
@@ -285,13 +285,13 @@ function deselectAllInSVG() {
 
 // ── Expose globals ────────────────────────────────────────────
 
-window.renderTextLayer    = renderTextLayer;
+window.renderTextLayer = renderTextLayer;
 window.renderAllTextLayers = renderAllTextLayers;
-window.renderBox          = renderBox;
-window.removeBoxFromSVG   = removeBoxFromSVG;
-window.selectBoxInSVG     = selectBoxInSVG;
-window.deselectAllInSVG   = deselectAllInSVG;
-window.computeXPositions  = computeXPositions;
-window.computeBaseline    = computeBaseline;
+window.renderBox = renderBox;
+window.removeBoxFromSVG = removeBoxFromSVG;
+window.selectBoxInSVG = selectBoxInSVG;
+window.deselectAllInSVG = deselectAllInSVG;
+window.computeXPositions = computeXPositions;
+window.computeBaseline = computeBaseline;
 window.getOrCreateSVGLayer = getOrCreateSVGLayer;
-window.clearAllSVGLayers  = clearAllSVGLayers;
+window.clearAllSVGLayers = clearAllSVGLayers;

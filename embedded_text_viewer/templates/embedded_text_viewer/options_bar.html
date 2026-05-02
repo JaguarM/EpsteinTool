@@ -1,15 +1,7 @@
-    <!-- Embedded Text Viewer Sub-toolbar -->
+
+<!-- Embedded Text Viewer Sub-toolbar -->
     <div id="etv-bar" class="options-bar hidden">
-      <div class="options-divider"></div>
-      <div class="options-group">
-        <div class="options-group-header">Rendering</div>
-        <div class="options-group-controls">
-          <label style="font-size:12px;color:#9aa0a6;display:flex;align-items:center;gap:6px">
-            <input type="checkbox" id="etv-render-enabled"> Enable Embedded Text
-          </label>
-        </div>
-      </div>
-      {% if 'text_tool' not in active_plugins %}
+{% if 'text_tool' not in active_plugins %}
       <div class="options-divider"></div>
       <div class="options-group">
         <div class="options-group-header">Display</div>

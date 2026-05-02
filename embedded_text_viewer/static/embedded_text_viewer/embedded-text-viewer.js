@@ -218,7 +218,26 @@ async function etvFetchSpans(file) {
         return;
     }
     const data = await resp.json();
-    etvState.spans = data.spans || [];
+    const spans = data.spans || [];
+
+    if (spans.length > 0) {
+      const ptSizes = spans.map(s => s.fontSize * 0.75).sort((a, b) => a - b);
+      const medianPt = ptSizes[Math.floor(ptSizes.length / 2)];
+      const documentBasePt = Math.round(medianPt);
+
+      spans.forEach(span => {
+        const pt = span.fontSize * 0.75;
+        let normalizedPt;
+        if (Math.abs(pt - documentBasePt) <= 1.0) {
+          normalizedPt = documentBasePt;
+        } else {
+          normalizedPt = Math.round(pt);
+        }
+        span.fontSize = normalizedPt / 0.75;
+      });
+    }
+
+    etvState.spans = spans;
     etvState.fetched = true;
     etvState.fetchingFile = file;
     if (window.setHarfBuzzStatus) window.setHarfBuzzStatus(`Loaded ${etvState.spans.length} spans.`);

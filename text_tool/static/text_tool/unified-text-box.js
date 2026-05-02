@@ -7,11 +7,11 @@ function nextUtbId() { return `utb-${++_utbIdCounter}`; }
 
 class UnifiedTextBox {
   constructor(data) {
-    this.id          = data.id || nextUtbId();
-    this.type        = data.type || 'embedded'; // 'embedded' | 'redaction' | 'harfbuzz'
-    this.page        = data.page || 1;
-    this.text        = data.text || '';
-    this.lineId      = data.lineId || null;
+    this.id = data.id || nextUtbId();
+    this.type = data.type || 'embedded'; // 'embedded' | 'redaction' | 'harfbuzz'
+    this.page = data.page || 1;
+    this.text = data.text || '';
+    this.lineId = data.lineId || null;
 
     // Spatial (document pixel space — 816×1056 base)
     this.x = data.x || 0;
@@ -20,18 +20,18 @@ class UnifiedTextBox {
     this.h = data.h || 0;
 
     // Typography
-    this.fontFamily    = data.fontFamily || 'Times New Roman';
-    this.fontSize      = data.fontSize   || 12;
-    this.sizePt        = data.sizePt     || null;  // PDF points (for HarfBuzz calls)
-    this.bold          = data.bold       || false;
-    this.italic        = data.italic     || false;
-    this.underline     = data.underline  || false;
+    this.fontFamily = data.fontFamily || 'Times New Roman';
+    this.fontSize = data.fontSize || 12;
+    this.sizePt = data.sizePt || null;  // PDF points (for HarfBuzz calls)
+    this.bold = data.bold || false;
+    this.italic = data.italic || false;
+    this.underline = data.underline || false;
     this.strikethrough = data.strikethrough || false;
     this.letterSpacing = data.letterSpacing || 0;
-    this.color         = data.color      || null;  // null = per-type default
+    this.color = data.color || null;  // null = per-type default
 
     // Word spacing
-    this.kerning   = data.kerning   || false;
+    this.kerning = data.kerning || false;
     this.ligatures = data.ligatures || false;
     this.defaultSpaceWidth = data.defaultSpaceWidth ?? true; // true = use native font spacing
     this.spaceWidth = data.spaceWidth || null;               // manual override (used when defaultSpaceWidth is false)
@@ -44,11 +44,11 @@ class UnifiedTextBox {
     this.charAdvances = data.charAdvances || {};
 
     // Redaction-only fields
-    this.widths      = data.widths      || {};  // candidate → pixel width
-    this.labelText   = data.labelText   || '';
-    this.tolerance   = data.tolerance   ?? 3;
+    this.widths = data.widths || {};  // candidate → pixel width
+    this.labelText = data.labelText || '';
+    this.tolerance = data.tolerance ?? 3;
     this.manualLabel = data.manualLabel || false;
-    this.uppercase   = data.uppercase   || false;  // force-uppercase display
+    this.uppercase = data.uppercase || false;  // force-uppercase display
 
     // Render font override (e.g. 'times.ttf') — null = use fontFamily
     this.renderFont = data.renderFont || null;
@@ -107,22 +107,22 @@ const utbState = {
  */
 function spanToUnified(span) {
   const font = span.font || '';
-  const isBold   = /bold/i.test(font)           || span.fontWeight === 'bold'  || !!(span.flags & 16);
-  const isItalic = /italic|oblique/i.test(font) || span.fontStyle  === 'italic' || !!(span.flags & 2);
+  const isBold = /bold/i.test(font) || span.fontWeight === 'bold' || !!(span.flags & 16);
+  const isItalic = /italic|oblique/i.test(font) || span.fontStyle === 'italic' || !!(span.flags & 2);
 
   return new UnifiedTextBox({
-    type:    'embedded',
-    page:    span.page,
-    text:    span.text,
-    lineId:  span.lineId || null,
+    type: 'embedded',
+    page: span.page,
+    text: span.text,
+    lineId: span.lineId || null,
     x: span.x, y: span.y, w: span.w, h: span.h,
-    fontFamily:   normUtbFont(font) || 'Times New Roman',
-    fontSize:     span.fontSize,
-    sizePt:       span.sizePt || null,
-    bold:         isBold,
-    italic:       isItalic,
+    fontFamily: normUtbFont(font) || 'Times New Roman',
+    fontSize: span.fontSize,
+    sizePt: span.sizePt || null,
+    bold: isBold,
+    italic: isItalic,
     letterSpacing: parseFloat(span.letterSpacing) || 0,
-    color:        span.color || null,
+    color: span.color || null,
     baseCharPositions: span.chars?.length ? span.chars : null,
   });
 }
@@ -136,22 +136,22 @@ function spanToUnified(span) {
  */
 function normUtbFont(name) {
   if (!name) return '';
-  const n  = name.replace(/^[A-Z]{6}\+/, '').split(',')[0].trim();
+  const n = name.replace(/^[A-Z]{6}\+/, '').split(',')[0].trim();
   const lc = n.toLowerCase().replace(/[\s\-_]/g, '');
-  if (lc.includes('times'))   return 'Times New Roman';
-  if (lc.includes('arial'))   return 'Arial';
+  if (lc.includes('times')) return 'Times New Roman';
+  if (lc.includes('arial')) return 'Arial';
   if (lc.includes('courier')) return 'Courier New';
   if (lc.includes('verdana')) return 'Verdana';
   if (lc.includes('calibri')) return 'Calibri';
-  if (lc.includes('segoe'))   return 'Segoe UI';
+  if (lc.includes('segoe')) return 'Segoe UI';
   return n;
 }
 
 // Expose globals
-window.UnifiedTextBox     = UnifiedTextBox;
-window.utbState           = utbState;
-window.spanToUnified      = spanToUnified;
-window.normUtbFont        = normUtbFont;
+window.UnifiedTextBox = UnifiedTextBox;
+window.utbState = utbState;
+window.spanToUnified = spanToUnified;
+window.normUtbFont = normUtbFont;
 
 
 // ── Adapter functions for legacy consumers ────────────────────
@@ -169,16 +169,16 @@ function utbFindNearestLine(pageNum, y, threshold = 2.0) {
   let minDist = Infinity;
   for (const b of pageBoxes) {
     const cy = b.y + b.h / 2;
-    const d  = Math.abs(cy - y);
+    const d = Math.abs(cy - y);
     if (d < minDist) { minDist = d; nearest = b; }
   }
   if (!nearest || minDist > nearest.h * threshold) return null;
 
   return {
-    y:        nearest.y,
-    h:        nearest.h,
-    lineId:   nearest.lineId,
-    font:     nearest.fontFamily,
+    y: nearest.y,
+    h: nearest.h,
+    lineId: nearest.lineId,
+    font: nearest.fontFamily,
     fontSize: nearest.fontSize,
   };
 }
@@ -191,18 +191,18 @@ function utbGetSpansCompat() {
   return utbState.boxes
     .filter(b => b.type === 'embedded')
     .map(b => ({
-      page:     b.page,
-      text:     b.text,
-      x:        b.x,
-      y:        b.y,
-      w:        b.w,
-      h:        b.h,
-      lineId:   b.lineId,
-      chars:    b.baseCharPositions,
+      page: b.page,
+      text: b.text,
+      x: b.x,
+      y: b.y,
+      w: b.w,
+      h: b.h,
+      lineId: b.lineId,
+      chars: b.baseCharPositions,
       fontSize: b.fontSize,
-      font:     b.fontFamily,
+      font: b.fontFamily,
     }));
 }
 
 window.utbFindNearestLine = utbFindNearestLine;
-window.utbGetSpansCompat  = utbGetSpansCompat;
+window.utbGetSpansCompat = utbGetSpansCompat;
