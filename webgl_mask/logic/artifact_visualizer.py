@@ -134,8 +134,7 @@ def _apply_edge_lines(m, border1, border2, outer1, black_mask, rendered):
     Splits the border rings into horizontal-edge pixels (black above/below) and
     vertical-edge pixels (black left/right), then scans each set independently.
     Each contiguous run gets one uniform value: 255 - max(rendered[run]).
-    Top/bottom edges use two rings (border1 + border2); left/right use one.
-    No pixel is touched by both scans, so uniformity is preserved.
+    Both axes use two rings. No pixel is touched by both scans.
     """
     # Ring 1: pixels directly adjacent to black_mask vertically → top/bottom row 1
     h_border1 = border1 & (
@@ -143,10 +142,12 @@ def _apply_edge_lines(m, border1, border2, outer1, black_mask, rendered):
     )
     v_border1 = border1 & ~h_border1
 
-    # Ring 2 (top/bottom only): pixels directly adjacent to outer1 vertically → top/bottom row 2
+    # Ring 2: pixels directly adjacent to outer1 vertically → top/bottom row 2
     h_border2 = border2 & (
         np.roll(outer1, 1, axis=0) | np.roll(outer1, -1, axis=0)
     )
+    # Ring 2: pixels directly adjacent to outer1 horizontally → left/right col 2
+    v_border2 = border2 & ~h_border2
 
     # Horizontal scan on both h_border rings independently
     for h_border in (h_border1, h_border2):
@@ -160,16 +161,17 @@ def _apply_edge_lines(m, border1, border2, outer1, black_mask, rendered):
                 val = 255 - int(rendered[y, sx:ex].max())
                 m[y, sx:ex] = val
 
-    # Vertical scan on v_border1 (left/right edges stay at 1 ring)
-    for x in range(v_border1.shape[1]):
-        col = v_border1[:, x]
-        if not np.any(col):
-            continue
-        padded = np.concatenate(([False], col, [False]))
-        diff = np.diff(padded.astype(np.int8))
-        for sy, ey in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
-            val = 255 - int(rendered[sy:ey, x].max())
-            m[sy:ey, x] = val
+    # Vertical scan on both v_border rings independently
+    for v_border in (v_border1, v_border2):
+        for x in range(v_border.shape[1]):
+            col = v_border[:, x]
+            if not np.any(col):
+                continue
+            padded = np.concatenate(([False], col, [False]))
+            diff = np.diff(padded.astype(np.int8))
+            for sy, ey in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
+                val = 255 - int(rendered[sy:ey, x].max())
+                m[sy:ey, x] = val
 
 
 def create_redaction_masks(pdf_path):
