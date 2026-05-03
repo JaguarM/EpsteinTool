@@ -29,7 +29,7 @@ ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://unbarpdf.com',
-    'http://punbarpdf.com',
+    'http://unbarpdf.com',
 ]
 
 
@@ -42,13 +42,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'aspose',
     'redaction_matching',
     'guesser_core',
     'embedded_text_viewer',
     'text_tool',
     'extracted_text',
     'webgl_mask',
+#    'tesseract_ocr',
 ]
 
 MIDDLEWARE = [

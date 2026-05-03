@@ -19,3 +19,6 @@ if 'extracted_text' in settings.INSTALLED_APPS:
 
 if 'embedded_text_viewer' in settings.INSTALLED_APPS:
     urlpatterns += [path('embedded-text-viewer/', include('embedded_text_viewer.urls'))]
+
+if 'tesseract_ocr' in settings.INSTALLED_APPS:
+    urlpatterns += [path('tesseract-ocr/', include('tesseract_ocr.urls'))]
