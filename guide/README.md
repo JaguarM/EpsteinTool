@@ -34,8 +34,8 @@ The tool operates on a "Core + Plugin" architecture with a declarative tool regi
 ## Navigation
 
 - **[Architecture Overview](./architecture/architecture-overview.md)**: Understand the high-level system design.
-- **[Tool Expansion Guide](./tool_expansion_guide.md)**: How to add new plugins using the PDFTool registry.
+- **[Tool Expansion Guide](./tool-expansion-guide.md)**: How to add new plugins using the PDFTool registry.
 - **[Backend Logic](./redaction-processing/backend-logic.md)**: Deep dive into the Python processing pipeline.
-- **[Frontend Implementation](./frontend/JavaScript%20module-reference.md)**: Explore the vanilla JS and WebGL rendering engine.
+- **[Frontend Implementation](./frontend/javascript-module-reference.md)**: Explore the vanilla JS and WebGL rendering engine.
 - **[API Reference](./api-reference/api-reference.md)**: Detailed documentation of all JSON endpoints.
 - **[Setup & Deployment](./setup-and-deployment/setup-deployment.md)**: Instructions for local development and production.
