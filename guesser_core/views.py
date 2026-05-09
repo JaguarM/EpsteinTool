@@ -3,17 +3,20 @@ from pathlib import Path
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import json
-
 from .logic.ProcessRedactions import process_pdf, process_image
 
 IMAGE_MIME_TYPES = {'image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/bmp', 'image/webp'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp'}
 
-from django.conf import settings
+from guesser_core.registry import PDFToolRegistry
 
 def index(request):
-    context = {'active_plugins': settings.INSTALLED_APPS}
+    tools = PDFToolRegistry.get_tools()
+    context = {
+        'tools': tools,
+        'show_text_options_bar': any(t.shows_text_options_bar for t in tools.values()),
+        'has_any_sidebar': any(t.sidebar for t in tools.values()),
+    }
     return render(request, 'guesser_core/index.html', context)
 
 @csrf_exempt

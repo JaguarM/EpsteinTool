@@ -46,6 +46,8 @@
   fill: rgba(0, 100, 255, 0.82);
 }
 
+body.hide-embedded-text .utb-group[data-type="embedded"] { display: none; }
+
 .utb-group[data-type="redaction"] .utb-text {
   fill: rgba(129, 201, 149, 0.90);
 }
@@ -53,6 +55,12 @@
 .utb-group[data-type="harfbuzz"] .utb-text {
   fill: rgba(255, 140, 0, 0.80);
 }
+
+.utb-group[data-type="ocr"] .utb-text {
+  fill: rgba(0, 200, 255, 0.70);
+}
+
+.hide-ocr .utb-group[data-type="ocr"] { display: none; }
 
 /* Selection highlight — subtle glow on bbox */
 .utb-group.selected .utb-bbox {

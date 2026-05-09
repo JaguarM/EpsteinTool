@@ -10,12 +10,14 @@ const UTB_TYPE_COLORS = {
   embedded: 'rgba(0, 100, 255, 0.82)',
   redaction: 'rgba(129, 201, 149, 0.90)',
   harfbuzz: 'rgba(255, 140, 0, 0.80)',
+  ocr: 'rgba(0, 200, 255, 0.70)',
 };
 
 const UTB_TYPE_STROKE = {
   embedded: 'rgba(0, 100, 255, 0.6)',
   redaction: 'rgba(80, 180, 110, 0.8)',
   harfbuzz: 'rgba(220, 100, 0, 0.7)',
+  ocr: 'rgba(0, 150, 200, 0.6)',
 };
 
 

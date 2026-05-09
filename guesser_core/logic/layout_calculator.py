@@ -1,5 +1,3 @@
-import math
-
 class LayoutCalculator:
     """
     Implements Aspose.Words width calculation logic and twip conversions.

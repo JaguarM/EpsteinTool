@@ -20,9 +20,8 @@ class LineBreaker:
         # or tracking break opportunities. We'll track the last space pos.
         
         last_space_index = -1
-        current_line_start_idx = 0
-        
-        for i, g in enumerate(shaped_glyphs):
+
+        for g in shaped_glyphs:
             current_line.append(g)
             current_width_advances += g['x_advance']
             

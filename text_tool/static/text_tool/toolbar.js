@@ -272,13 +272,12 @@
     }
   });
 
-  // Toggle-text-layer button (show/hide SVG layer globally)
-  el('toggle-text-layer')?.addEventListener('click', () => {
-    const btn = el('toggle-text-layer');
+  // Toggle-embedded-text button (show/hide embedded text in SVG globally)
+  el('toggle-embedded-text')?.classList.add('active');
+  el('toggle-embedded-text')?.addEventListener('click', () => {
+    const btn = el('toggle-embedded-text');
     const active = btn.classList.toggle('active');
-    document.querySelectorAll('svg.text-layer').forEach(svg => {
-      svg.style.display = active ? '' : 'none';
-    });
+    document.body.classList.toggle('hide-embedded-text', !active);
   });
 
 })();

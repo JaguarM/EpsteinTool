@@ -36,7 +36,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
         
         buckets = []
         for w in words_pts:
-            wx0, wy0, wx1, wy1, text, block_no, line_no, word_no = w
+            wy0, wy1 = w[1], w[3]
             height_word = wy1 - wy0
             if height_word <= 0: continue
             

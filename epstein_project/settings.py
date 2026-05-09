@@ -42,14 +42,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'redaction_matching',
-    'guesser_core',
-    'embedded_text_viewer',
-    'text_tool',
-    'extracted_text',
-    'webgl_mask',
-#    'tesseract_ocr',
+    'guesser_core',                     # Core app — must always be installed
 ]
+
+# Dynamic plugin discovery: scan for directories containing apps.py
+# Drop a plugin folder in to enable it, remove the folder to disable it.
+import os
+for _item in os.listdir(BASE_DIR):
+    _item_path = os.path.join(BASE_DIR, _item)
+    if (os.path.isdir(_item_path)
+            and os.path.isfile(os.path.join(_item_path, 'apps.py'))
+            and _item not in INSTALLED_APPS
+            and not _item.startswith('.')):
+        INSTALLED_APPS.append(_item)
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

@@ -17,15 +17,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 
   <link rel="stylesheet" href="{% static 'guesser_core/styles.css' %}">
-  {% if 'redaction_matching' in active_plugins %}
-  <link rel="stylesheet" href="{% static 'redaction_matching/styles.css' %}">
-  {% endif %}
-  {% if 'text_tool' in active_plugins %}
-  <link rel="stylesheet" href="{% static 'text_tool/styles.css' %}">
-  {% endif %}
-  {% if 'embedded_text_viewer' in active_plugins %}
-  <link rel="stylesheet" href="{% static 'embedded_text_viewer/styles.css' %}">
-  {% endif %}
+  {% for name, tool in tools.items %}
+    {% for style in tool.styles %}
+  <link rel="stylesheet" href="{% static style.path %}">
+    {% endfor %}
+  {% endfor %}
 </head>
 
 <body>
@@ -92,48 +88,25 @@
           <span class="material-symbols-outlined">upload_file</span>
         </button>
 
-        {% if 'webgl_mask' in active_plugins %}
-        {% include 'webgl_mask/toolbar_button.html' %}
-        {% endif %}
-
-        {% if 'tesseract_ocr' in active_plugins %}
-        {% include 'tesseract_ocr/toolbar_button.html' %}
-        {% endif %}
-
-        {% if 'embedded_text_viewer' in active_plugins %}
-        {% include 'embedded_text_viewer/toolbar_button.html' %}
-        {% endif %}
-
-        {% if 'text_tool' in active_plugins %}
-        {% include 'text_tool/toolbar_button.html' %}
-        {% endif %}
-
-
-        {% if 'redaction_matching' in active_plugins %}
-        <button id="toggle-tools" class="icon-button active" title="Toggle AI Unredactor Tools">
-          <span class="material-symbols-outlined">build</span>
-        </button>
-        {% endif %}
+        {% for name, tool in tools.items %}
+          {% if tool.toolbar_button %}
+        {% include tool.toolbar_button %}
+          {% endif %}
+        {% endfor %}
       </div>
     </header>
 
     <div id="unified-options-bar-container">
       <div id="text-toolbar-row">
-        {% if 'redaction_matching' in active_plugins or 'text_tool' in active_plugins %}
+        {% if show_text_options_bar %}
         {% include 'guesser_core/text_options_bar.html' %}
         {% endif %}
 
-        {% if 'text_tool' in active_plugins %}
-        {% include 'text_tool/options_bar.html' %}
-        {% endif %}
-
-        {% if 'webgl_mask' in active_plugins %}
-        {% include 'webgl_mask/options_bar.html' %}
-        {% endif %}
-
-        {% if 'embedded_text_viewer' in active_plugins %}
-        {% include 'embedded_text_viewer/options_bar.html' %}
-        {% endif %}
+        {% for name, tool in tools.items %}
+          {% if tool.options_bar %}
+        {% include tool.options_bar %}
+          {% endif %}
+        {% endfor %}
       </div>
     </div>
 
@@ -164,11 +137,13 @@
       </main>
 
       <!-- AI Tools Sidebar (Right) -->
-      <aside id="tools-sidebar"{% if 'redaction_matching' not in active_plugins %} class="hidden"{% endif %}>
+      <aside id="tools-sidebar"{% if not has_any_sidebar %} class="hidden"{% endif %}>
 
-        {% if 'redaction_matching' in active_plugins %}
-        {% include 'redaction_matching/sidebar_tools.html' %}
-        {% endif %}
+        {% for name, tool in tools.items %}
+          {% if tool.sidebar %}
+        {% include tool.sidebar %}
+          {% endif %}
+        {% endfor %}
 
       </aside>
 
@@ -179,12 +154,11 @@
   <div id="sidebar-backdrop" class="hidden"></div>
 
   <script src="{% static 'guesser_core/state.js' %}?v=2"></script>
-  {% if 'redaction_matching' in active_plugins %}
-  <script src="{% static 'redaction_matching/api.js' %}?v=2"></script>
-  {% endif %}
-  {% if 'webgl_mask' in active_plugins %}
-  <script src="{% static 'webgl_mask/webgl-mask.js' %}"></script>
-  {% endif %}
+  {% for name, tool in tools.items %}
+    {% for script in tool.scripts_before_viewer %}
+  <script src="{% static script.path %}{% if script.version %}?{{ script.version }}{% endif %}"></script>
+    {% endfor %}
+  {% endfor %}
   <script src="{% static 'guesser_core/pdf-viewer.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/ui-events.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/app.js' %}?v=2"></script>
@@ -204,16 +178,11 @@
     }
   </script>
 
-  {% if 'text_tool' in active_plugins %}
-  <!-- Unified Text Box system — load in dependency order -->
-  <script src="{% static 'text_tool/unified-text-box.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/svg-renderer.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/drag-resize.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/toolbar.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/micro-typo.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/inline-edit.js' %}?v=3"></script>
-  <script src="{% static 'text_tool/text-tool.js' %}?v=3"></script>
-  {% endif %}
+  {% for name, tool in tools.items %}
+    {% for script in tool.scripts_after_app %}
+  <script src="{% static script.path %}{% if script.version %}?{{ script.version }}{% endif %}"></script>
+    {% endfor %}
+  {% endfor %}
 
   <script>
     document.getElementById('disclaimer-accept').addEventListener('click', function () {

@@ -75,7 +75,7 @@ async function utbFetchSpans(file) {
         } else {
           normalizedPt = Math.round(pt);
         }
-        
+
         let changed = false;
         if (box.fontSize !== normalizedPt / 0.75) {
           box.fontSize = normalizedPt / 0.75;
@@ -85,7 +85,7 @@ async function utbFetchSpans(file) {
           box.fontFamily = mostUsedFont;
           changed = true;
         }
-        
+
         if (changed && typeof renderBox === 'function') renderBox(box);
       });
     }
@@ -95,7 +95,7 @@ async function utbFetchSpans(file) {
 
     spans.forEach(span => utbState.addBox(spanToUnified(span)));
 
-    _utbFetchState.fetched     = true;
+    _utbFetchState.fetched = true;
     _utbFetchState.currentFile = file;
 
     // Render on all currently visible pages
@@ -125,22 +125,22 @@ function utbConnectRedactionsToLines() {
     if (rb.lineId !== null) return; // already connected
 
     const pageEmbedded = embeddedBoxes.filter(b => b.page === rb.page);
-    let bestBox    = null;
+    let bestBox = null;
     let bestOverlap = 0;
 
     for (const eb of pageEmbedded) {
       const overlap = Math.min(rb.y + rb.h, eb.y + eb.h) - Math.max(rb.y, eb.y);
       if (overlap > bestOverlap) {
         bestOverlap = overlap;
-        bestBox     = eb;
+        bestBox = eb;
       }
     }
 
     if (!bestBox || bestOverlap < rb.h * 0.3) return;
 
     rb.lineId = bestBox.lineId;
-    rb.y      = bestBox.y;
-    rb.h      = bestBox.h;
+    rb.y = bestBox.y;
+    rb.h = bestBox.h;
 
     renderBox(rb);
   });
@@ -153,20 +153,20 @@ function utbConnectRedactionsToLines() {
  * Create a new 'embedded' box at the given page coordinates.
  * Snaps to the nearest ETV line for font/size/position.
  */
-window.addEmbeddedTextSpan = function(pageNum, x, y) {
+window.addEmbeddedTextSpan = function (pageNum, x, y) {
   const nearest = _utbFindNearestLine(pageNum, y);
 
   const newBox = utbState.addBox(new UnifiedTextBox({
-    type:       'embedded',
-    page:       pageNum,
-    text:       'Click to edit',
-    lineId:     nearest ? nearest.lineId : `manual_${Date.now()}`,
-    x:          x,
-    y:          nearest ? nearest.y      : y - 10,
-    w:          120,
-    h:          nearest ? nearest.h      : 20,
+    type: 'embedded',
+    page: pageNum,
+    text: 'Click to edit',
+    lineId: nearest ? nearest.lineId : `manual_${Date.now()}`,
+    x: x,
+    y: nearest ? nearest.y : y - 10,
+    w: 120,
+    h: nearest ? nearest.h : 20,
     fontFamily: nearest ? nearest.fontFamily : (document.getElementById('fabric-font-family')?.value || 'Times New Roman'),
-    fontSize:   nearest ? nearest.fontSize   : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75),
+    fontSize: nearest ? nearest.fontSize : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75),
   }));
 
   renderBox(newBox);
@@ -181,11 +181,11 @@ function _utbFindNearestLine(pageNum, y, thresholdMultiplier = 2.0) {
   const pageBoxes = utbState.boxes.filter(b => b.page === pageNum && b.type === 'embedded');
   if (!pageBoxes.length) return null;
 
-  let nearest  = null;
-  let minDist  = Infinity;
+  let nearest = null;
+  let minDist = Infinity;
   for (const b of pageBoxes) {
     const cy = b.y + b.h / 2;
-    const d  = Math.abs(cy - y);
+    const d = Math.abs(cy - y);
     if (d < minDist) { minDist = d; nearest = b; }
   }
   return nearest && minDist < nearest.h * thresholdMultiplier ? nearest : null;
@@ -194,14 +194,14 @@ function _utbFindNearestLine(pageNum, y, thresholdMultiplier = 2.0) {
 
 // ── Tool: add redaction box ───────────────────────────────────
 // Delegates to api.js createNewRedaction which creates UTB boxes directly.
-window.handleManualAddBox = function(pageNum, x, y) {
+window.handleManualAddBox = function (pageNum, x, y) {
   if (typeof createNewRedaction === 'function') {
     const nearestLine = _utbFindNearestLine(pageNum, y, 2.0);
-    const finalY      = nearestLine ? nearestLine.y      : y - 10;
-    const finalH      = nearestLine ? nearestLine.h      : 20;
+    const finalY = nearestLine ? nearestLine.y : y - 10;
+    const finalH = nearestLine ? nearestLine.h : 20;
     const finalLineId = nearestLine ? nearestLine.lineId : null;
-    const lineFont    = nearestLine?.font;
-    const lineFontSz  = nearestLine?.fontSize;
+    const lineFont = nearestLine?.font;
+    const lineFontSz = nearestLine?.fontSize;
     createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
     return;
   }
@@ -212,16 +212,16 @@ window.handleManualAddBox = function(pageNum, x, y) {
   const defaultFS = (parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75;
 
   const newBox = utbState.addBox(new UnifiedTextBox({
-    type:       'redaction',
-    page:       pageNum,
-    text:       '',
-    lineId:     nearest ? nearest.lineId : null,
-    x:          x,
-    y:          nearest ? nearest.y      : y - 10,
-    w:          nearest ? nearest.w      : 100,
-    h:          nearest ? nearest.h      : 20,
+    type: 'redaction',
+    page: pageNum,
+    text: '',
+    lineId: nearest ? nearest.lineId : null,
+    x: x,
+    y: nearest ? nearest.y : y - 10,
+    w: nearest ? nearest.w : 100,
+    h: nearest ? nearest.h : 20,
     fontFamily: nearest ? nearest.fontFamily : defaultFF,
-    fontSize:   nearest ? nearest.fontSize   : defaultFS,
+    fontSize: nearest ? nearest.fontSize : defaultFS,
   }));
 
   renderBox(newBox);
@@ -236,7 +236,7 @@ window.handleManualAddBox = function(pageNum, x, y) {
 // After a PDF is loaded (loadDocument completes), fetch spans
 const _origLoadDocument = window.loadDocument;
 if (typeof _origLoadDocument === 'function') {
-  window.loadDocument = async function(...args) {
+  window.loadDocument = async function (...args) {
     utbState.reset();
     clearAllSVGLayers?.();
     _utbFetchState.fetched = false;
@@ -263,5 +263,117 @@ setTimeout(() => {
 
 // ── Expose globals ────────────────────────────────────────────
 
-window.utbFetchSpans               = utbFetchSpans;
+window.utbFetchSpans = utbFetchSpans;
 window.utbConnectRedactionsToLines = utbConnectRedactionsToLines;
+
+// ── Tesseract OCR Integration ─────────────────────────────────
+
+window.updateOCRButtonState = function () {
+  const pageNum = typeof state !== 'undefined' ? state.currentPage : 1;
+  const pageContainer = document.getElementById(`pageContainer${pageNum}`);
+  const btn = document.getElementById('btn-run-ocr');
+
+  if (!btn) return;
+
+  const hasOCR = utbState.boxes.some(b => b.type === 'ocr' && b.page === pageNum);
+  const isHidden = pageContainer ? pageContainer.classList.contains('hide-ocr') : false;
+
+  if (hasOCR && !isHidden) {
+    btn.classList.add('active');
+  } else {
+    btn.classList.remove('active');
+  }
+};
+
+const _utbOrigGoToPage = window.goToPage;
+if (typeof _utbOrigGoToPage === 'function') {
+  window.goToPage = async function (...args) {
+    const res = await _utbOrigGoToPage(...args);
+    if (typeof updateOCRButtonState === 'function') updateOCRButtonState();
+    return res;
+  };
+}
+
+window.handleRunOCR = async function () {
+  const pageNum = typeof state !== 'undefined' ? state.currentPage : 1;
+  const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
+  const pageContainer = document.getElementById(`pageContainer${pageNum}`);
+
+  const hasOCR = utbState.boxes.some(b => b.type === 'ocr' && b.page === pageNum);
+  if (hasOCR) {
+    if (pageContainer) {
+      pageContainer.classList.toggle('hide-ocr');
+    }
+    if (typeof updateOCRButtonState === 'function') updateOCRButtonState();
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-ocr');
+  if (btn) btn.style.opacity = '0.5';
+
+  const fd = new FormData();
+  // 0-based page index for backend
+  fd.append('page_index', pageNum - 1);
+
+  if (file) {
+    fd.append('file', file);
+  } else {
+    fd.append('default', 'true');
+  }
+
+  try {
+    const resp = await fetch('/tesseract-ocr/process/', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      throw new Error(data.error || data.detail || "OCR Request Failed");
+    }
+
+    if (data.words) {
+      // Clear existing OCR boxes for this page to prevent duplicates
+      utbState.boxes = utbState.boxes.filter(b => !(b.type === 'ocr' && b.page === pageNum));
+
+      data.words.forEach(w => {
+        let finalY = w.y;
+        let finalH = w.height;
+        if (typeof _utbFindNearestLine === 'function') {
+          // Snap to nearest embedded text line using vertical center point
+          const nearest = _utbFindNearestLine(pageNum, w.y + w.height / 2, 2.0);
+          if (nearest) {
+            finalY = nearest.y;
+            finalH = nearest.h; // Match height so baselines align perfectly
+          }
+        }
+
+        utbState.addBox(new UnifiedTextBox({
+          type: 'ocr',
+          page: pageNum,
+          text: w.text,
+          x: w.x,
+          y: finalY,
+          w: w.width,
+          h: finalH,
+          fontSize: 12 / 0.75, // Hardcoded 12pt (converted to pixels)
+          fontFamily: 'Times New Roman',
+          confidence: w.confidence
+        }));
+      });
+
+      if (typeof renderAllTextLayers === 'function') {
+        renderAllTextLayers();
+      }
+
+      if (pageContainer) {
+        pageContainer.classList.remove('hide-ocr');
+      }
+      if (typeof updateOCRButtonState === 'function') updateOCRButtonState();
+    }
+  } catch (e) {
+    console.error('OCR Error:', e);
+    alert('OCR Error: ' + e.message);
+  } finally {
+    if (btn) btn.style.opacity = '1';
+  }
+};
+
+document.getElementById('btn-run-ocr')?.addEventListener('click', window.handleRunOCR);

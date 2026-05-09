@@ -24,14 +24,17 @@ Welcome to the technical documentation for the Epstein Unredactor. This guide co
 
 ## Core Concepts
 
-The tool operates on a "Core + Plugin" architecture:
+The tool operates on a "Core + Plugin" architecture with a declarative tool registry:
 
-- **Core**: Handles PDF parsing, image extraction, and basic redaction box detection.
-- **Plugins**: Optional features like WebGL masking and typography tools are isolated into independent Django apps for modularity.
+- **Core (`guesser_core`)**: Handles PDF parsing, image extraction, redaction box detection, and the base viewer template. Provides the `PDFTool` base class and `@register_tool` decorator.
+- **Plugins**: Optional features (WebGL masking, typography tools, OCR, etc.) are isolated into independent Django apps. Each plugin defines a `tool.py` subclassing `PDFTool` — the registry auto-discovers styles, templates, scripts, and URL routes.
+- **Adding a tool**: Create the app folder with a `tool.py` and `apps.py`. Django auto-discovers it — no changes to `index.html`, `urls.py`, or `settings.py`.
+- **Removing a tool**: Delete the folder. Done.
 
 ## Navigation
 
 - **[Architecture Overview](./architecture/architecture-overview.md)**: Understand the high-level system design.
+- **[Tool Expansion Guide](./tool_expansion_guide.md)**: How to add new plugins using the PDFTool registry.
 - **[Backend Logic](./redaction-processing/backend-logic.md)**: Deep dive into the Python processing pipeline.
 - **[Frontend Implementation](./frontend/JavaScript%20module-reference.md)**: Explore the vanilla JS and WebGL rendering engine.
 - **[API Reference](./api-reference/api-reference.md)**: Detailed documentation of all JSON endpoints.
