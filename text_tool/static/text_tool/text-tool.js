@@ -1,202 +1,13 @@
 // text-tool.js
-// Bootstrap / integration layer for the Unified Text Box system.
-// Wires span fetching into utbState, and hooks into the existing
-// pdf-viewer.js lifecycle (loadDocument, goToPage).
-
-// ── Span fetching ─────────────────────────────────────────────
-
-const _utbFetchState = {
-  fetched: false,
-  currentFile: null,
-};
-
-async function utbFetchSpans(file) {
-  if (_utbFetchState.fetched && _utbFetchState.currentFile === file) return;
-
-  try {
-    let resp;
-    if (file) {
-      const fd = new FormData();
-      fd.append('file', file);
-      resp = await fetch('/embedded-text-viewer/api/extract-spans', { method: 'POST', body: fd });
-    } else {
-      resp = await fetch('/embedded-text-viewer/api/extract-spans');
-    }
-    if (!resp.ok) return;
-
-    const data = await resp.json();
-    const spans = data.spans || [];
-
-    // Normalize font sizes and detect most used font
-    if (spans.length > 0) {
-      const ptSizes = spans.map(s => s.fontSize * 0.75).sort((a, b) => a - b);
-      const medianPt = ptSizes[Math.floor(ptSizes.length / 2)];
-      const documentBasePt = Math.round(medianPt);
-
-      const fontCounts = {};
-      let maxCount = 0;
-      let mostUsedFont = 'Times New Roman';
-
-      spans.forEach(span => {
-        // Font size normalization
-        const pt = span.fontSize * 0.75;
-        let normalizedPt;
-        if (Math.abs(pt - documentBasePt) <= 1.0) {
-          normalizedPt = documentBasePt;
-        } else {
-          normalizedPt = Math.round(pt);
-        }
-        span.fontSize = normalizedPt / 0.75;
-
-        // Font family frequency count
-        const f = typeof normUtbFont === 'function' ? normUtbFont(span.font) : (span.font || 'Times New Roman');
-        if (f) {
-          fontCounts[f] = (fontCounts[f] || 0) + 1;
-          if (fontCounts[f] > maxCount) {
-            maxCount = fontCounts[f];
-            mostUsedFont = f;
-          }
-        }
-      });
-
-      // Sync fabric toolbar to the most used font
-      const fabricSel = document.getElementById('fabric-font-family');
-      if (fabricSel && Array.from(fabricSel.options).find(o => o.value === mostUsedFont)) {
-        fabricSel.value = mostUsedFont;
-        if (typeof textOptions !== 'undefined') textOptions.fontFamily = mostUsedFont;
-      }
-
-      // Apply the exact same logic to redaction boxes to fix the race condition
-      utbState.boxes.filter(b => b.type === 'redaction').forEach(box => {
-        const pt = box.fontSize * 0.75;
-        let normalizedPt;
-        if (Math.abs(pt - documentBasePt) <= 1.0) {
-          normalizedPt = documentBasePt;
-        } else {
-          normalizedPt = Math.round(pt);
-        }
-
-        let changed = false;
-        if (box.fontSize !== normalizedPt / 0.75) {
-          box.fontSize = normalizedPt / 0.75;
-          changed = true;
-        }
-        if (box.fontFamily !== mostUsedFont) {
-          box.fontFamily = mostUsedFont;
-          changed = true;
-        }
-
-        if (changed && typeof renderBox === 'function') renderBox(box);
-      });
-    }
-
-    // Remove old embedded boxes so we don't double-render after re-fetch
-    utbState.boxes = utbState.boxes.filter(b => b.type !== 'embedded');
-
-    spans.forEach(span => utbState.addBox(spanToUnified(span)));
-
-    _utbFetchState.fetched = true;
-    _utbFetchState.currentFile = file;
-
-    // Render on all currently visible pages
-    renderAllTextLayers();
-
-    // Connect redaction boxes to their nearest text lines
-    utbConnectRedactionsToLines();
-
-    // Now that redactions are normalized and connected, recalculate candidate widths
-    if (typeof calculateAllWidths === 'function') {
-      calculateAllWidths();
-    }
-
-  } catch (err) {
-    console.warn('UTB: span fetch error', err);
-  }
-}
-
-
-// ── Connect redaction UTB boxes to embedded text lines ────────
-
-function utbConnectRedactionsToLines() {
-  const embeddedBoxes = utbState.boxes.filter(b => b.type === 'embedded');
-  const redactionBoxes = utbState.boxes.filter(b => b.type === 'redaction');
-
-  redactionBoxes.forEach(rb => {
-    if (rb.lineId !== null) return; // already connected
-
-    const pageEmbedded = embeddedBoxes.filter(b => b.page === rb.page);
-    let bestBox = null;
-    let bestOverlap = 0;
-
-    for (const eb of pageEmbedded) {
-      const overlap = Math.min(rb.y + rb.h, eb.y + eb.h) - Math.max(rb.y, eb.y);
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap;
-        bestBox = eb;
-      }
-    }
-
-    if (!bestBox || bestOverlap < rb.h * 0.3) return;
-
-    rb.lineId = bestBox.lineId;
-    rb.y = bestBox.y;
-    rb.h = bestBox.h;
-
-    renderBox(rb);
-  });
-}
-
-
-// ── Tool: add embedded text span ─────────────────────────────
-
-/**
- * Create a new 'embedded' box at the given page coordinates.
- * Snaps to the nearest ETV line for font/size/position.
- */
-window.addEmbeddedTextSpan = function (pageNum, x, y) {
-  const nearest = _utbFindNearestLine(pageNum, y);
-
-  const newBox = utbState.addBox(new UnifiedTextBox({
-    type: 'embedded',
-    page: pageNum,
-    text: 'Click to edit',
-    lineId: nearest ? nearest.lineId : `manual_${Date.now()}`,
-    x: x,
-    y: nearest ? nearest.y : y - 10,
-    w: 120,
-    h: nearest ? nearest.h : 20,
-    fontFamily: nearest ? nearest.fontFamily : (document.getElementById('fabric-font-family')?.value || 'Times New Roman'),
-    fontSize: nearest ? nearest.fontSize : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75),
-  }));
-
-  renderBox(newBox);
-
-  // Select the new box and open toolbar
-  utbState.selectedId = newBox.id;
-  selectBoxInSVG(newBox.id);
-  if (typeof syncToolbarToBox === 'function') syncToolbarToBox(newBox);
-};
-
-function _utbFindNearestLine(pageNum, y, thresholdMultiplier = 2.0) {
-  const pageBoxes = utbState.boxes.filter(b => b.page === pageNum && b.type === 'embedded');
-  if (!pageBoxes.length) return null;
-
-  let nearest = null;
-  let minDist = Infinity;
-  for (const b of pageBoxes) {
-    const cy = b.y + b.h / 2;
-    const d = Math.abs(cy - y);
-    if (d < minDist) { minDist = d; nearest = b; }
-  }
-  return nearest && minDist < nearest.h * thresholdMultiplier ? nearest : null;
-}
+// Tool actions and OCR integration for the Unified Text Box system.
+// Span fetching and embedded-text lifecycle are handled by etv-fetch.js (embedded_text_viewer).
 
 
 // ── Tool: add redaction box ───────────────────────────────────
-// Delegates to api.js createNewRedaction which creates UTB boxes directly.
+
 window.handleManualAddBox = function (pageNum, x, y) {
   if (typeof createNewRedaction === 'function') {
-    const nearestLine = _utbFindNearestLine(pageNum, y, 2.0);
+    const nearestLine = window._utbFindNearestLine?.(pageNum, y, 2.0);
     const finalY = nearestLine ? nearestLine.y : y - 10;
     const finalH = nearestLine ? nearestLine.h : 20;
     const finalLineId = nearestLine ? nearestLine.lineId : null;
@@ -207,7 +18,7 @@ window.handleManualAddBox = function (pageNum, x, y) {
   }
 
   // Fallback: pure UTB creation (no redaction_matching plugin)
-  const nearest = _utbFindNearestLine(pageNum, y);
+  const nearest = window._utbFindNearestLine?.(pageNum, y);
   const defaultFF = document.getElementById('fabric-font-family')?.value || 'Times New Roman';
   const defaultFS = (parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75;
 
@@ -230,41 +41,6 @@ window.handleManualAddBox = function (pageNum, x, y) {
   if (typeof syncToolbarToBox === 'function') syncToolbarToBox(newBox);
 };
 
-
-// ── Lifecycle hooks ───────────────────────────────────────────
-
-// After a PDF is loaded (loadDocument completes), fetch spans
-const _origLoadDocument = window.loadDocument;
-if (typeof _origLoadDocument === 'function') {
-  window.loadDocument = async function (...args) {
-    utbState.reset();
-    clearAllSVGLayers?.();
-    _utbFetchState.fetched = false;
-    await _origLoadDocument(...args);
-    const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
-    utbFetchSpans(file);
-  };
-}
-
-// File input change → reset and re-fetch
-document.getElementById('pdf-file')?.addEventListener('change', () => {
-  _utbFetchState.fetched = false;
-  utbState.reset();
-  clearAllSVGLayers?.();
-});
-
-// Auto-fetch spans for the default PDF on load
-setTimeout(() => {
-  if (!_utbFetchState.fetched) {
-    utbFetchSpans(typeof state !== 'undefined' ? (state.currentFile || null) : null);
-  }
-}, 1500);
-
-
-// ── Expose globals ────────────────────────────────────────────
-
-window.utbFetchSpans = utbFetchSpans;
-window.utbConnectRedactionsToLines = utbConnectRedactionsToLines;
 
 // ── Tesseract OCR Integration ─────────────────────────────────
 
@@ -294,8 +70,8 @@ if (typeof _utbOrigGoToPage === 'function') {
   };
 }
 
-window.handleRunOCR = async function () {
-  const pageNum = typeof state !== 'undefined' ? state.currentPage : 1;
+window.handleRunOCR = async function (pageNum, silent = false) {
+  if (typeof pageNum !== 'number') pageNum = typeof state !== 'undefined' ? state.currentPage : 1;
   const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
   const pageContainer = document.getElementById(`pageContainer${pageNum}`);
 
@@ -309,10 +85,9 @@ window.handleRunOCR = async function () {
   }
 
   const btn = document.getElementById('btn-run-ocr');
-  if (btn) btn.style.opacity = '0.5';
+  if (btn && !silent) btn.style.opacity = '0.5';
 
   const fd = new FormData();
-  // 0-based page index for backend
   fd.append('page_index', pageNum - 1);
 
   if (file) {
@@ -330,18 +105,57 @@ window.handleRunOCR = async function () {
     }
 
     if (data.words) {
-      // Clear existing OCR boxes for this page to prevent duplicates
       utbState.boxes = utbState.boxes.filter(b => !(b.type === 'ocr' && b.page === pageNum));
+
+      try {
+        const payload = {
+          redactions: utbState.boxes.filter(b => b.type === 'redaction' && b.page === pageNum).map(b => ({
+            id: b.id, x: b.x, y: b.y, width: b.w, height: b.h
+          })),
+          etv_words: utbState.boxes.filter(b => b.type === 'embedded' && b.page === pageNum).map(b => ({
+            text: b.text, x: b.x, y: b.y, width: b.w, height: b.h, baseCharPositions: b.baseCharPositions
+          })),
+          ocr_words: data.words
+        };
+
+        const refineResp = await fetch('/refine-widths', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (refineResp.ok) {
+          const refineData = await refineResp.json();
+          if (refineData.redactions) {
+            for (const r of refineData.redactions) {
+              const box = utbState.boxes.find(b => b.id === r.id);
+              if (box) {
+                box.x = r.x;
+                box.w = r.width;
+                box.isRefined = true;
+                if (typeof renderBox === 'function') renderBox(box);
+                if (typeof calculateWidthsForRedaction === 'function') {
+                  await calculateWidthsForRedaction(box.id);
+                }
+              }
+            }
+            if (typeof updateAllMatchesView === 'function') {
+              updateAllMatchesView(null);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error refining widths:', err);
+      }
 
       data.words.forEach(w => {
         let finalY = w.y;
         let finalH = w.height;
-        if (typeof _utbFindNearestLine === 'function') {
-          // Snap to nearest embedded text line using vertical center point
-          const nearest = _utbFindNearestLine(pageNum, w.y + w.height / 2, 2.0);
+        if (typeof window._utbFindNearestLine === 'function') {
+          const nearest = window._utbFindNearestLine(pageNum, w.y + w.height / 2, 2.0);
           if (nearest) {
             finalY = nearest.y;
-            finalH = nearest.h; // Match height so baselines align perfectly
+            finalH = nearest.h;
           }
         }
 
@@ -353,7 +167,7 @@ window.handleRunOCR = async function () {
           y: finalY,
           w: w.width,
           h: finalH,
-          fontSize: 12 / 0.75, // Hardcoded 12pt (converted to pixels)
+          fontSize: 12 / 0.75,
           fontFamily: 'Times New Roman',
           confidence: w.confidence
         }));
@@ -364,16 +178,17 @@ window.handleRunOCR = async function () {
       }
 
       if (pageContainer) {
-        pageContainer.classList.remove('hide-ocr');
+        if (silent) pageContainer.classList.add('hide-ocr');
+        else pageContainer.classList.remove('hide-ocr');
       }
       if (typeof updateOCRButtonState === 'function') updateOCRButtonState();
     }
   } catch (e) {
     console.error('OCR Error:', e);
-    alert('OCR Error: ' + e.message);
+    if (!silent) alert('OCR Error: ' + e.message);
   } finally {
-    if (btn) btn.style.opacity = '1';
+    if (btn && !silent) btn.style.opacity = '1';
   }
 };
 
-document.getElementById('btn-run-ocr')?.addEventListener('click', window.handleRunOCR);
+document.getElementById('btn-run-ocr')?.addEventListener('click', () => window.handleRunOCR());
