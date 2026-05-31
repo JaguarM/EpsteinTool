@@ -5,6 +5,9 @@
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Global toggle: show numeric width label above each space character
+let showSpaceWidthLabels = false;
+
 // Type → fill color (rgba)
 const UTB_TYPE_COLORS = {
   embedded: 'rgba(0, 100, 255, 0.82)',
@@ -137,6 +140,7 @@ function renderBox(box) {
   _updateBBox(g, box);
   _updateText(g, box);
   _updateEdgeHandles(g, box);
+  _updateSpaceLabels(g, box);
 }
 
 /** Update (or create) the bounding-box rect inside a group. */
@@ -190,6 +194,8 @@ function _updateText(g, box) {
   if (box.letterSpacing) text.setAttribute('letter-spacing', `${box.letterSpacing}em`);
   else text.removeAttribute('letter-spacing');
 
+  text.style.fontKerning = box.kerning ? 'normal' : 'none';
+
   // Word spacing: for boxes without per-character positions (Path B),
   // use the SVG word-spacing attribute as a delta from native width.
   // For boxes WITH per-character positions, the override is applied
@@ -233,6 +239,67 @@ function _updateEdgeHandles(g, box) {
     h.setAttribute('fill', 'transparent');
     h.style.cursor = 'ew-resize';
     g.appendChild(h);
+  }
+}
+
+/**
+ * Show or hide numeric space-width labels for a single box.
+ * A small badge is drawn just above each space character showing its pixel width.
+ * When the Space W. slider overrides the width, box.spaceWidth is shown;
+ * otherwise the native PDF advance width (cp.w) is used.
+ */
+function _updateSpaceLabels(g, box) {
+  g.querySelectorAll('.utb-space-label').forEach(el => el.remove());
+
+  if (!showSpaceWidthLabels) return;
+  if (!box.baseCharPositions?.length) return;
+
+  const xs = computeXPositions(box);
+  const hasSpaceOverride = box.spaceWidth != null && !box.defaultSpaceWidth;
+
+  const LABEL_H = 7;   // SVG units
+  const FONT_SZ = 5;   // SVG units
+  const labelTopY = box.y - LABEL_H - 1;
+
+  for (let i = 0; i < box.baseCharPositions.length; i++) {
+    const cp = box.baseCharPositions[i];
+    if (cp.c !== ' ') continue;
+
+    // Effective width: what the user set, or the PDF's native advance
+    const effectiveW = hasSpaceOverride ? box.spaceWidth : (cp.w || 0);
+    const label = effectiveW.toFixed(1);
+
+    const spaceX = xs[i];
+    // Midpoint of the space horizontally
+    const midX = spaceX + effectiveW / 2;
+
+    // Approximate badge width: ~4 SVG units per character + padding
+    const badgeW = label.length * 3.6 + 3;
+
+    const labelG = document.createElementNS(SVG_NS, 'g');
+    labelG.classList.add('utb-space-label');
+    labelG.style.pointerEvents = 'none';
+
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.setAttribute('x', midX - badgeW / 2);
+    bg.setAttribute('y', labelTopY);
+    bg.setAttribute('width', badgeW);
+    bg.setAttribute('height', LABEL_H);
+    bg.setAttribute('fill', 'rgba(255, 210, 0, 0.92)');
+    bg.setAttribute('rx', '1.5');
+
+    const txt = document.createElementNS(SVG_NS, 'text');
+    txt.setAttribute('x', midX);
+    txt.setAttribute('y', labelTopY + LABEL_H - 1.5);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-size', FONT_SZ);
+    txt.setAttribute('font-family', 'sans-serif');
+    txt.setAttribute('fill', '#111');
+    txt.textContent = label;
+
+    labelG.appendChild(bg);
+    labelG.appendChild(txt);
+    g.appendChild(labelG);
   }
 }
 
@@ -297,3 +364,7 @@ window.computeXPositions = computeXPositions;
 window.computeBaseline = computeBaseline;
 window.getOrCreateSVGLayer = getOrCreateSVGLayer;
 window.clearAllSVGLayers = clearAllSVGLayers;
+window.setShowSpaceWidthLabels = function(val) {
+  showSpaceWidthLabels = val;
+  renderAllTextLayers();
+};

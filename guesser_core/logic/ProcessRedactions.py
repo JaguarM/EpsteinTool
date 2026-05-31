@@ -9,12 +9,18 @@ from PIL import Image
 
 try:
     from .BoxDetector import find_redaction_boxes_in_image
-    from .SurroundingWordWidth import estimate_widths_for_boxes
+    from .refiners.pipeline import RefinerPipeline
+    from .refiners.etv_refiner import EtvRefiner
+    from .refiners.base import DetectedBox
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
-    from SurroundingWordWidth import estimate_widths_for_boxes
+    from refiners.pipeline import RefinerPipeline
+    from refiners.etv_refiner import EtvRefiner
+    from refiners.base import DetectedBox
+
+_etv_pipeline = RefinerPipeline([EtvRefiner()])
 
 
 
@@ -128,41 +134,32 @@ def process_pdf(pdf_bytes):
                     if page_scale_ratio is None and img_rect.width > 0:
                         page_scale_ratio = img_w / img_rect.width
                     
-                    expected_widths = estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, img_bytes)
-                    
-                    for i, box in enumerate(boxes):
-                        bx1, by1, bx2, by2 = box
-                        expected_data = expected_widths[i]
-                        
-                        final_x1 = float(bx1)
-                        final_x2 = float(bx2)
-                        
-                        if expected_data[0] is not None or expected_data[1] is not None:
-                            expected_x1, expected_x2, _ = expected_data
-                            
-                            temp_x1 = expected_x1 if expected_x1 is not None else float(bx1)
-                            temp_x2 = expected_x2 if expected_x2 is not None else float(bx2)
-                            
-                            bw = bx2 - bx1
-                            new_w = temp_x2 - temp_x1
-                            
-                            # Check if within 25% range
-                            diff_pct = abs(new_w - bw) / bw
-                            if diff_pct <= 0.25:
-                                final_x1 = temp_x1
-                                final_x2 = temp_x2
+                    etv_evidence = {
+                        "page": page,
+                        "img_rect": img_rect,
+                        "img_w": img_w,
+                        "img_h": img_h,
+                        "img_bytes": img_bytes,
+                    }
 
-                        w = final_x2 - final_x1
-                        h = by2 - by1
-                        area = w * h
-                        
+                    for raw_box in boxes:
+                        bx1, by1, bx2, by2 = raw_box
+                        detected = DetectedBox(
+                            page=page_num,
+                            x=float(bx1), y=float(by1),
+                            width=float(bx2 - bx1), height=float(by2 - by1),
+                        )
+                        refined = _etv_pipeline.run(detected, {"etv": etv_evidence})
+
+                        w = refined.width
+                        h = refined.height
                         redactions.append({
                             "page": page_num,
-                            "x": float(final_x1),
-                            "y": float(by1),
-                            "width": float(w),
-                            "height": float(h),
-                            "area": float(area),
+                            "x": refined.x,
+                            "y": refined.y,
+                            "width": w,
+                            "height": h,
+                            "area": w * h,
                         })
                         
                 except Exception as e:

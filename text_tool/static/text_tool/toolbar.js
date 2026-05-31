@@ -43,15 +43,14 @@
     const lsInput = el('fabric-letter-spacing');
     if (lsInput) lsInput.value = (box.letterSpacing || 0).toFixed(2);
 
-    // Default Space Width checkbox
+    // Default Space Width button
     const defaultSwCheck = el('fabric-default-sw');
-    if (defaultSwCheck) defaultSwCheck.checked = box.defaultSpaceWidth;
+    if (defaultSwCheck) defaultSwCheck.classList.toggle('active', box.defaultSpaceWidth);
 
     // Space Width slider
     const swSlider  = el('fabric-space-width');
     const swDisplay = el('fabric-space-width-display');
     if (swSlider) {
-      swSlider.disabled = box.defaultSpaceWidth;
       if (box.spaceWidth != null) {
         swSlider.value = box.spaceWidth;
         if (swDisplay) swDisplay.textContent = `${parseFloat(box.spaceWidth).toFixed(1)}px`;
@@ -98,7 +97,7 @@
     box.underline     = el('fabric-underline')    ?.classList.contains('active') ?? box.underline;
     box.strikethrough = el('fabric-strikethrough')?.classList.contains('active') ?? box.strikethrough;
     box.letterSpacing = parseFloat(el('fabric-letter-spacing')?.value) || 0;
-    box.defaultSpaceWidth = el('fabric-default-sw')?.checked ?? box.defaultSpaceWidth;
+    box.defaultSpaceWidth = el('fabric-default-sw')?.classList.contains('active') ?? box.defaultSpaceWidth;
 
     if (box.defaultSpaceWidth) {
       box.spaceWidth = null; // use native font spacing
@@ -192,19 +191,20 @@
     if (box) { box.color = e.target.value; renderBox(box); }
   });
 
-  // "Default" checkbox: toggle native vs manual space width
-  el('fabric-default-sw')?.addEventListener('change', async () => {
+  // "Default" button: toggle native vs manual space width
+  el('fabric-default-sw')?.addEventListener('click', async () => {
     const box = getSelected();
     if (!box) return;
 
-    const isDefault = el('fabric-default-sw').checked;
+    const btn = el('fabric-default-sw');
+    const isDefault = btn.classList.toggle('active');
     box.defaultSpaceWidth = isDefault;
 
     const swSlider  = el('fabric-space-width');
     const swDisplay = el('fabric-space-width-display');
 
     if (!isDefault) {
-      // User unchecked "Default" → initialise slider to the font's natural space width
+      // User deactivated "Default" → initialise slider to the font's natural space width
       const naturalSW = await fetchNaturalSpaceWidth(box);
       if (naturalSW !== null) {
         box.spaceWidth = naturalSW;
@@ -215,8 +215,6 @@
     } else {
       box.spaceWidth = null;
     }
-
-    if (swSlider) swSlider.disabled = isDefault;
 
     renderBox(box);
 
@@ -234,6 +232,9 @@
     const disp = el('fabric-space-width-display');
     if (disp) disp.textContent = `${box.spaceWidth.toFixed(1)}px`;
     renderBox(box);
+    if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+      calculateWidthsForRedaction(box.id);
+    }
   });
 
   // Nudge mode button (micro-typography)
@@ -253,6 +254,13 @@
       enterMicroTypo(box);
       el('fabric-nudge-mode')?.classList.add('active');
     }
+  });
+
+  // Space-label toggle button
+  el('toggle-space-labels')?.addEventListener('click', () => {
+    const btn = el('toggle-space-labels');
+    const active = btn.classList.toggle('active');
+    if (typeof setShowSpaceWidthLabels === 'function') setShowSpaceWidthLabels(active);
   });
 
   // Toggle-fmt button (show/hide toolbar)

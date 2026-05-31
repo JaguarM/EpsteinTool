@@ -69,5 +69,4 @@
         }
     });
 
-    console.log('Mobile support module initialized.');
 })();

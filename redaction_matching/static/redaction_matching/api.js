@@ -35,7 +35,6 @@
       if (added > 0) calculateAllWidths();
       els.pasteInput.value = '';
       document.getElementById('paste-area').style.display = 'none';
-      if (added > 0) console.log(`%c[Premium] Imported ${added} names!`, "color: #8ab4f8; font-weight: bold;");
     }
 
     function clearAll() {
@@ -48,15 +47,36 @@
 
     // ── Width calculation ─────────────────────────────────────
 
-    function calculateAllWidths() {
+    async function calculateAllWidths() {
         const boxes = getRedactionBoxes();
         if (boxes.length === 0) return;
-        boxes.forEach(box => calculateWidthsForRedaction(box.id));
+        for (const box of boxes) {
+            await calculateWidthsForRedaction(box.id);
+        }
     }
 
-    function calculateWidthsForRedaction(boxId) {
+    async function calculateWidthsForRedaction(boxId) {
+      await document.fonts.ready;
       const box = typeof utbState !== 'undefined' ? utbState.getBox(boxId) : null;
       if (!box || box.type !== 'redaction') return;
+
+      // Extract native space width from same-line embedded spans
+      if (box.lineId && (box.spaceWidth == null || box.defaultSpaceWidth !== false)) {
+        const lineSpans = utbState.boxes.filter(
+          b => b.lineId === box.lineId && b.type === 'embedded' && b.baseCharPositions
+        );
+        const spaces = lineSpans.flatMap(b => b.baseCharPositions.filter(cp => cp.c === ' '));
+        if (spaces.length > 0) {
+          const spaceW = spaces.reduce((s, cp) => s + (cp.w || 0), 0) / spaces.length;
+          box.spaceWidth = spaceW;
+          box.defaultSpaceWidth = false;
+          box.nativeSpaceWidth = spaceW;
+          if (typeof renderBox === 'function') renderBox(box);
+          if (typeof syncToolbarToBox === 'function' && utbState.selectedId === box.id) {
+            syncToolbarToBox(box);
+          }
+        }
+      }
 
       if (state.candidates.length === 0) {
         box.widths = {};
@@ -94,6 +114,8 @@
         
         if (box.letterSpacing) textEl.setAttribute('letter-spacing', `${box.letterSpacing}em`);
         else textEl.removeAttribute('letter-spacing');
+
+        textEl.style.fontKerning = box.kerning ? 'normal' : 'none';
       }
 
       const originalText = textEl.textContent;
@@ -183,9 +205,10 @@
       if (btnPrev) btnPrev.disabled = state.page <= 1;
       if (btnNext) btnNext.disabled = state.page >= totalPages;
 
+      const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
       els.tableBody.innerHTML = slice.map(n => {
         const w = box.widths[n];
-        const isMatch = w !== undefined && Math.abs(w - box.w) <= box.tolerance;
+        const isMatch = w !== undefined && Math.abs(w - effectiveW) <= box.tolerance;
         const esc = n.replace(/'/g, "&apos;");
         const disp = isUpper ? n.toUpperCase() : n;
         const rowClass = isMatch ? 'best-match' : '';
@@ -272,9 +295,10 @@
         const isUpper = box.uppercase;
         const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-variant-ligatures: ${box.ligatures ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
+        const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
         const matches = state.candidates.filter(c => {
           const w = box.widths[c];
-          return w !== undefined && Math.abs(w - box.w) <= tol;
+          return w !== undefined && Math.abs(w - effectiveW) <= tol;
         });
 
         if (matches.length) matchCount++;
@@ -296,7 +320,7 @@
         return `
           <tr id="match-row-${box.id}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction('${box.id}')" title="Click to view on document">
             <td>${box.page}</td>
-            <td class="col-right">${box.w.toFixed(2)}</td>
+            <td class="col-right">${effectiveW.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;

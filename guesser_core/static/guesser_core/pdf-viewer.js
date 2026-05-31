@@ -99,6 +99,15 @@ async function loadDocument(data, file) {
   } else {
     if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
   }
+
+  // Auto-run OCR for every page on load (only if the tesseract_ocr app is active)
+  if (typeof handleRunOCR === 'function' && document.getElementById('btn-run-ocr')) {
+    (async () => {
+      for (let p = 1; p <= state.numPages; p++) {
+        await handleRunOCR(p, true);
+      }
+    })();
+  }
 }
 
 async function handleFileUpload(e) {

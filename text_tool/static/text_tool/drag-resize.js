@@ -144,6 +144,9 @@
     function onUp() {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup',   onUp);
+      if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
+        calculateWidthsForRedaction(box.id);
+      }
     }
 
     window.addEventListener('mousemove', onMove);

@@ -213,9 +213,11 @@
           box.uppercase  = els.upper?.checked ?? box.uppercase;
 
           if (el === els.tol) {
-              // Tolerance doesn't need re-fetch, just re-filter
               if (typeof updateAllMatchesView === 'function') updateAllMatchesView(box.id);
           } else {
+              // Re-render first so the live SVG element has the updated font-kerning
+              // style before calculateWidthsForRedaction measures it via getBBox().
+              if (typeof renderBox === 'function') renderBox(box);
               if (typeof calculateWidthsForRedaction === 'function') calculateWidthsForRedaction(box.id);
           }
         })

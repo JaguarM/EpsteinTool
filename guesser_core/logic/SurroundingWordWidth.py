@@ -1,6 +1,14 @@
 import numpy as np
 import cv2
 
+# --- VISUAL DEBUGGING ---
+# Add custom letters to simulate what OCR might find that ETV missed.
+# For example, if ETV is "nd" and OCR is "and", put "a" in DEBUG_EXTRA_TEXT_LEFT.
+# The script will approximate the width of these letters and tighten the redaction box.
+DEBUG_EXTRA_TEXT_LEFT = ""
+DEBUG_EXTRA_TEXT_RIGHT = ""
+# ------------------------
+
 def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_bytes=None):
     """
     Measures width of text based on surrounding words.
@@ -133,7 +141,11 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
             if word_before:
                 # Word before right edge + space
                 word_before_x2_px = (word_before[2] - img_rect.x0) * pts_to_px_x
-                expected_x1_px = word_before_x2_px + space_px
+                
+                # Apply debug text width if any (approx 6.5px per character based on default fonts)
+                debug_offset_left = len(DEBUG_EXTRA_TEXT_LEFT) * 6.5 if DEBUG_EXTRA_TEXT_LEFT else 0
+                
+                expected_x1_px = word_before_x2_px + space_px + debug_offset_left
                 
                 # Check if expected_x1_px is in a completely white area
                 in_white = True
@@ -173,7 +185,11 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
             if word_after:
                 # Word after left edge - space
                 word_after_x1_px = (word_after[0] - img_rect.x0) * pts_to_px_x
-                expected_x2_px = word_after_x1_px - space_px
+                
+                # Apply debug text width if any (approx 6.5px per character)
+                debug_offset_right = len(DEBUG_EXTRA_TEXT_RIGHT) * 6.5 if DEBUG_EXTRA_TEXT_RIGHT else 0
+                
+                expected_x2_px = word_after_x1_px - space_px - debug_offset_right
                 
                 # Check if expected_x2_px is in a completely white area
                 in_white = True
