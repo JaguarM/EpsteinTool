@@ -130,6 +130,24 @@ function utbConnectRedactionsToLines() {
     rb.y = bestBox.y;
     rb.h = bestBox.h;
 
+    const lineBoxes = embeddedBoxes.filter(b => b.page === rb.page && b.lineId === bestBox.lineId);
+    let hasUpper = false;
+    for (const lb of lineBoxes) {
+      if (lb.text) {
+        const words = lb.text.split(/\s+/);
+        for (const w of words) {
+          if (w.length > 0 && /[A-Z]/.test(w) && w === w.toUpperCase()) {
+            hasUpper = true;
+            break;
+          }
+        }
+      }
+      if (hasUpper) break;
+    }
+    if (hasUpper) {
+      rb.uppercase = true;
+    }
+
     renderBox(rb);
   });
 }

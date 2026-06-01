@@ -32,7 +32,7 @@ class RefinerPipeline:
             best_conf = max(conf for _, conf in left_proposals)
             # On confidence tie: least shrinkage = smallest x (left edge stays leftmost)
             best_x = min(x for x, conf in left_proposals if conf == best_conf)
-            if box.x <= best_x < new_x2:
+            if best_x < new_x2:
                 new_x = best_x
 
         right_proposals = [(p.x2, p.confidence) for p in proposals if p.x2 is not None]
@@ -40,7 +40,7 @@ class RefinerPipeline:
             best_conf = max(conf for _, conf in right_proposals)
             # On confidence tie: least shrinkage = largest x2 (right edge stays rightmost)
             best_x2 = max(x2 for x2, conf in right_proposals if conf == best_conf)
-            if new_x < best_x2 <= box.x + box.width:
+            if new_x < best_x2:
                 new_x2 = best_x2
 
         return DetectedBox(

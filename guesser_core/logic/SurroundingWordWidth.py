@@ -24,7 +24,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
     px_to_pts_y = img_rect.height / img_h
     pts_to_px_x = 1.0 / px_to_pts_x
     pts_to_px_y = 1.0 / px_to_pts_y
-    
+
     boxes_pts = []
     for b in boxes:
         boxes_pts.append({
@@ -41,13 +41,13 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
         bx1, by1, bx2, by2 = b_dict['bx1'], b_dict['by1'], b_dict['bx2'], b_dict['by2']
         bx_pts, by_pts = b_dict['x0'], b_dict['y0']
         bx1_pts, by1_pts = b_dict['x1'], b_dict['y1']
-        
+
         buckets = []
         for w in words_pts:
             wy0, wy1 = w[1], w[3]
             height_word = wy1 - wy0
             if height_word <= 0: continue
-            
+
             overlap_y = max(0, min(by1_pts, wy1) - max(by_pts, wy0))
             if overlap_y / height_word >= 0.5:
                 wy_mid = (wy0 + wy1) / 2
@@ -61,16 +61,16 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     matched_bucket['mid'] = sum((ww[1]+ww[3])/2 for ww in matched_bucket['words']) / len(matched_bucket['words'])
                 else:
                     buckets.append({'mid': wy_mid, 'words': [w]})
-                    
+
         best_match = None
         best_dist_sum = float('inf')
         best_matches_count = 0
         best_line_words = []
-        
+
         for bucket in buckets:
             line_words = bucket['words']
             line_words.sort(key=lambda w: w[0])
-            
+
             word_before = None
             dist_before = float('inf')
             for w in line_words:
@@ -88,7 +88,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                         if dist < dist_before:
                             dist_before = dist
                             word_before = w
-                            
+
             word_after = None
             dist_after = float('inf')
             for w in line_words:
@@ -106,7 +106,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                         if dist < dist_after:
                             dist_after = dist
                             word_after = w
-                            
+
             matches_count = (1 if word_before else 0) + (1 if word_after else 0)
             if matches_count > 0:
                 dist_sum = (dist_before if word_before else 0) + (dist_after if word_after else 0)
@@ -115,14 +115,14 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     best_dist_sum = dist_sum
                     best_match = (word_before, word_after)
                     best_line_words = line_words
-                    
+
         if best_match:
             word_before, word_after = best_match
-            
+
             space_px = 9.5
             calculated_space_px = 0
             space_count = 0
-            
+
             for i in range(len(best_line_words) - 1):
                 w1 = best_line_words[i]
                 w2 = best_line_words[i+1]
@@ -130,109 +130,66 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                 if 3 <= gap_px <= 11:
                     calculated_space_px += gap_px
                     space_count += 1
-                    
+
             if space_count > 0:
                 avg_space_px = calculated_space_px / space_count
                 if 3 <= avg_space_px <= 11:
                     space_px = avg_space_px
 
-            expected_x1_px = None
-            
-            if word_before:
-                # Word before right edge + space
-                word_before_x2_px = (word_before[2] - img_rect.x0) * pts_to_px_x
-                
-                # Apply debug text width if any (approx 6.5px per character based on default fonts)
-                debug_offset_left = len(DEBUG_EXTRA_TEXT_LEFT) * 6.5 if DEBUG_EXTRA_TEXT_LEFT else 0
-                
-                expected_x1_px = word_before_x2_px + space_px + debug_offset_left
-                
-                # Check if expected_x1_px is in a completely white area
-                in_white = True
-                if bx1 <= expected_x1_px <= bx2:
-                    in_white = False
-                for w in best_line_words:
-                    w_x0_px = (w[0] - img_rect.x0) * pts_to_px_x
-                    w_x2_px = (w[2] - img_rect.x0) * pts_to_px_x
-                    if w_x0_px <= expected_x1_px <= w_x2_px:
-                        in_white = False
-                        break
-                
-                # If white area, move expected_x1_px closer (right) to next text or redaction
-                if in_white:
-                    next_boundary = bx1 if bx1 > expected_x1_px else None
-                    for w in best_line_words:
-                        w_x0_px = (w[0] - img_rect.x0) * pts_to_px_x
-                        if w_x0_px > expected_x1_px:
-                            if next_boundary is None or w_x0_px < next_boundary:
-                                next_boundary = w_x0_px
-                    
-                    if img is not None:
-                        start_x = max(0, int(expected_x1_px))
-                        end_x = int(bx1)
-                        if start_x < end_x:
-                            for x in range(start_x, end_x):
-                                col = img[int(by1):int(by2), x]
-                                if np.any(col < 250):
-                                    if next_boundary is None or x < next_boundary:
-                                        next_boundary = x
-                                    break
+            def _is_touching_left():
+                """Return True if dark pixels are found immediately left of the box."""
+                if img is None:
+                    return False
+                x_start = max(0, int(bx1) - 5)
+                x_end = max(0, int(bx1))
+                if x_start >= x_end:
+                    return False
+                strip = img[int(by1):int(by2), x_start:x_end]
+                return bool(np.any(strip < 230))
 
-                    if next_boundary is not None:
-                        expected_x1_px = next_boundary
-            
+            def _is_touching_right():
+                """Return True if dark pixels are found immediately right of the box."""
+                if img is None:
+                    return False
+                x_start = min(int(img_w), int(bx2))
+                x_end = min(int(img_w), int(bx2) + 5)
+                if x_start >= x_end:
+                    return False
+                strip = img[int(by1):int(by2), x_start:x_end]
+                return bool(np.any(strip < 230))
+
+            expected_x1_px = None
+
+            if word_before:
+                # Trust the ETV directly: word_before right edge + one space.
+                # The position may land inside the box when the box was painted over the space gap —
+                # that is correct and intentional; do not clamp or override with pixel scans.
+                word_before_x2_px = (word_before[2] - img_rect.x0) * pts_to_px_x
+                debug_offset_left = len(DEBUG_EXTRA_TEXT_LEFT) * 6.5 if DEBUG_EXTRA_TEXT_LEFT else 0
+                expected_x1_px = word_before_x2_px + space_px + debug_offset_left
+            elif _is_touching_left():
+                # No ETV word before the box but a letter is visually touching the left edge.
+                expected_x1_px = bx1 - space_px
+
             expected_x2_px = None
+
             if word_after:
-                # Word after left edge - space
+                # Trust the ETV directly: word_after left edge - one space.
                 word_after_x1_px = (word_after[0] - img_rect.x0) * pts_to_px_x
-                
-                # Apply debug text width if any (approx 6.5px per character)
                 debug_offset_right = len(DEBUG_EXTRA_TEXT_RIGHT) * 6.5 if DEBUG_EXTRA_TEXT_RIGHT else 0
-                
                 expected_x2_px = word_after_x1_px - space_px - debug_offset_right
-                
-                # Check if expected_x2_px is in a completely white area
-                in_white = True
-                if bx1 <= expected_x2_px <= bx2:
-                    in_white = False
-                for w in best_line_words:
-                    w_x0_px = (w[0] - img_rect.x0) * pts_to_px_x
-                    w_x2_px = (w[2] - img_rect.x0) * pts_to_px_x
-                    if w_x0_px <= expected_x2_px <= w_x2_px:
-                        in_white = False
-                        break
-                        
-                # If white area, move expected_x2_px closer (left) to next text or redaction
-                if in_white:
-                    next_boundary = bx2 if bx2 < expected_x2_px else None
-                    for w in best_line_words:
-                        w_x2_px = (w[2] - img_rect.x0) * pts_to_px_x
-                        if w_x2_px < expected_x2_px:
-                            if next_boundary is None or w_x2_px > next_boundary:
-                                next_boundary = w_x2_px
-                                
-                    if img is not None:
-                        start_x = min(int(img_w) - 1, int(expected_x2_px))
-                        end_x = int(bx2)
-                        if start_x > end_x:
-                            for x in range(start_x, end_x, -1):
-                                col = img[int(by1):int(by2), x]
-                                if np.any(col < 255):
-                                    if next_boundary is None or x > next_boundary:
-                                        next_boundary = x
-                                    break
-                                    
-                    if next_boundary is not None:
-                        expected_x2_px = next_boundary
-            
+            elif _is_touching_right():
+                # No ETV word after the box but a letter is visually touching the right edge.
+                expected_x2_px = bx2 + space_px
+
             expected_height_px = None
             if best_line_words:
                 heights_pts = [w[3] - w[1] for w in best_line_words if w[3] - w[1] > 0]
                 if heights_pts:
                     expected_height_px = (sum(heights_pts) / len(heights_pts)) * pts_to_px_y
-            
+
             expected_widths.append((expected_x1_px, expected_x2_px, expected_height_px))
         else:
             expected_widths.append((None, None, None))
-            
+
     return expected_widths

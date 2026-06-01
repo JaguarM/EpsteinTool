@@ -357,6 +357,25 @@ function connectRedactionsToETVLines() {
     r.lineId   = bestSpan.lineId;
     r.y        = bestSpan.y;
     r.height   = bestSpan.h;
+
+    const lineSpans = etvState.spans.filter(s => s.page === r.page && s.lineId === bestSpan.lineId);
+    let hasUpper = false;
+    for (const s of lineSpans) {
+      if (s.text) {
+        const words = s.text.split(/\s+/);
+        for (const w of words) {
+          if (w.length > 0 && /[A-Z]/.test(w) && w === w.toUpperCase()) {
+            hasUpper = true;
+            break;
+          }
+        }
+      }
+      if (hasUpper) break;
+    }
+    if (hasUpper) {
+      r.uppercase = true;
+    }
+
     const overlay = document.getElementById(`redaction-idx-${redIdx}`);
     if (overlay) {
       overlay.style.setProperty('--px-y',      `${r.y}px`);
