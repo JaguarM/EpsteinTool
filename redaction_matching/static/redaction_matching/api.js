@@ -53,6 +53,7 @@
         for (const box of boxes) {
             await calculateWidthsForRedaction(box.id);
         }
+        updateAllMatchesView(null);
     }
 
     async function calculateWidthsForRedaction(boxId) {
