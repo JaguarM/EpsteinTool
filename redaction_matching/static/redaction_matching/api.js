@@ -300,10 +300,10 @@
       if (btnPrev) btnPrev.disabled = state.page <= 1;
       if (btnNext) btnNext.disabled = state.page >= totalPages;
 
-      const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
       els.tableBody.innerHTML = slice.map(n => {
         const w = box.widths[n];
-        const isMatch = w !== undefined && Math.abs(w - effectiveW) <= box.tolerance;
+        const ew = (box.isRefined || !n.includes(' ')) ? box.w : box.w - (box.spaceWidth || 0);
+        const isMatch = w !== undefined && Math.abs(w - ew) <= box.tolerance;
         const esc = n.replace(/'/g, "&apos;");
         const disp = isUpper ? n.toUpperCase() : n;
         const rowClass = isMatch ? 'best-match' : '';
@@ -390,10 +390,11 @@
         const isUpper = box.uppercase;
         const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-variant-ligatures: ${box.ligatures ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
-        const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
         const matches = state.candidates.filter(c => {
           const w = box.widths[c];
-          return w !== undefined && Math.abs(w - effectiveW) <= tol;
+          if (w === undefined) return false;
+          const ew = (box.isRefined || !c.includes(' ')) ? box.w : box.w - (box.spaceWidth || 0);
+          return Math.abs(w - ew) <= tol;
         });
 
         if (matches.length) matchCount++;
@@ -415,7 +416,7 @@
         return `
           <tr id="match-row-${box.id}" class="${isSelected}" style="cursor: pointer;" onclick="selectRedaction('${box.id}')" title="Click to view on document">
             <td>${box.page}</td>
-            <td class="col-right">${effectiveW.toFixed(2)}</td>
+            <td class="col-right">${box.w.toFixed(2)}</td>
             <td>${matchHtml}</td>
           </tr>
         `;

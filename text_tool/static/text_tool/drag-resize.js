@@ -103,12 +103,13 @@
       if (box.type === 'redaction' && typeof state !== 'undefined') {
         const rowEl = document.getElementById(`match-row-${box.id}`);
         if (rowEl && rowEl.children.length >= 3) {
-          const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
-          rowEl.children[1].textContent = effectiveW.toFixed(2);
+          rowEl.children[1].textContent = box.w.toFixed(2);
 
           const matches = state.candidates.filter(c => {
             const w = box.widths?.[c];
-            return w !== undefined && Math.abs(w - effectiveW) <= (box.tolerance || 0);
+            if (w === undefined) return false;
+            const ew = (box.isRefined || !c.includes(' ')) ? box.w : box.w - (box.spaceWidth || 0);
+            return Math.abs(w - ew) <= (box.tolerance || 0);
           });
           const isUpper = box.uppercase;
           const fontStyle = `font-family: ${box.fontFamily || 'inherit'};`;
@@ -128,9 +129,12 @@
         const redBoxes = utbState.boxes.filter(b => b.type === 'redaction');
         let matchCount = 0;
         redBoxes.forEach(rb => {
-          const has = state.candidates.some(c =>
-            rb.widths?.[c] !== undefined && Math.abs(rb.widths[c] - rb.w) <= (rb.tolerance || 0)
-          );
+          const has = state.candidates.some(c => {
+            const w = rb.widths?.[c];
+            if (w === undefined) return false;
+            const ew = (rb.isRefined || !c.includes(' ')) ? rb.w : rb.w - (rb.spaceWidth || 0);
+            return Math.abs(w - ew) <= (rb.tolerance || 0);
+          });
           if (has) matchCount++;
         });
         if (els.allMatchesSummary) {
