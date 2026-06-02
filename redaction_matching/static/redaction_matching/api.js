@@ -18,30 +18,124 @@
       return box && box.type === 'redaction' ? box : null;
     }
 
+    // ── Name generation from JSON ─────────────────────────────
+
+    function generateCandidatesFromData(namesData, settings) {
+      const result = new Set();
+      for (const person of namesData) {
+        const firsts = person.first.length > 0
+          ? (settings.expandFirstAliases ? person.first : [person.first[0]])
+          : [];
+        const lasts = person.last.length > 0
+          ? (settings.expandLastAliases ? person.last : [person.last[0]])
+          : [];
+        const pre = settings.includePrefix && person.prefix ? person.prefix + ' ' : '';
+        const suf = settings.includeSuffix && person.suffix ? ' ' + person.suffix : '';
+
+        if (settings.generateFull) {
+          if (firsts.length > 0 && lasts.length > 0) {
+            for (const f of firsts) for (const l of lasts) result.add(`${pre}${f} ${l}${suf}`.trim());
+          } else if (firsts.length > 0) {
+            for (const f of firsts) result.add(`${pre}${f}${suf}`.trim());
+          } else if (lasts.length > 0) {
+            for (const l of lasts) result.add(`${pre}${l}${suf}`.trim());
+          }
+        }
+        if (settings.generateFirstOnly) {
+          for (const f of firsts) result.add(f);
+        }
+        if (settings.generateLastOnly) {
+          for (const l of lasts) result.add(l);
+        }
+        if (settings.includeNickname && person.nickname) {
+          result.add(person.nickname);
+        }
+      }
+      return [...result];
+    }
+
+    function rebuildCandidates() {
+      const fromJson = generateCandidatesFromData(state.namesData, state.nameSettings);
+      state.candidates = [...new Set([...fromJson, ...state.customCandidates])];
+      updateNameSettingsCount();
+      calculateAllWidths();
+    }
+
+    function updateNameSettingsCount() {
+      const el = document.getElementById('name-settings-count');
+      if (!el) return;
+      const jsonCount = generateCandidatesFromData(state.namesData, state.nameSettings).length;
+      const customCount = state.customCandidates.length;
+      el.textContent = customCount > 0
+        ? `${jsonCount} from list + ${customCount} custom`
+        : `${jsonCount} from list`;
+    }
+
+    function readNameSettings() {
+      state.nameSettings.generateFull        = document.getElementById('ns-full').checked;
+      state.nameSettings.generateFirstOnly   = document.getElementById('ns-first-only').checked;
+      state.nameSettings.generateLastOnly    = document.getElementById('ns-last-only').checked;
+      state.nameSettings.includePrefix       = document.getElementById('ns-prefix').checked;
+      state.nameSettings.includeSuffix       = document.getElementById('ns-suffix').checked;
+      state.nameSettings.includeNickname     = document.getElementById('ns-nickname').checked;
+      state.nameSettings.expandFirstAliases  = document.getElementById('ns-expand-first').checked;
+      state.nameSettings.expandLastAliases   = document.getElementById('ns-expand-last').checked;
+    }
+
+    function onNameSettingChange() {
+      readNameSettings();
+      rebuildCandidates();
+    }
+
+    async function loadNamesData() {
+      try {
+        const resp = await fetch('/static/names/epstein_names.json');
+        state.namesData = await resp.json();
+        rebuildCandidates();
+      } catch (e) {
+        console.warn('Could not load names JSON:', e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadNamesData);
+
     // ── Candidate management ──────────────────────────────────
 
     function addName() {
       const v = els.nameInput.value.trim();
       if (v && !state.candidates.includes(v)) {
+        state.customCandidates.push(v);
         state.candidates.push(v);
         els.nameInput.value = '';
+        updateNameSettingsCount();
         calculateAllWidths();
       }
     }
     function processPaste() {
       const lines = els.pasteInput.value.split('\n').map(l => l.trim()).filter(l => l);
       let added = 0;
-      lines.forEach(l => { if (!state.candidates.includes(l)) { state.candidates.push(l); added++; } });
-      if (added > 0) calculateAllWidths();
+      lines.forEach(l => {
+        if (!state.candidates.includes(l)) {
+          state.customCandidates.push(l);
+          state.candidates.push(l);
+          added++;
+        }
+      });
+      if (added > 0) { updateNameSettingsCount(); calculateAllWidths(); }
       els.pasteInput.value = '';
       document.getElementById('paste-area').style.display = 'none';
     }
 
     function clearAll() {
-      if (confirm('Clear names?')) { state.candidates = []; calculateAllWidths(); }
+      if (confirm('Clear custom names and reset to JSON list?')) {
+        state.customCandidates = [];
+        rebuildCandidates();
+      }
     }
     function removeName(name) {
+      state.customCandidates = state.customCandidates.filter(c => c !== name);
       state.candidates = state.candidates.filter(c => c !== name);
+      updateNameSettingsCount();
       calculateAllWidths();
     }
 

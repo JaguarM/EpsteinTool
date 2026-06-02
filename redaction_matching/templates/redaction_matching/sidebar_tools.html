@@ -22,9 +22,52 @@
               <span class="material-symbols-outlined" style="font-size: 14px;">content_paste</span> Paste Mode</a>
             <a href="#" style="color:#f28b82; font-size:11px; text-decoration:none; display: flex; align-items: center; gap: 4px;"
               onclick="clearAll(); return false;">
-              <span class="material-symbols-outlined" style="font-size: 14px;">delete_sweep</span> Clear List</a>
+              <span class="material-symbols-outlined" style="font-size: 14px;">delete_sweep</span> Clear Custom</a>
           </div>
 
+          <!-- Name format settings -->
+          <div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.07);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:11px; color:#9aa0a6; font-weight:500;">Name format</span>
+              <span id="name-settings-count" style="font-size:10px; color:#8ab4f8;"></span>
+            </div>
+
+            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Generate</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:7px;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-full" checked onchange="onNameSettingChange()"> Full name
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-first-only" onchange="onNameSettingChange()"> First only
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-last-only" onchange="onNameSettingChange()"> Last only
+              </label>
+            </div>
+
+            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Include</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:7px;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-prefix" onchange="onNameSettingChange()"> Prefix/Title
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-suffix" onchange="onNameSettingChange()"> Suffix
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-nickname" onchange="onNameSettingChange()"> Nickname
+              </label>
+            </div>
+
+            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Expand aliases</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-expand-first" onchange="onNameSettingChange()"> First names
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
+                <input type="checkbox" id="ns-expand-last" onchange="onNameSettingChange()"> Last names
+              </label>
+            </div>
+          </div>
 
           <div class="table-cont">
             <table>

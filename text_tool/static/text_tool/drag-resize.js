@@ -103,11 +103,12 @@
       if (box.type === 'redaction' && typeof state !== 'undefined') {
         const rowEl = document.getElementById(`match-row-${box.id}`);
         if (rowEl && rowEl.children.length >= 3) {
-          rowEl.children[1].textContent = box.w.toFixed(2);
+          const effectiveW = box.isRefined ? box.w : box.w - (box.spaceWidth || 0);
+          rowEl.children[1].textContent = effectiveW.toFixed(2);
 
           const matches = state.candidates.filter(c => {
             const w = box.widths?.[c];
-            return w !== undefined && Math.abs(w - box.w) <= (box.tolerance || 0);
+            return w !== undefined && Math.abs(w - effectiveW) <= (box.tolerance || 0);
           });
           const isUpper = box.uppercase;
           const fontStyle = `font-family: ${box.fontFamily || 'inherit'};`;
