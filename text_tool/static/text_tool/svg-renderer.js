@@ -293,16 +293,41 @@ function _updateSpaceLabels(g, box) {
 
   // ── Redaction boxes ───────────────────────────────────────────
   if (box.type === 'redaction') {
-    if (box.spaceWidth == null || box.defaultSpaceWidth) return;
-    const label = box.spaceWidth.toFixed(1);
-    // Both badges show the Space W. value used between multi-word candidate words
-    _spacebadge(g, box.x,          labelTopY, label, 'rgba(80,200,255,0.92)');
-    _spacebadge(g, box.x + box.w,  labelTopY, label, 'rgba(80,200,255,0.92)');
-    return;
+    if (box.spaceWidth != null && !box.defaultSpaceWidth) {
+      const label = box.spaceWidth.toFixed(1);
+      // Both badges show the Space W. value used between multi-word candidate words
+      _spacebadge(g, box.x,          labelTopY, label, 'rgba(80,200,255,0.92)');
+      _spacebadge(g, box.x + box.w,  labelTopY, label, 'rgba(80,200,255,0.92)');
+    }
   }
 
-  // ── Embedded / harfbuzz boxes ─────────────────────────────────
-  if (!box.baseCharPositions?.length) return;
+  // ── All boxes with text positions ─────────────────────────────────
+  if (!box.baseCharPositions?.length) {
+    if (!box.text || typeof box.text !== 'string' || !box.text.includes(' ')) return;
+    
+    const textEl = g.querySelector('.utb-text');
+    if (!textEl) return;
+
+    const hasSpaceOverride = box.spaceWidth != null && !box.defaultSpaceWidth;
+
+    for (let i = 0; i < box.text.length; i++) {
+      if (box.text[i] !== ' ') continue;
+      
+      let spX = 0;
+      let spW = 0;
+      try {
+        const pos = textEl.getStartPositionOfChar(i);
+        spX = pos.x;
+        spW = textEl.getSubStringLength(i, 1);
+      } catch (e) {
+        continue;
+      }
+      
+      const actualSpaceWidth = hasSpaceOverride ? box.spaceWidth : (box.nativeSpaceWidth || spW || 0);
+      _spacebadge(g, spX + actualSpaceWidth / 2, labelTopY, actualSpaceWidth.toFixed(1), 'rgba(255,210,0,0.92)');
+    }
+    return;
+  }
 
   const xs = computeXPositions(box);
   const hasSpaceOverride = box.spaceWidth != null && !box.defaultSpaceWidth;

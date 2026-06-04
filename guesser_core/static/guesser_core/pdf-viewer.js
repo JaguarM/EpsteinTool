@@ -74,6 +74,7 @@ async function loadDocument(data, file) {
         x: r.x, y: r.y, w: r.width, h: r.height,
         fontFamily:   initialFontFamily,
         fontSize:     initialFontSize,
+        sizePt:       autoSize,
         kerning:      els.kern?.checked ?? false,
         ligatures:    els.lig?.checked ?? false,
         uppercase:    els.upper?.checked ?? false,

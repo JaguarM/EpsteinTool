@@ -124,9 +124,16 @@
    * Fetch the HarfBuzz natural space advance for the box's current font/size.
    * Used to initialise the slider when unchecking "Default".
    */
+  const _naturalSpaceCache = new Map();
+
   async function fetchNaturalSpaceWidth(box) {
     const font  = _ttfForFamily(box.fontFamily);
+    // HarfBuzz expects the size in POINTS. box.fontSize is px (96dpi); fall back
+    // to px×0.75 when sizePt is absent (e.g. some redaction boxes).
+    const size  = box.sizePt || (box.fontSize * 0.75);
     const scale = typeof state !== 'undefined' ? (state.pageWidth / 816 * (4/3)) : (4/3);
+    const key = `${font}|${size}|${box.kerning ? 1 : 0}|${box.ligatures ? 1 : 0}|${scale}`;
+    if (_naturalSpaceCache.has(key)) return _naturalSpaceCache.get(key);
     try {
       const resp = await fetch('/widths', {
         method: 'POST',
@@ -134,7 +141,7 @@
         body: JSON.stringify({
           strings: [' '],
           font:    font,
-          size:    box.sizePt || box.fontSize,
+          size:    size,
           scale:   scale * 100,
           kerning:    box.kerning,
           ligatures:  box.ligatures,
@@ -143,9 +150,13 @@
       if (!resp.ok) return null;
       const data = await resp.json();
       // The width of a single space character = the natural space advance
-      return data.results?.[0]?.width ?? null;
+      const w = data.results?.[0]?.width ?? null;
+      if (w != null) _naturalSpaceCache.set(key, w);
+      return w;
     } catch { return null; }
   }
+  // Exposed for the redaction-matching space-width logic (api.js).
+  window.getNaturalSpaceWidth = fetchNaturalSpaceWidth;
 
   // Map CSS family name → TTF filename (for HarfBuzz backend)
   function _ttfForFamily(family) {

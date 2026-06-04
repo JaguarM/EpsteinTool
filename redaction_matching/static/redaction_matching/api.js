@@ -225,17 +225,58 @@
       const box = typeof utbState !== 'undefined' ? utbState.getBox(boxId) : null;
       if (!box || box.type !== 'redaction') return;
 
-      // Extract native space width from same-line embedded spans
+      // Determine the inter-word space width for this redaction's line.
+      //
+      // Justification only ever STRETCHES spaces beyond the font's natural
+      // advance — it never compresses them. So:
+      //   • line is justified  ⇔  its median space sits clearly ABOVE natural
+      //     → the spaces are stretched, use the measured median.
+      //   • otherwise (median at or below natural — a normal / last line)
+      //     → use the precise HarfBuzz natural advance.
+      // A space measured *below* natural is therefore never treated as a real
+      // width: it just means "not stretched" (e.g. a space partly covered by the
+      // redaction box reads small). This is the key to detecting the un-justified
+      // last lines that sit in a sea of justified text.
+      //
+      // The natural advance is computed at the LINE's own font + size (from its
+      // embedded spans), not the redaction's global defaults, so a size mismatch
+      // can't skew the comparison. Median (not mean) ignores the odd double space
+      // or a box-truncated space.
       if (box.lineId && (box.spaceWidth == null || box.defaultSpaceWidth !== false)) {
         const lineSpans = utbState.boxes.filter(
           b => b.lineId === box.lineId && b.type === 'embedded' && b.baseCharPositions
         );
-        const spaces = lineSpans.flatMap(b => b.baseCharPositions.filter(cp => cp.c === ' '));
-        if (spaces.length > 0) {
-          const spaceW = spaces.reduce((s, cp) => s + (cp.w || 0), 0) / spaces.length;
+        const detected = lineSpans
+          .flatMap(b => b.baseCharPositions.filter(cp => cp.c === ' '))
+          .map(cp => cp.w || 0)
+          .filter(w => w > 0);
+
+        if (detected.length > 0) {
+          const median = _median(detected);
+
+          const lineSizePt = _median(lineSpans.map(b => b.sizePt).filter(s => s > 0));
+          const lineFont = lineSpans[0]?.fontFamily || box.fontFamily;
+          let natural = null;
+          if (typeof getNaturalSpaceWidth === 'function') {
+            natural = await getNaturalSpaceWidth({
+              fontFamily: lineFont,
+              sizePt: lineSizePt || box.sizePt,
+              kerning: box.kerning,
+              ligatures: box.ligatures,
+            });
+          }
+
+          let spaceW;
+          if (natural != null) {
+            const tol = Math.max(JUSTIFY_SPACE_TOL_FLOOR_PX, natural * JUSTIFY_SPACE_TOL_FRAC);
+            spaceW = (median > natural + tol) ? median : natural;
+          } else {
+            spaceW = median;
+          }
+
           box.spaceWidth = spaceW;
           box.defaultSpaceWidth = false;
-          box.nativeSpaceWidth = spaceW;
+          box.nativeSpaceWidth = natural != null ? natural : median;
           if (typeof renderBox === 'function') renderBox(box);
           if (typeof syncToolbarToBox === 'function' && utbState.selectedId === box.id) {
             syncToolbarToBox(box);
