@@ -132,10 +132,10 @@ function utbConnectRedactionsToLines() {
 
     const lineBoxes = embeddedBoxes.filter(b => b.page === rb.page && b.lineId === bestBox.lineId);
     let hasUpper = false;
-    if (window.state && window.state.candidates && window.state.candidates.length > 0) {
+    if (typeof state !== 'undefined' && state.candidates && state.candidates.length > 0) {
       const lineText = lineBoxes.map(lb => lb.text || '').join(' ');
       const lineUpper = lineText.toUpperCase();
-      for (const c of window.state.candidates) {
+      for (const c of state.candidates) {
         const cWords = c.split(/\s+/).map(w => w.replace(/[^A-Za-z]/g, '').toUpperCase()).filter(w => w.length > 2);
         if (cWords.length === 0) continue;
         const phrasePattern = new RegExp('\\b' + cWords.join('\\s+') + '\\b');

@@ -360,17 +360,18 @@ function connectRedactionsToETVLines() {
 
     const lineSpans = etvState.spans.filter(s => s.page === r.page && s.lineId === bestSpan.lineId);
     let hasUpper = false;
-    for (const s of lineSpans) {
-      if (s.text) {
-        const words = s.text.split(/\s+/);
-        for (const w of words) {
-          if (w.length > 0 && /[A-Z]/.test(w) && w === w.toUpperCase()) {
-            hasUpper = true;
-            break;
-          }
+    if (typeof state !== 'undefined' && state.candidates && state.candidates.length > 0) {
+      const lineText = lineSpans.map(s => s.text || '').join(' ');
+      const lineUpper = lineText.toUpperCase();
+      for (const c of state.candidates) {
+        const cWords = c.split(/\s+/).map(w => w.replace(/[^A-Za-z]/g, '').toUpperCase()).filter(w => w.length > 2);
+        if (cWords.length === 0) continue;
+        const phrasePattern = new RegExp('\\b' + cWords.join('\\s+') + '\\b');
+        if (phrasePattern.test(lineUpper)) {
+          hasUpper = true;
+          break;
         }
       }
-      if (hasUpper) break;
     }
     if (hasUpper) {
       r.uppercase = true;

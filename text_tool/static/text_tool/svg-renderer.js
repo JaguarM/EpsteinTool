@@ -242,64 +242,78 @@ function _updateEdgeHandles(g, box) {
   }
 }
 
+/** Append a single space-width badge to group g, centred at midX. */
+function _spacebadge(g, midX, topY, label, color) {
+  const LABEL_H = 7;
+  const FONT_SZ = 5;
+  const badgeW = label.length * 3.6 + 3;
+
+  const labelG = document.createElementNS(SVG_NS, 'g');
+  labelG.classList.add('utb-space-label');
+  labelG.style.pointerEvents = 'none';
+
+  const bg = document.createElementNS(SVG_NS, 'rect');
+  bg.setAttribute('x', midX - badgeW / 2);
+  bg.setAttribute('y', topY);
+  bg.setAttribute('width', badgeW);
+  bg.setAttribute('height', LABEL_H);
+  bg.setAttribute('fill', color);
+  bg.setAttribute('rx', '1.5');
+
+  const txt = document.createElementNS(SVG_NS, 'text');
+  txt.setAttribute('x', midX);
+  txt.setAttribute('y', topY + LABEL_H - 1.5);
+  txt.setAttribute('text-anchor', 'middle');
+  txt.setAttribute('font-size', FONT_SZ);
+  txt.setAttribute('font-family', 'sans-serif');
+  txt.setAttribute('fill', '#111');
+  txt.textContent = label;
+
+  labelG.appendChild(bg);
+  labelG.appendChild(txt);
+  g.appendChild(labelG);
+}
+
 /**
  * Show or hide numeric space-width labels for a single box.
- * A small badge is drawn just above each space character showing its pixel width.
- * When the Space W. slider overrides the width, box.spaceWidth is shown;
- * otherwise the native PDF advance width (cp.w) is used.
+ *
+ * Embedded/harfbuzz boxes: yellow badge above each space character.
+ * Redaction boxes: two cyan badges marking the left and right positioning
+ *   gaps (both equal to box.spaceWidth). The left badge sits at box.x
+ *   (left edge, where the previous word's trailing gap ends); the right
+ *   badge sits at box.x + box.w (right edge, the trailing-space boundary
+ *   used by candidateEW for multi-word candidate matching).
  */
 function _updateSpaceLabels(g, box) {
   g.querySelectorAll('.utb-space-label').forEach(el => el.remove());
 
   if (!showSpaceWidthLabels) return;
+
+  const LABEL_H = 7;
+  const labelTopY = box.y - LABEL_H - 1;
+
+  // ── Redaction boxes ───────────────────────────────────────────
+  if (box.type === 'redaction') {
+    if (box.spaceWidth == null || box.defaultSpaceWidth) return;
+    const label = box.spaceWidth.toFixed(1);
+    // Left edge: where the gap from the preceding word ends
+    _spacebadge(g, box.x,          labelTopY, label, 'rgba(80,200,255,0.92)');
+    // Right edge: the trailing-space boundary (subtracted for multi-word matching)
+    _spacebadge(g, box.x + box.w,  labelTopY, label, 'rgba(80,200,255,0.92)');
+    return;
+  }
+
+  // ── Embedded / harfbuzz boxes ─────────────────────────────────
   if (!box.baseCharPositions?.length) return;
 
   const xs = computeXPositions(box);
   const hasSpaceOverride = box.spaceWidth != null && !box.defaultSpaceWidth;
 
-  const LABEL_H = 7;   // SVG units
-  const FONT_SZ = 5;   // SVG units
-  const labelTopY = box.y - LABEL_H - 1;
-
   for (let i = 0; i < box.baseCharPositions.length; i++) {
     const cp = box.baseCharPositions[i];
     if (cp.c !== ' ') continue;
-
-    // Effective width: what the user set, or the PDF's native advance
-    const effectiveW = hasSpaceOverride ? box.spaceWidth : (cp.w || 0);
-    const label = effectiveW.toFixed(1);
-
-    const spaceX = xs[i];
-    // Midpoint of the space horizontally
-    const midX = spaceX + effectiveW / 2;
-
-    // Approximate badge width: ~4 SVG units per character + padding
-    const badgeW = label.length * 3.6 + 3;
-
-    const labelG = document.createElementNS(SVG_NS, 'g');
-    labelG.classList.add('utb-space-label');
-    labelG.style.pointerEvents = 'none';
-
-    const bg = document.createElementNS(SVG_NS, 'rect');
-    bg.setAttribute('x', midX - badgeW / 2);
-    bg.setAttribute('y', labelTopY);
-    bg.setAttribute('width', badgeW);
-    bg.setAttribute('height', LABEL_H);
-    bg.setAttribute('fill', 'rgba(255, 210, 0, 0.92)');
-    bg.setAttribute('rx', '1.5');
-
-    const txt = document.createElementNS(SVG_NS, 'text');
-    txt.setAttribute('x', midX);
-    txt.setAttribute('y', labelTopY + LABEL_H - 1.5);
-    txt.setAttribute('text-anchor', 'middle');
-    txt.setAttribute('font-size', FONT_SZ);
-    txt.setAttribute('font-family', 'sans-serif');
-    txt.setAttribute('fill', '#111');
-    txt.textContent = label;
-
-    labelG.appendChild(bg);
-    labelG.appendChild(txt);
-    g.appendChild(labelG);
+    const spW = hasSpaceOverride ? box.spaceWidth : (cp.w || 0);
+    _spacebadge(g, xs[i] + spW / 2, labelTopY, spW.toFixed(1), 'rgba(255,210,0,0.92)');
   }
 }
 
