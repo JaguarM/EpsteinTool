@@ -11,6 +11,19 @@
         : [];
     }
 
+    /**
+     * Effective box width to compare against a single candidate's measured width.
+     * Multi-word candidates (full names, multi-word last names) assume the box
+     * includes one trailing inter-word space that was not part of the name text;
+     * single-word candidates compare directly against box.w.
+     * Refined boxes always use box.w as-is.
+     */
+    function candidateEW(box, c) {
+      if (box.isRefined) return box.w;
+      return c.includes(' ') ? box.w - (box.spaceWidth || 0) : box.w;
+    }
+    window.candidateEW = candidateEW;
+
     /** Get the currently selected redaction box (or null). */
     function getSelectedRedaction() {
       if (typeof utbState === 'undefined' || !utbState.selectedId) return null;
@@ -302,8 +315,7 @@
 
       els.tableBody.innerHTML = slice.map(n => {
         const w = box.widths[n];
-        const ew = (box.isRefined || !n.includes(' ')) ? box.w : box.w - (box.spaceWidth || 0);
-        const isMatch = w !== undefined && Math.abs(w - ew) <= box.tolerance;
+        const isMatch = w !== undefined && Math.abs(w - candidateEW(box, n)) <= box.tolerance;
         const esc = n.replace(/'/g, "&apos;");
         const disp = isUpper ? n.toUpperCase() : n;
         const rowClass = isMatch ? 'best-match' : '';
@@ -392,9 +404,7 @@
 
         const matches = state.candidates.filter(c => {
           const w = box.widths[c];
-          if (w === undefined) return false;
-          const ew = (box.isRefined || !c.includes(' ')) ? box.w : box.w - (box.spaceWidth || 0);
-          return Math.abs(w - ew) <= tol;
+          return w !== undefined && Math.abs(w - candidateEW(box, c)) <= tol;
         });
 
         if (matches.length) matchCount++;
