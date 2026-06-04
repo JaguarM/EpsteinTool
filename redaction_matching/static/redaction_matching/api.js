@@ -12,17 +12,30 @@
     }
 
     /**
-     * Effective box width to compare against a single candidate's measured width.
-     * Multi-word candidates (full names, multi-word last names) assume the box
-     * includes one trailing inter-word space that was not part of the name text;
-     * single-word candidates compare directly against box.w.
-     * Refined boxes always use box.w as-is.
+     * Box width a candidate's measured width is compared against — simply box.w.
+     * The candidate's measured width (box.widths[c]) already places the Space W.
+     * value between its words (see calculateWidthsForRedaction), so a multi-word
+     * name's width adds up to the full box width directly. No hidden per-candidate
+     * trailing-space subtraction.
      */
-    function candidateEW(box, c) {
-      if (box.isRefined) return box.w;
-      return c.includes(' ') ? box.w - (box.spaceWidth || 0) : box.w;
+    function candidateEW(box) {
+      return box.w;
     }
     window.candidateEW = candidateEW;
+
+    /** Median of an array of numbers (robust to a stray double space). */
+    function _median(nums) {
+      const s = [...nums].sort((a, b) => a - b);
+      const m = s.length >> 1;
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
+
+    // A line counts as "not justified" when its median detected space is within
+    // this much of the font's natural HarfBuzz advance — then we use the precise
+    // natural value instead of the measured one. Relative, with an absolute floor;
+    // doubles as the max error accepted from that substitution.
+    const JUSTIFY_SPACE_TOL_FRAC = 0.12;
+    const JUSTIFY_SPACE_TOL_FLOOR_PX = 0.5;
 
     /** Get the currently selected redaction box (or null). */
     function getSelectedRedaction() {
@@ -273,10 +286,26 @@
       const originalText = textEl.textContent;
       box.widths = {};
 
+      // When a manual Space W. is active, measure a multi-word candidate as
+      // Σ(word widths) + (#spaces × Space W.): the slider sets the gap between
+      // words directly, so the candidate's width adds up to the full box width.
+      // (Default/native spacing renders the whole string in one pass.)
+      const manualSpace = box.spaceWidth != null && box.defaultSpaceWidth === false;
+
       state.candidates.forEach(c => {
         const disp = box.uppercase ? c.toUpperCase() : c;
-        textEl.textContent = disp;
-        box.widths[c] = textEl.getBBox().width;
+        if (manualSpace && disp.includes(' ')) {
+          const segments = disp.split(' ');
+          let total = (segments.length - 1) * box.spaceWidth;
+          for (const seg of segments) {
+            textEl.textContent = seg;
+            total += textEl.getBBox().width;
+          }
+          box.widths[c] = total;
+        } else {
+          textEl.textContent = disp;
+          box.widths[c] = textEl.getBBox().width;
+        }
       });
 
       // Restore original text only if we modified the real DOM node

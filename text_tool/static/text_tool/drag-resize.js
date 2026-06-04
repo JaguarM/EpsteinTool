@@ -108,8 +108,7 @@
           const matches = state.candidates.filter(c => {
             const w = box.widths?.[c];
             if (w === undefined) return false;
-            const ew = typeof candidateEW === 'function' ? candidateEW(box, c)
-              : (c.includes(' ') ? box.w - (box.spaceWidth || 0) : box.w);
+            const ew = typeof candidateEW === 'function' ? candidateEW(box, c) : box.w;
             return Math.abs(w - ew) <= (box.tolerance || 0);
           });
           const isUpper = box.uppercase;
@@ -133,8 +132,7 @@
           const has = state.candidates.some(c => {
             const w = rb.widths?.[c];
             if (w === undefined) return false;
-            const ew = typeof candidateEW === 'function' ? candidateEW(rb, c)
-              : (c.includes(' ') ? rb.w - (rb.spaceWidth || 0) : rb.w);
+            const ew = typeof candidateEW === 'function' ? candidateEW(rb, c) : rb.w;
             return Math.abs(w - ew) <= (rb.tolerance || 0);
           });
           if (has) matchCount++;

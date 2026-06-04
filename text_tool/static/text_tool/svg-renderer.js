@@ -278,11 +278,10 @@ function _spacebadge(g, midX, topY, label, color) {
  * Show or hide numeric space-width labels for a single box.
  *
  * Embedded/harfbuzz boxes: yellow badge above each space character.
- * Redaction boxes: two cyan badges marking the left and right positioning
- *   gaps (both equal to box.spaceWidth). The left badge sits at box.x
- *   (left edge, where the previous word's trailing gap ends); the right
- *   badge sits at box.x + box.w (right edge, the trailing-space boundary
- *   used by candidateEW for multi-word candidate matching).
+ * Redaction boxes: two cyan badges showing the current Space W. value
+ *   (box.spaceWidth) — the gap inserted between words when measuring
+ *   multi-word candidates. Drawn at the left edge (box.x) and right edge
+ *   (box.x + box.w) as a value indicator.
  */
 function _updateSpaceLabels(g, box) {
   g.querySelectorAll('.utb-space-label').forEach(el => el.remove());
@@ -296,9 +295,8 @@ function _updateSpaceLabels(g, box) {
   if (box.type === 'redaction') {
     if (box.spaceWidth == null || box.defaultSpaceWidth) return;
     const label = box.spaceWidth.toFixed(1);
-    // Left edge: where the gap from the preceding word ends
+    // Both badges show the Space W. value used between multi-word candidate words
     _spacebadge(g, box.x,          labelTopY, label, 'rgba(80,200,255,0.92)');
-    // Right edge: the trailing-space boundary (subtracted for multi-word matching)
     _spacebadge(g, box.x + box.w,  labelTopY, label, 'rgba(80,200,255,0.92)');
     return;
   }

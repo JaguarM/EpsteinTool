@@ -1,13 +1,105 @@
 import numpy as np
 import cv2
 
-# --- VISUAL DEBUGGING ---
-# Add custom letters to simulate what OCR might find that ETV missed.
-# For example, if ETV is "nd" and OCR is "and", put "a" in DEBUG_EXTRA_TEXT_LEFT.
-# The script will approximate the width of these letters and tighten the redaction box.
-DEBUG_EXTRA_TEXT_LEFT = ""
-DEBUG_EXTRA_TEXT_RIGHT = ""
-# ------------------------
+
+def _is_glyph_col(col, dark_thresh=160, min_dark_px=2, max_dark_frac=0.8):
+    """
+    True if a pixel column looks like part of a letter rather than the box's own
+    edge or blank paper.
+
+    A glyph darkens at least `min_dark_px` rows but fewer than `max_dark_frac` of
+    the column. Redaction boxes are painted taller than the text they hide, so
+    the box's anti-aliased edge runs dark down the *whole* column, whereas a
+    letter — or the sliver of one poking past the paint — only darkens the text
+    rows in the middle. Flat background has no dark rows at all. This height test
+    separates a poking glyph from the box edge far more reliably than pixel
+    darkness alone (the box's own AA can be as dark as ink).
+    """
+    n_dark = int(np.count_nonzero(col < dark_thresh))
+    return min_dark_px <= n_dark < max_dark_frac * len(col)
+
+
+def _content_edge(img, ink_edge_px, direction, y0, y1, bound_px):
+    """
+    Walk outward from a box's ink edge through contiguous glyph ink and return
+    the refined edge (in image px).
+
+    BoxDetector reports the *pure-black* extent of the redaction, but the true
+    visual extent is sometimes a hair wider: a glyph of the hidden text can poke
+    past the paint (e.g. the left bowl of an "S" sticking out of the box). This
+    walk, starting just outside the ink edge, absorbs every column that looks
+    like such a poking glyph (including its faint anti-aliased fringe) and stops
+    at the first column that does not — so a poking letter is kept whole, while
+    the empty inter-word gap (and any neighbouring word beyond it) is left out.
+
+    direction: -1 refines the left edge (scan leftwards, returns the new x0);
+               +1 refines the right edge (scan rightwards, returns the new x1).
+    bound_px:  near edge of the neighbouring word; the scan never crosses it, so
+               a box that physically touches the next word can't swallow it.
+    """
+    if img is None:
+        return float(ink_edge_px)
+    h, w = img.shape[:2]
+    y0 = max(0, int(y0))
+    y1 = min(h, int(y1))
+    if y1 - y0 < 2:
+        return float(ink_edge_px)
+
+    edge = float(ink_edge_px)
+    x = int(round(ink_edge_px))
+    while True:
+        col_x = x - 1 if direction < 0 else x
+        if col_x < 0 or col_x >= w:
+            break
+        if direction < 0 and col_x < int(bound_px):
+            break
+        if direction > 0 and col_x >= int(bound_px):
+            break
+
+        if not _is_glyph_col(img[y0:y1, col_x]):
+            break  # box-edge anti-alias or background whitespace -> stop
+
+        if direction < 0:
+            edge = float(col_x)
+            x = col_x
+        else:
+            edge = float(col_x + 1)
+            x = col_x + 1
+    return edge
+
+
+def _next_word_edge(img, start_px, direction, y0, y1, bound_px):
+    """
+    Scan outward from a box's content edge, across the inter-word whitespace, and
+    return the near ink edge (px) of the next word's glyphs — or None if no word
+    is reached before bound_px.
+
+    This is found from PIXELS on purpose: when a redaction covers the first
+    letter of the following word, PyMuPDF's text layer reports only the visible
+    fragment ("nd" for "and") sitting where the fragment starts, not where the
+    word visually begins. Locating the word by its ink avoids that error. The
+    box's own full-height anti-aliased edge is skipped by the same glyph test, so
+    a box flush against the next word is still measured.
+    """
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    y0 = max(0, int(y0))
+    y1 = min(h, int(y1))
+    if y1 - y0 < 2:
+        return None
+
+    col_x = int(round(start_px)) if direction > 0 else int(round(start_px)) - 1
+    while 0 <= col_x < w:
+        if direction > 0 and col_x >= int(bound_px):
+            return None
+        if direction < 0 and col_x < int(bound_px):
+            return None
+        if _is_glyph_col(img[y0:y1, col_x]):
+            return float(col_x + 1) if direction < 0 else float(col_x)
+        col_x += direction
+    return None
+
 
 def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_bytes=None):
     """
@@ -119,68 +211,49 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
         if best_match:
             word_before, word_after = best_match
 
-            space_px = 9.5
-            calculated_space_px = 0
-            space_count = 0
+            # Near edge of each neighbouring (non-redacted) word in image px, or
+            # the page border when there is none on that side.
+            left_bound = (word_before[2] - img_rect.x0) * pts_to_px_x if word_before else 0.0
+            right_bound = (word_after[0] - img_rect.x0) * pts_to_px_x if word_after else float(img_w)
 
-            for i in range(len(best_line_words) - 1):
-                w1 = best_line_words[i]
-                w2 = best_line_words[i+1]
-                gap_px = (w2[0] - w1[2]) * pts_to_px_x
-                if 3 <= gap_px <= 11:
-                    calculated_space_px += gap_px
-                    space_count += 1
+            # Average inter-word space on this line, in image px (clamped to a
+            # sane range so a sparse line can't produce a wild value).
+            gaps = [(best_line_words[i + 1][0] - best_line_words[i][2]) * pts_to_px_x
+                    for i in range(len(best_line_words) - 1)]
+            gaps = [g for g in gaps if 3 <= g <= 11]
+            space_px = sum(gaps) / len(gaps) if gaps else 5.0
+            space_px = min(max(space_px, 3.0), 8.0)
 
-            if space_count > 0:
-                avg_space_px = calculated_space_px / space_count
-                if 3 <= avg_space_px <= 11:
-                    space_px = avg_space_px
+            # Inset the vertical band so the box's own top/bottom corners are not
+            # mistaken for edge content.
+            y0_scan = int(by1) + 2
+            y1_scan = int(by2) - 2
 
-            def _is_touching_left():
-                """Return True if dark pixels are found immediately left of the box."""
-                if img is None:
-                    return False
-                x_start = max(0, int(bx1) - 5)
-                x_end = max(0, int(bx1))
-                if x_start >= x_end:
-                    return False
-                strip = img[int(by1):int(by2), x_start:x_end]
-                return bool(np.any(strip < 230))
+            # Pixel extent of the box: its ink plus any glyph of the hidden text
+            # that pokes past the paint (e.g. the bowl of an "S"), stopping at the
+            # inter-word whitespace.
+            content_x1 = _content_edge(img, bx1, -1, y0_scan, y1_scan, left_bound)
+            content_x2 = _content_edge(img, bx2, +1, y0_scan, y1_scan, right_bound)
 
-            def _is_touching_right():
-                """Return True if dark pixels are found immediately right of the box."""
-                if img is None:
-                    return False
-                x_start = min(int(img_w), int(bx2))
-                x_end = min(int(img_w), int(bx2) + 5)
-                if x_start >= x_end:
-                    return False
-                strip = img[int(by1):int(by2), x_start:x_end]
-                return bool(np.any(strip < 230))
+            # Where the box was painted over the inter-word space, its edge sits
+            # past the hidden text inside that gap. We can't see the covered
+            # letters, but we can locate the next word by its pixels and back off
+            # one space to reconstruct the true edge. The redaction edge is the
+            # innermost of the painted extent and "neighbour minus a space", so a
+            # poking glyph still wins (it is real ink) while a box that overran
+            # the gap is pulled back.
+            nbr_l = _next_word_edge(img, content_x1, -1, y0_scan, y1_scan,
+                                    (left_bound - 6.0) if word_before else (content_x1 - 14.0))
+            nbr_r = _next_word_edge(img, content_x2, +1, y0_scan, y1_scan,
+                                    (right_bound + 6.0) if word_after else (content_x2 + 14.0))
 
-            expected_x1_px = None
+            expected_x1_px = content_x1
+            if nbr_l is not None:
+                expected_x1_px = max(content_x1, nbr_l + space_px)
 
-            if word_before:
-                # Trust the ETV directly: word_before right edge + one space.
-                # The position may land inside the box when the box was painted over the space gap —
-                # that is correct and intentional; do not clamp or override with pixel scans.
-                word_before_x2_px = (word_before[2] - img_rect.x0) * pts_to_px_x
-                debug_offset_left = len(DEBUG_EXTRA_TEXT_LEFT) * 6.5 if DEBUG_EXTRA_TEXT_LEFT else 0
-                expected_x1_px = word_before_x2_px + space_px + debug_offset_left
-            elif _is_touching_left():
-                # No ETV word before the box but a letter is visually touching the left edge.
-                expected_x1_px = bx1 - space_px
-
-            expected_x2_px = None
-
-            if word_after:
-                # Trust the ETV directly: word_after left edge - one space.
-                word_after_x1_px = (word_after[0] - img_rect.x0) * pts_to_px_x
-                debug_offset_right = len(DEBUG_EXTRA_TEXT_RIGHT) * 6.5 if DEBUG_EXTRA_TEXT_RIGHT else 0
-                expected_x2_px = word_after_x1_px - space_px - debug_offset_right
-            elif _is_touching_right():
-                # No ETV word after the box but a letter is visually touching the right edge.
-                expected_x2_px = bx2 + space_px
+            expected_x2_px = content_x2
+            if nbr_r is not None:
+                expected_x2_px = min(content_x2, nbr_r - space_px)
 
             expected_height_px = None
             if best_line_words:

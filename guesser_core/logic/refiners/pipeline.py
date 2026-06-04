@@ -13,8 +13,13 @@ class RefinerPipeline:
         """
         Run each refiner against the original box independently.
         Merge proposals edge-by-edge: highest confidence wins.
-        On confidence tie, prefer less shrinkage (conservative).
-        Safety: proposals can only shrink the box, never expand it.
+        On confidence tie, prefer the wider box (conservative).
+
+        Refiners are responsible for proposing trustworthy edges: the etv
+        refiner validates every edge against the page pixels, so a proposal may
+        sit slightly outside the detected ink (to cover a glyph of the hidden
+        text that pokes past the paint, e.g. the bowl of an "S") or inside it,
+        but never reaches into the surrounding whitespace or a neighbouring word.
         """
         proposals = []
         for r in self.refiners:
@@ -30,7 +35,7 @@ class RefinerPipeline:
         left_proposals = [(p.x, p.confidence) for p in proposals if p.x is not None]
         if left_proposals:
             best_conf = max(conf for _, conf in left_proposals)
-            # On confidence tie: least shrinkage = smallest x (left edge stays leftmost)
+            # On confidence tie: widest box = smallest x (left edge stays leftmost)
             best_x = min(x for x, conf in left_proposals if conf == best_conf)
             if best_x < new_x2:
                 new_x = best_x
@@ -38,7 +43,7 @@ class RefinerPipeline:
         right_proposals = [(p.x2, p.confidence) for p in proposals if p.x2 is not None]
         if right_proposals:
             best_conf = max(conf for _, conf in right_proposals)
-            # On confidence tie: least shrinkage = largest x2 (right edge stays rightmost)
+            # On confidence tie: widest box = largest x2 (right edge stays rightmost)
             best_x2 = max(x2 for x2, conf in right_proposals if conf == best_conf)
             if new_x < best_x2:
                 new_x2 = best_x2
