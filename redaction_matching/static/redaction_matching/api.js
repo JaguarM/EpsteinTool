@@ -100,13 +100,57 @@
       rebuildCandidates();
     }
 
+    /** Surface a names-list load failure loudly instead of silently emptying the list. */
+    function showNamesLoadError(msg) {
+      const countEl = document.getElementById('name-settings-count');
+      if (countEl) countEl.textContent = '⚠ names list failed to load';
+
+      let banner = document.getElementById('names-load-error');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'names-load-error';
+        banner.title = 'Click to dismiss';
+        banner.style.cssText = [
+          'position:fixed', 'top:12px', 'left:50%', 'transform:translateX(-50%)',
+          'z-index:99999', 'max-width:90vw', 'padding:10px 14px',
+          'background:#b00020', 'color:#fff', 'font:13px/1.4 system-ui,sans-serif',
+          'border-radius:6px', 'box-shadow:0 2px 8px rgba(0,0,0,.35)',
+          'cursor:pointer', 'white-space:pre-wrap'
+        ].join(';');
+        banner.addEventListener('click', () => banner.remove());
+        document.body.appendChild(banner);
+      }
+      banner.textContent = `Names list failed to load — ${msg}`;
+    }
+
     async function loadNamesData() {
       try {
         const resp = await fetch('/static/names/epstein_names.json');
-        state.namesData = await resp.json();
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText} fetching names file`);
+
+        const raw = await resp.text();
+        try {
+          state.namesData = JSON.parse(raw);
+        } catch (parseErr) {
+          // Pinpoint the offending spot. Chrome reports "...position N...",
+          // Firefox reports "line N column N"; fall back to the raw message otherwise.
+          let where = '';
+          const posM = /position (\d+)/.exec(parseErr.message);
+          const lcM  = /line (\d+) column (\d+)/.exec(parseErr.message);
+          if (posM) {
+            const pos = +posM[1];
+            const before = raw.slice(0, pos);
+            where = ` (line ${before.split('\n').length}, column ${pos - before.lastIndexOf('\n')})`;
+          } else if (lcM) {
+            where = ` (line ${lcM[1]}, column ${lcM[2]})`;
+          }
+          throw new Error(`names file is not valid JSON${where}: ${parseErr.message}`);
+        }
+
         rebuildCandidates();
       } catch (e) {
-        console.warn('Could not load names JSON:', e);
+        console.error('Failed to load names list:', e);
+        showNamesLoadError(e.message);
       }
     }
 

@@ -133,12 +133,13 @@ function utbConnectRedactionsToLines() {
     const lineBoxes = embeddedBoxes.filter(b => b.page === rb.page && b.lineId === bestBox.lineId);
     let hasUpper = false;
     if (typeof state !== 'undefined' && state.candidates && state.candidates.length > 0) {
-      const lineText = lineBoxes.map(lb => lb.text || '').join(' ');
-      const lineUpper = lineText.toUpperCase();
+      const lineUpper = lineBoxes.map(lb => lb.text || '').join(' ').toUpperCase();
       for (const c of state.candidates) {
-        const cWords = c.split(/\s+/).map(w => w.replace(/[^A-Za-z]/g, '').toUpperCase()).filter(w => w.length > 2);
-        if (cWords.length === 0) continue;
-        const phrasePattern = new RegExp('\\b' + cWords.join('\\s+') + '\\b');
+        const words = c.toUpperCase().trim().split(/\s+/).filter(Boolean);
+        // Skip trivially short names (e.g. "Al", "Ed") — too ambiguous to force uppercase
+        if (words.join('').replace(/[^A-Z]/g, '').length < 3) continue;
+        // Escape regex metacharacters per word; tolerate variable whitespace between name parts
+        const phrasePattern = new RegExp('\\b' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b');
         if (phrasePattern.test(lineUpper)) {
           hasUpper = true;
           break;
