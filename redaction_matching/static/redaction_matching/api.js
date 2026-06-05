@@ -227,21 +227,26 @@
 
       // Determine the inter-word space width for this redaction's line.
       //
-      // Justification only ever STRETCHES spaces beyond the font's natural
-      // advance — it never compresses them. So:
-      //   • line is justified  ⇔  its median space sits clearly ABOVE natural
-      //     → the spaces are stretched, use the measured median.
-      //   • otherwise (median at or below natural — a normal / last line)
-      //     → use the precise HarfBuzz natural advance.
-      // A space measured *below* natural is therefore never treated as a real
-      // width: it just means "not stretched" (e.g. a space partly covered by the
-      // redaction box reads small). This is the key to detecting the un-justified
-      // last lines that sit in a sea of justified text.
+      // The font's natural space advance (from HarfBuzz) is the truth for any
+      // line that ISN'T justified — it's exact, while the on-page measurements
+      // carry rounding and coverage noise. Justification only ever STRETCHES
+      // spaces above that natural advance; it never compresses them. So:
+      //
+      //   1. Drop measured spaces that read clearly BELOW natural — those are
+      //      artifacts: a space partly hidden under the redaction box reads
+      //      small (e.g. the lone 2.7 among ~4.0s), it is not a real spacing.
+      //   2. Look at the typical (median) of what remains:
+      //        • clusters at / around natural  → line is NOT justified
+      //          → snap to the precise HarfBuzz advance.
+      //        • sits clearly ABOVE natural     → line IS justified
+      //          → trust the measured median stretch.
+      //
+      // This is what lets the un-justified last lines (which sit in a sea of
+      // justified text) be detected as un-justified and use the exact width.
       //
       // The natural advance is computed at the LINE's own font + size (from its
       // embedded spans), not the redaction's global defaults, so a size mismatch
-      // can't skew the comparison. Median (not mean) ignores the odd double space
-      // or a box-truncated space.
+      // can't skew the comparison.
       if (box.lineId && (box.spaceWidth == null || box.defaultSpaceWidth !== false)) {
         const lineSpans = utbState.boxes.filter(
           b => b.lineId === box.lineId && b.type === 'embedded' && b.baseCharPositions
@@ -252,15 +257,25 @@
           .filter(w => w > 0);
 
         if (detected.length > 0) {
-          const median = _median(detected);
-
+          // Source font sizes are clean whole points (12pt here); per-span
+          // extraction adds sub-point noise (one line reads 11.8, the next 12.0)
+          // which would otherwise leak straight into the natural space width and
+          // make same-size lines disagree (3.9 vs 4.0). Snap the line's measured
+          // size to the nearest whole point — per line, so a genuinely different
+          // size (e.g. a heading) is still respected.
+          //
+          // sizePt stays in PDF POINTS: the /widths backend applies the 4/3
+          // (96/72 DPI) scale itself, so 12pt already renders as the 16px-space.
+          // Passing 16 here would over-size the space by 4/3.
           const lineSizePt = _median(lineSpans.map(b => b.sizePt).filter(s => s > 0));
+          const rawSizePt = lineSizePt || box.sizePt;
+          const sizePt = rawSizePt ? Math.round(rawSizePt) : rawSizePt;
           const lineFont = lineSpans[0]?.fontFamily || box.fontFamily;
           let natural = null;
           if (typeof getNaturalSpaceWidth === 'function') {
             natural = await getNaturalSpaceWidth({
               fontFamily: lineFont,
-              sizePt: lineSizePt || box.sizePt,
+              sizePt: sizePt,
               kerning: box.kerning,
               ligatures: box.ligatures,
             });
@@ -269,14 +284,19 @@
           let spaceW;
           if (natural != null) {
             const tol = Math.max(JUSTIFY_SPACE_TOL_FLOOR_PX, natural * JUSTIFY_SPACE_TOL_FRAC);
-            spaceW = (median > natural + tol) ? median : natural;
+            // Ignore sub-natural artifacts (covered / truncated spaces), then
+            // judge justification from what's left.
+            const real = detected.filter(w => w >= natural - tol);
+            const typical = real.length ? _median(real) : natural;
+            spaceW = (typical > natural + tol) ? typical : natural;
           } else {
-            spaceW = median;
+            // No HarfBuzz reference — fall back to the robust raw median.
+            spaceW = _median(detected);
           }
 
           box.spaceWidth = spaceW;
           box.defaultSpaceWidth = false;
-          box.nativeSpaceWidth = natural != null ? natural : median;
+          box.nativeSpaceWidth = natural != null ? natural : _median(detected);
           if (typeof renderBox === 'function') renderBox(box);
           if (typeof syncToolbarToBox === 'function' && utbState.selectedId === box.id) {
             syncToolbarToBox(box);
@@ -519,6 +539,13 @@
         const matches = state.candidates.filter(c => {
           const w = box.widths[c];
           return w !== undefined && Math.abs(w - candidateEW(box, c)) <= tol;
+        });
+
+        // Sort matches by closest width difference
+        matches.sort((a, b) => {
+          const diffA = Math.abs(box.widths[a] - candidateEW(box, a));
+          const diffB = Math.abs(box.widths[b] - candidateEW(box, b));
+          return diffA - diffB;
         });
 
         if (matches.length) matchCount++;

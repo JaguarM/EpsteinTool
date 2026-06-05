@@ -10,4 +10,4 @@ class RedactionMatchingTool(PDFTool):
     sidebar = 'redaction_matching/sidebar_tools.html'
     shows_text_options_bar = True
     has_sidebar_toggle = True
-    scripts_before_viewer = [{'path': 'redaction_matching/api.js', 'version': 'v=4'}]
+    scripts_before_viewer = [{'path': 'redaction_matching/api.js', 'version': 'v=6'}]

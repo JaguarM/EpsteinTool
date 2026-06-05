@@ -23,6 +23,54 @@ except ImportError:
 _etv_pipeline = RefinerPipeline([EtvRefiner()])
 
 
+def _crop_to_page_ratio(img_bytes):
+    """Crop excess bottom pixels so an embedded page image matches the standard
+    8.5x11 (1056/816) ratio the detector and the 816x1056 coordinate space assume.
+
+    Returns the (possibly re-encoded) PNG bytes; on any failure returns the input
+    bytes unchanged. This is the only pixel-altering step between the embedded
+    image and the detector, so it is shared by process_pdf and the width debugger
+    to guarantee both operate on identical pixels.
+    """
+    try:
+        with Image.open(BytesIO(img_bytes)) as pil_img:
+            if pil_img.mode not in ("RGB", "RGBA", "L"):
+                pil_img = pil_img.convert("RGB")
+            w, h = pil_img.size
+            expected_h = int(round(w * (1056.0 / 816.0)))
+            if h > expected_h:
+                pil_img = pil_img.crop((0, 0, w, expected_h))
+                out_io = BytesIO()
+                pil_img.save(out_io, format="PNG")
+                return out_io.getvalue()
+    except Exception as e:
+        print(f"Error checking/cropping image dimensions: {e}")
+    return img_bytes
+
+
+def extract_page_image(doc, page_index):
+    """Extract the first PNG/TIFF embedded raster image on a page, cropped to the
+    8.5x11 page ratio exactly as process_pdf feeds it to the detector.
+
+    Returns (img_bytes, img_rect) or None if the page has no usable embedded
+    image. Shared with the width debugger so it sees the server's exact pixels.
+    """
+    image_list = doc.get_page_images(page_index)
+    if not image_list:
+        return None
+    page = doc[page_index]
+    for img_info in image_list:
+        xref = img_info[0]
+        base_image = doc.extract_image(xref)
+        if not base_image:
+            continue
+        if base_image.get("ext", "").lower() not in ("png", "tiff", "tif"):
+            continue
+        image_rects = page.get_image_rects(xref)
+        if not image_rects:
+            continue
+        return _crop_to_page_ratio(base_image["image"]), image_rects[0]
+    return None
 
 
 
@@ -98,24 +146,8 @@ def process_pdf(pdf_bytes):
                     if image_ext not in ('png', 'tiff', 'tif'):
                         continue
                     
-                    img_bytes = base_image["image"]
-
-
-                    # Crop excess bottom pixels based on the explicitly expected 8.5x11 page ratio
-                    try:
-                        with Image.open(BytesIO(img_bytes)) as pil_img:
-                            if pil_img.mode not in ("RGB", "RGBA", "L"):
-                                pil_img = pil_img.convert("RGB")
-                            w, h = pil_img.size
-                            # Enforce standard 8.5x11 (1056/816) aspect ratio for the embedded images
-                            expected_h = int(round(w * (1056.0 / 816.0)))
-                            if h > expected_h:
-                                pil_img = pil_img.crop((0, 0, w, expected_h))
-                                out_io = BytesIO()
-                                pil_img.save(out_io, format="PNG")
-                                img_bytes = out_io.getvalue()
-                    except Exception as e:
-                        print(f"Error checking/cropping image dimensions on page {page_num}: {e}")
+                    # Crop excess bottom pixels to the expected 8.5x11 page ratio
+                    img_bytes = _crop_to_page_ratio(base_image["image"])
 
                     # Capture the first valid image on each page
                     if page_num not in page_images:

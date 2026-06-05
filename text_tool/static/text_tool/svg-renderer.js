@@ -313,6 +313,17 @@ function _updateSpaceLabels(g, box) {
     for (let i = 0; i < box.text.length; i++) {
       if (box.text[i] !== ' ') continue;
       
+      // Skip spaces that have no text following them
+      let hasTextFollowing = false;
+      for (let j = i + 1; j < box.text.length; j++) {
+        if (box.text[j] !== ' ') {
+          hasTextFollowing = true;
+          break;
+        }
+      }
+      if (!hasTextFollowing) continue;
+
+      
       let spX = 0;
       let spW = 0;
       try {
@@ -335,6 +346,16 @@ function _updateSpaceLabels(g, box) {
   for (let i = 0; i < box.baseCharPositions.length; i++) {
     const cp = box.baseCharPositions[i];
     if (cp.c !== ' ') continue;
+
+    // Skip spaces that have no text following them
+    let hasTextFollowing = false;
+    for (let j = i + 1; j < box.baseCharPositions.length; j++) {
+      if (box.baseCharPositions[j].c !== ' ') {
+        hasTextFollowing = true;
+        break;
+      }
+    }
+    if (!hasTextFollowing) continue;
     const spW = hasSpaceOverride ? box.spaceWidth : (cp.w || 0);
     _spacebadge(g, xs[i] + spW / 2, labelTopY, spW.toFixed(1), 'rgba(255,210,0,0.92)');
   }

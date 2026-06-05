@@ -19,6 +19,90 @@ def _is_glyph_col(col, dark_thresh=160, min_dark_px=2, max_dark_frac=0.8):
     return min_dark_px <= n_dark < max_dark_frac * len(col)
 
 
+def _subpixel_glyph_edge(img, edge, direction, y0, y1):
+    """
+    Place a validated poking-glyph edge at the sub-pixel position where the
+    column's darkest row crosses 50% ink (gray 127.5), interpolating the row-min
+    profile across the outermost two columns of the absorbed poke.
+
+    BoxDetector and the integer walk in _content_edge land on whole columns, but
+    a faint anti-aliased poke covers a column only fractionally (e.g. the "S" of
+    a hidden name reaches col 233 at ~40% ink, full ink only at col 234). Snapping
+    such an edge to the integer column throws away up to a pixel of the name's
+    true extent. This refines just that last edge; it is only ever called on a
+    column the glyph test already accepted, so the box's own full-height AA edge
+    (rejected by _is_glyph_col) is never refined here. Returns a float within ~1px
+    of `edge`, or `edge` unchanged when the local profile is flat/unusable.
+    """
+    THRESH = 127.5
+    h, w = img.shape[:2]
+
+    def cmin(c):
+        return float(img[y0:y1, c].min()) if 0 <= c < w else 255.0
+
+    if direction < 0:  # left edge: `edge` is the outermost glyph column
+        g = int(round(edge))
+        m_g, m_in = cmin(g), cmin(g + 1)          # paper-side g, ink-side g+1
+        if m_g >= THRESH > m_in:                   # 50% crossing lies in [g, g+1]
+            return g + (m_g - THRESH) / (m_g - m_in)
+        m_out = cmin(g - 1)
+        if m_out >= THRESH > m_g:                   # poke fuller than 50% -> crossing in [g-1, g]
+            return (g - 1) + (m_out - THRESH) / (m_out - m_g)
+        return float(g)
+    else:              # right edge: `edge` is one past the last glyph column
+        g = int(round(edge)) - 1
+        m_g, m_in = cmin(g), cmin(g - 1)          # paper-side g, ink-side g-1
+        if m_g >= THRESH > m_in:
+            return (g + 1) - (m_g - THRESH) / (m_g - m_in)
+        m_out = cmin(g + 1)
+        if m_out >= THRESH > m_g:
+            return (g + 1) + (m_out - THRESH) / (m_out - m_g)
+        return float(g + 1)
+
+
+def _box_aa_edge(img, ink_edge_px, direction, y0, y1, bound_px):
+    """
+    Extend a box edge that BoxDetector left on its pure-black column across the
+    box's own anti-aliased fringe, returning the sub-pixel ink-coverage position.
+
+    BoxDetector thresholds at pure black (`< 10`), so a box whose painted edge is
+    anti-aliased is reported a pixel narrow: the greyed fringe column (e.g. box 2's
+    left col at ~66/255, full height) is dropped. When no glyph pokes past the
+    paint the box edge is the best proxy for the hidden name edge, so leaving it a
+    pixel short biases the width low. This recovers that fringe: it fires only on a
+    single full-height grey column with paper beyond it (the box's AA edge), never
+    on a partial-height glyph, and the placement is bounded outward by `bound_px`
+    (and, upstream, clamped against neighbour∓space), so it cannot run wide.
+
+    Returns the refined edge, or `ink_edge_px` unchanged when there is no fringe.
+    """
+    if img is None:
+        return float(ink_edge_px)
+    h, w = img.shape[:2]
+    e = int(round(ink_edge_px))
+    # left edge is inclusive (fringe sits at e-1); right edge is exclusive (fringe at e)
+    aa_col = e - 1 if direction < 0 else e
+    out_col = aa_col - 1 if direction < 0 else aa_col + 1
+    if not (0 <= aa_col < w and 0 <= out_col < w):
+        return float(ink_edge_px)
+    if direction < 0 and aa_col < int(bound_px):
+        return float(ink_edge_px)
+    if direction > 0 and aa_col >= int(bound_px):
+        return float(ink_edge_px)
+
+    col = img[y0:y1, aa_col]
+    dark_frac = np.count_nonzero(col < 200) / len(col)
+    mean_aa = float(col.mean())
+    mean_out = float(img[y0:y1, out_col].mean())
+    # Box AA fringe = covered the whole height (like the box, unlike a glyph),
+    # greyer than pure black, with paper just beyond it.
+    if dark_frac < 0.8 or mean_aa < 16.0 or mean_out < 200.0:
+        return float(ink_edge_px)
+
+    coverage = (255.0 - mean_aa) / 255.0          # ink fraction of the fringe column
+    return ink_edge_px - coverage if direction < 0 else ink_edge_px + coverage
+
+
 def _content_edge(img, ink_edge_px, direction, y0, y1, bound_px):
     """
     Walk outward from a box's ink edge through contiguous glyph ink and return
@@ -65,6 +149,14 @@ def _content_edge(img, ink_edge_px, direction, y0, y1, bound_px):
         else:
             edge = float(col_x + 1)
             x = col_x + 1
+
+    # If a glyph poke was actually absorbed (the edge moved past the ink), refine
+    # that outer edge to its sub-pixel 50%-ink crossing. Otherwise the walk stopped
+    # on the box's own edge -> recover the anti-aliased fringe BoxDetector trimmed.
+    if edge != float(ink_edge_px):
+        edge = _subpixel_glyph_edge(img, edge, direction, y0, y1)
+    else:
+        edge = _box_aa_edge(img, ink_edge_px, direction, y0, y1, bound_px)
     return edge
 
 
@@ -101,11 +193,16 @@ def _next_word_edge(img, start_px, direction, y0, y1, bound_px):
     return None
 
 
-def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_bytes=None):
+def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_bytes=None, debug_out=None):
     """
     Measures width of text based on surrounding words.
     Returns a list of expected pixel widths corresponding to the input boxes.
     If an expected width cannot be calculated, the list contains None at that index.
+
+    debug_out: optional list. When provided, one dict of per-box intermediates
+    (chosen line, neighbour words, space_px, content edges, next-word-by-pixel
+    edges, expected edges) is appended for each input box. Default None keeps
+    production behaviour and cost unchanged; only the width debugger passes it.
     """
     img = None
     if base_image_bytes is not None:
@@ -262,7 +359,31 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     expected_height_px = (sum(heights_pts) / len(heights_pts)) * pts_to_px_y
 
             expected_widths.append((expected_x1_px, expected_x2_px, expected_height_px))
+
+            if debug_out is not None:
+                debug_out.append({
+                    'raw_ink': (float(bx1), float(bx2)),
+                    'line_words': [w[4] for w in best_line_words],
+                    'word_before': word_before[4] if word_before else None,
+                    'word_after': word_after[4] if word_after else None,
+                    'left_bound': left_bound,        # word_before near edge (text layer), px
+                    'right_bound': right_bound,       # word_after near edge (text layer), px
+                    'space_px': space_px,
+                    'gaps': gaps,
+                    'y_scan': (y0_scan, y1_scan),
+                    'content_x1': content_x1,         # ink + poking glyph, left
+                    'content_x2': content_x2,         # ink + poking glyph, right
+                    'nbr_l': nbr_l,                   # next word near edge by pixels, left
+                    'nbr_r': nbr_r,                   # next word near edge by pixels, right
+                    'expected_x1': expected_x1_px,
+                    'expected_x2': expected_x2_px,
+                })
         else:
             expected_widths.append((None, None, None))
+            if debug_out is not None:
+                debug_out.append({
+                    'raw_ink': (float(b_dict['bx1']), float(b_dict['bx2'])),
+                    'reason': 'no neighbouring words found on any candidate line',
+                })
 
     return expected_widths
