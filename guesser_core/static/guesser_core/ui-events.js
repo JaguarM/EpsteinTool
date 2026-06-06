@@ -10,9 +10,7 @@ function updateCSSZoom() {
   els.viewer.style.setProperty('--scale-factor', state.currentZoom);
   els.viewer.classList.toggle('zoom-in', state.currentZoom > 1.0);
   updateZoomLevelText();
-  if (typeof onZoomChange === 'function') {
-    onZoomChange(state.currentZoom);
-  }
+  PDFHooks.emit('zoom:changed', { zoom: state.currentZoom });
 }
 
 function processZoomFromText(newZoom, mouseX = null, mouseY = null) {

@@ -348,21 +348,15 @@ html {
   height: calc(var(--page-height, 1056px) * var(--scale-factor, 1));
 }
 
+/* The :not(.webgl-overlay) guard keeps this generic canvas sizing from
+   overriding the webgl_mask plugin's own .webgl-overlay rule (in that plugin's
+   stylesheet). It is inert when the plugin folder is absent. */
 .page-container > canvas:not(.lower-canvas):not(.upper-canvas):not(.webgl-overlay),
 .page-container > img {
   display: block;
   width: 100%;
   height: 100%;
   image-rendering: auto;
-}
-
-.webgl-overlay {
-  display: block;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  mix-blend-mode: screen;
 }
 
 /* Switch to nearest-neighbour only when zoomed above 100% so pixels stay sharp
@@ -510,10 +504,10 @@ html {
   min-height: 44px;
 }
 
-#text-options-bar,
-#fabric-options-bar,
-#webgl-options-bar,
-#etv-options-bar {
+/* Every plugin subtoolbar uses class="options-bar", so styling them by class
+   means the core never enumerates specific plugins. Visibility is handled by
+   the global `.hidden { display: none !important }` rule above. */
+.options-bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -522,12 +516,6 @@ html {
   flex-shrink: 0;
   color: #e8eaed;
   font-size: 13px;
-}
-
-#fabric-options-bar.hidden,
-#webgl-options-bar.hidden,
-#etv-options-bar.hidden {
-  display: none;
 }
 
 .options-group {

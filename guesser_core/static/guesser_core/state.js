@@ -67,12 +67,9 @@ const els = {
   toggleToolsBtn: document.getElementById('toggle-tools'),
   toolAddBoxBtn: document.getElementById('tool-add-box'),
   toolTextBtn: document.getElementById('tool-text'),
-  etvAddTextBtn: document.getElementById('etv-add-text-btn'),
-  toggleWebglBtn: document.getElementById('toggle-webgl'),
-  webglOptionsBar: document.getElementById('webgl-options-bar'),
   textOptionsBar: document.getElementById('text-options-bar'),
-  maskColor: document.getElementById('mask-color'),
-  edgeSubtract: document.getElementById('edge-subtract'),
+  // Plugin-owned controls (webgl mask toggle, edge slider, ETV add-text, …) are
+  // looked up by the plugins themselves — the core no longer references them.
 
   // Settings
   tol: document.getElementById('tolerance'),

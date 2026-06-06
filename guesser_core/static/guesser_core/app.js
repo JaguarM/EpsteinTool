@@ -55,14 +55,22 @@
         });
       }
 
-      // Subtoolbars are mutually exclusive tabs; null = default (text options bar)
+      // Subtoolbars are mutually-exclusive tabs in the options-bar row; null =
+      // default (text options bar). A plugin contributes a toggle button + an
+      // element with class "options-bar"; it registers the button via
+      // registerSubtoolbar so openSubtoolbar can deactivate it generically —
+      // the core never names a specific plugin here.
+      const _subtoolbarButtons = [];
+      window.registerSubtoolbar = function (button) {
+        if (button && !_subtoolbarButtons.includes(button)) _subtoolbarButtons.push(button);
+      };
+
       // Exposed as window.openSubtoolbar so plugin scripts can call it on click
       window.openSubtoolbar = function openSubtoolbar(barToShow, btnToActivate) {
         const toggleFmt = document.getElementById('toggle-fmt') ?? document.getElementById('tool-text');
-        els.textOptionsBar?.classList.add('hidden');
-        if (els.webglOptionsBar) els.webglOptionsBar.classList.add('hidden');
-        document.getElementById('fabric-options-bar')?.classList.add('hidden');
-        els.toggleWebglBtn?.classList.remove('active');
+        document.querySelectorAll('#unified-options-bar-container .options-bar')
+          .forEach(bar => bar.classList.add('hidden'));
+        _subtoolbarButtons.forEach(btn => btn.classList.remove('active'));
         toggleFmt?.classList.remove('active');
         if (!barToShow) {
           els.textOptionsBar?.classList.remove('hidden');
@@ -74,24 +82,6 @@
 
       // Set initial state — show text options bar
       openSubtoolbar(null, null);
-
-      if (els.toggleWebglBtn) {
-        els.toggleWebglBtn.addEventListener('click', () => {
-          const isActive = els.toggleWebglBtn.classList.contains('active');
-          document.querySelectorAll('.webgl-overlay').forEach(canvas => {
-            canvas.style.display = !isActive ? 'block' : 'none';
-          });
-          if (!isActive) {
-            openSubtoolbar(els.webglOptionsBar, els.toggleWebglBtn);
-            if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
-          } else {
-            openSubtoolbar(null, null);
-          }
-        });
-      }
-
-      if (els.maskColor) els.maskColor.addEventListener('input', () => { if (typeof updateWebGLUniforms === 'function') updateWebGLUniforms(); });
-      if (els.edgeSubtract) els.edgeSubtract.addEventListener('input', () => { if (typeof updateWebGLUniforms === 'function') updateWebGLUniforms(); });
 
       function triggerZoomCheck(mouseX = null, mouseY = null) {
         let val = parseInt(els.zoomInputElem.value.replace('%', ''));
@@ -242,6 +232,10 @@
           if (state.currentPage < state.numPages) goToPage(state.currentPage + 1);
         });
       }
+
+      // Core toolbar wiring is complete — plugins attach their own buttons /
+      // option-bar controls now (e.g. webgl_mask wires its mask toggle here).
+      await PDFHooks.emit('ui:ready');
 
       // 3. Auto-load the default PDF on startup
       try {

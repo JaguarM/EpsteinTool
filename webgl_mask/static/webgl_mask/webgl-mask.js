@@ -177,7 +177,7 @@ async function initWebGLOverlay(canvas, pageNum) {
 
         requestAnimationFrame(() => {
           updateWebGLUniforms(pageNum);
-          const isActive = els.toggleWebglBtn && els.toggleWebglBtn.classList.contains('active');
+          const isActive = document.getElementById('toggle-webgl')?.classList.contains('active');
           if (isActive) canvas.style.display = 'block';
         });
       };
@@ -199,7 +199,8 @@ async function initWebGLOverlay(canvas, pageNum) {
 
 
 function updateWebGLUniforms(specificPage = null) {
-  const strength = els.edgeSubtract ? els.edgeSubtract.value / 255.0 : 1.0;
+  const edgeSlider = document.getElementById('edge-subtract');
+  const strength = edgeSlider ? edgeSlider.value / 255.0 : 1.0;
 
   const pagesToUpdate = specificPage ? [specificPage] : Array.from(webglContexts.keys());
 
@@ -240,7 +241,7 @@ async function fetchMasksAsync(file, isDefault = false) {
 }
 
 function refreshWebGLCanvases() {
-  const webglActive = els.toggleWebglBtn && els.toggleWebglBtn.classList.contains('active');
+  const webglActive = document.getElementById('toggle-webgl')?.classList.contains('active');
 
   document.querySelectorAll('.page-container').forEach(pageContainer => {
     const pageNum = parseInt(pageContainer.dataset.pageNum);
@@ -255,3 +256,60 @@ function refreshWebGLCanvases() {
     }
   });
 }
+
+
+/* ── Plugin lifecycle wiring ───────────────────────────────────
+   Every integration point with the core viewer goes through PDFHooks, and
+   this plugin owns its overlay canvas + toolbar wiring. Deleting the
+   webgl_mask/ folder removes all of it with zero references left in the core. */
+
+// Tear down GL contexts before the viewer swaps pages.
+PDFHooks.on('viewer:clear', () => clearWebGLContexts());
+
+// Build this plugin's overlay canvas when the core renders a page.
+PDFHooks.on('page:rendered', ({ pageContainer, pageNum }) => {
+  const canvas = document.createElement('canvas');
+  canvas.id = `webgl-overlay-${pageNum}`;
+  canvas.className = 'webgl-overlay';
+  canvas.style.position = 'absolute';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.pointerEvents = 'none';
+  canvas.width = state.pageWidth;
+  canvas.height = state.pageHeight;
+  const active = document.getElementById('toggle-webgl')?.classList.contains('active');
+  canvas.style.display = active ? 'block' : 'none';
+  pageContainer.appendChild(canvas);
+
+  if (state.hasPdf) setupWebGLOverlay(pageContainer, canvas, pageNum);
+});
+
+PDFHooks.on('pages:refresh', () => refreshWebGLCanvases());
+
+// Fetch the redaction masks for the freshly loaded document.
+PDFHooks.on('document:loaded', ({ file, isDefault }) => fetchMasksAsync(file, isDefault));
+
+// Attach the mask toggle + reveal-strength slider once the core toolbar exists.
+PDFHooks.on('ui:ready', () => {
+  const toggleBtn = document.getElementById('toggle-webgl');
+  const optionsBar = document.getElementById('webgl-options-bar');
+  const edgeSlider = document.getElementById('edge-subtract');
+
+  if (toggleBtn) {
+    window.registerSubtoolbar?.(toggleBtn);
+    toggleBtn.addEventListener('click', () => {
+      const isActive = toggleBtn.classList.contains('active');
+      document.querySelectorAll('.webgl-overlay').forEach(c => {
+        c.style.display = !isActive ? 'block' : 'none';
+      });
+      if (!isActive) {
+        window.openSubtoolbar?.(optionsBar, toggleBtn);
+        refreshWebGLCanvases();
+      } else {
+        window.openSubtoolbar?.(null, null);
+      }
+    });
+  }
+
+  if (edgeSlider) edgeSlider.addEventListener('input', () => updateWebGLUniforms());
+});

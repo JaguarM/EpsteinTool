@@ -426,3 +426,11 @@ window.setShowSpaceWidthLabels = function(val) {
   showSpaceWidthLabels = val;
   renderAllTextLayers();
 };
+
+
+// ── Lifecycle wiring ──────────────────────────────────────────
+// The core emits 'page:rendered' for each page container; build that page's
+// SVG text layer in response rather than being invoked by name.
+if (window.PDFHooks) {
+  PDFHooks.on('page:rendered', ({ pageContainer, pageNum }) => renderTextLayer(pageContainer, pageNum));
+}

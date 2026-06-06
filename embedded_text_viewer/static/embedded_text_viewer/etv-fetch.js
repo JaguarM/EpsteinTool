@@ -199,30 +199,22 @@ window.addEmbeddedTextSpan = function (pageNum, x, y) {
 
 
 // ── Lifecycle hooks ───────────────────────────────────────────
-
-const _etvOrigLoadDocument = window.loadDocument;
-if (typeof _etvOrigLoadDocument === 'function') {
-  window.loadDocument = async function (...args) {
-    utbState.reset();
-    clearAllSVGLayers?.();
+// Subscribe to the core's document lifecycle instead of monkey-patching
+// window.loadDocument. The core already resets utbState and the SVG layers at
+// the top of loadDocument, so this handler only (re)fetches the embedded spans.
+if (window.PDFHooks) {
+  PDFHooks.on('document:loaded', ({ file }) => {
     _utbFetchState.fetched = false;
-    await _etvOrigLoadDocument(...args);
-    const file = typeof state !== 'undefined' ? (state.currentFile || null) : null;
     utbFetchSpans(file);
-  };
+  });
 }
 
+// Clear stale overlays the moment the user picks a new file, before analysis returns.
 document.getElementById('pdf-file')?.addEventListener('change', () => {
   _utbFetchState.fetched = false;
   utbState.reset();
   clearAllSVGLayers?.();
 });
-
-setTimeout(() => {
-  if (!_utbFetchState.fetched) {
-    utbFetchSpans(typeof state !== 'undefined' ? (state.currentFile || null) : null);
-  }
-}, 1500);
 
 
 window.utbFetchSpans = utbFetchSpans;

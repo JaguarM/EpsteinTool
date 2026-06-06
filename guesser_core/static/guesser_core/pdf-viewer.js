@@ -88,8 +88,6 @@ async function loadDocument(data, file) {
   if (typeof calculateAllWidths === 'function') await calculateAllWidths();
   if (typeof renderAllTextLayers === 'function') renderAllTextLayers();
 
-  if (typeof fetchMasksAsync === 'function') await fetchMasksAsync(file, !file);
-
   const redactionBoxes = typeof utbState !== 'undefined'
     ? utbState.boxes.filter(b => b.type === 'redaction') : [];
 
@@ -100,6 +98,9 @@ async function loadDocument(data, file) {
     if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
   }
 
+  // Lifecycle: let plugins react to a freshly loaded document (webgl masks,
+  // embedded-text spans, …). file === null on the auto-loaded default PDF.
+  await PDFHooks.emit('document:loaded', { file, isDefault: !file });
 }
 
 async function handleFileUpload(e) {
@@ -144,7 +145,7 @@ async function goToPage(pageNum) {
   if (!state.pageImages.length) return;
   pageNum = Math.max(1, Math.min(pageNum, state.numPages));
 
-  if (typeof clearWebGLContexts === 'function') clearWebGLContexts();
+  PDFHooks.emit('viewer:clear');
 
   state.currentPage = pageNum;
   els.pageInputElem.value = pageNum;
@@ -174,33 +175,12 @@ async function goToPage(pageNum) {
   img.style.height = '100%';
   pageContainer.appendChild(img);
 
-  // WebGL overlay canvas — sized to match the pixel space
-  const webglCanvas = document.createElement('canvas');
-  webglCanvas.id = `webgl-overlay-${pageNum}`;
-  webglCanvas.className = 'webgl-overlay';
-  webglCanvas.style.position = 'absolute';
-  webglCanvas.style.top = '0';
-  webglCanvas.style.left = '0';
-  webglCanvas.style.pointerEvents = 'none';
-  webglCanvas.width = state.pageWidth;
-  webglCanvas.height = state.pageHeight;
-  const webglActive = els.toggleWebglBtn && els.toggleWebglBtn.classList.contains('active');
-  webglCanvas.style.display = webglActive ? 'block' : 'none';
-  pageContainer.appendChild(webglCanvas);
-
   els.viewer.appendChild(pageContainer);
 
-  if (typeof setupWebGLOverlay === 'function' && state.hasPdf) {
-    setupWebGLOverlay(pageContainer, webglCanvas, pageNum);
-  }
-  if (typeof renderEmbeddedTextOverlay === 'function') {
-    renderEmbeddedTextOverlay(pageContainer, pageNum);
-  }
-  if (typeof renderTextLayer === 'function') {
-    renderTextLayer(pageContainer, pageNum);
-  }
-
-  if (typeof refreshWebGLCanvases === 'function') refreshWebGLCanvases();
+  // Lifecycle: plugins draw their per-page overlays (webgl mask canvas, SVG
+  // text layer, …) in response to this event. The core owns no overlay DOM.
+  PDFHooks.emit('page:rendered', { pageContainer, pageNum });
+  PDFHooks.emit('pages:refresh');
 }
 
 

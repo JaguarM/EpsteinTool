@@ -153,6 +153,7 @@
 
   <div id="sidebar-backdrop" class="hidden"></div>
 
+  <script src="{% static 'guesser_core/hooks.js' %}?v=1"></script>
   <script src="{% static 'guesser_core/state.js' %}?v=2"></script>
   {% for name, tool in tools.items %}
     {% for script in tool.scripts_before_viewer %}
