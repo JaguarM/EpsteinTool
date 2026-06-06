@@ -21,7 +21,6 @@ def calculate_widths(request):
         scale = float(data.get('scale') or 135)
         force_uppercase = bool(data.get('force_uppercase', False))
         kerning = bool(data.get('kerning', True))
-        ligatures = bool(data.get('ligatures', True))
         space_width = data.get('space_width')
         if space_width is not None:
             space_width = float(space_width)
@@ -32,11 +31,11 @@ def calculate_widths(request):
             block_w = float(data.get('block_w', 0))
             text = texts[0] if texts else ''
             jsw = get_justified_space_width(text, block_w, font_name, font_size,
-                                            force_uppercase, scale / 100.0, kerning, ligatures)
+                                            force_uppercase, scale / 100.0, kerning)
             return JsonResponse({"space_width": jsw})
 
         widths = get_text_widths(texts, font_name, font_size, force_uppercase,
-                                  scale / 100.0, kerning, ligatures, space_width=space_width)
+                                  scale / 100.0, kerning, space_width=space_width)
         return JsonResponse({"results": widths})
     except Exception as e:
         import traceback

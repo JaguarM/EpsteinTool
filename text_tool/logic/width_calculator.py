@@ -18,7 +18,7 @@ def _resolve_font_path(font_name):
     return None
 
 
-def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, ligatures=True, space_width=None):
+def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, space_width=None):
     """
     Calculates pixel widths for a list of text strings using HarfBuzz shaping.
     Returns list of {text, width, chars} dicts where chars holds per-character x offsets.
@@ -40,7 +40,7 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
         font = hb.Font(face)
         upem = face.upem
 
-        features = {"kern": bool(kerning), "liga": bool(ligatures)}
+        features = {"kern": bool(kerning)}
 
         space_buf = hb.Buffer()
         space_buf.add_str(" ")
@@ -83,7 +83,7 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
 
 def get_justified_space_width(text, block_w, font_name="times.ttf", font_size=12,
                                force_uppercase=False, scale_factor=1.35,
-                               kerning=True, ligatures=True):
+                               kerning=True):
     """
     Compute the pixel width each space must have so the total shaped width of
     *text* equals *block_w* (the justified container width).
@@ -103,7 +103,7 @@ def get_justified_space_width(text, block_w, font_name="times.ttf", font_size=12
         face = hb.Face(font_data)
         font = hb.Font(face)
         upem = face.upem
-        features = {"kern": bool(kerning), "liga": bool(ligatures)}
+        features = {"kern": bool(kerning)}
 
         space_buf = hb.Buffer()
         space_buf.add_str(" ")

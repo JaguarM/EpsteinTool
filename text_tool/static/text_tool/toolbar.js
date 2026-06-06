@@ -132,7 +132,7 @@
     // to px×0.75 when sizePt is absent (e.g. some redaction boxes).
     const size  = box.sizePt || (box.fontSize * 0.75);
     const scale = typeof state !== 'undefined' ? (state.pageWidth / 816 * (4/3)) : (4/3);
-    const key = `${font}|${size}|${box.kerning ? 1 : 0}|${box.ligatures ? 1 : 0}|${scale}`;
+    const key = `${font}|${size}|${box.kerning ? 1 : 0}|${scale}`;
     if (_naturalSpaceCache.has(key)) return _naturalSpaceCache.get(key);
     try {
       const resp = await fetch('/widths', {
@@ -144,7 +144,6 @@
           size:    size,
           scale:   scale * 100,
           kerning:    box.kerning,
-          ligatures:  box.ligatures,
         }),
       });
       if (!resp.ok) return null;

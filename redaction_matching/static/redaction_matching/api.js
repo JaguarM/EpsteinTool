@@ -433,7 +433,6 @@
               fontFamily: lineFont,
               sizePt: sizePt,
               kerning: box.kerning,
-              ligatures: box.ligatures,
             });
           }
 
@@ -637,7 +636,6 @@
       // Redaction-specific controls
       els.tol.value = box.tolerance;
       els.kern.checked = !!box.kerning;
-      els.lig.checked = !!box.ligatures;
       els.upper.checked = !!box.uppercase;
 
       // Reflect this box's per-box name-format settings in the sidebar panel.
@@ -689,8 +687,7 @@
 
       els.allMatchesBody.innerHTML = redactionBoxes.map(box => {
         const tol = box.tolerance;
-        const isUpper = box.uppercase;
-        const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-variant-ligatures: ${box.ligatures ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
+        const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
         const matches = getBoxCandidates(box).filter(c => {
           const w = box.widths[c];
@@ -770,7 +767,6 @@
         fontFamily:   fontFamily,
         fontSize:     fontSize,
         kerning:      els.kern?.checked ?? true,
-        ligatures:    els.lig?.checked ?? true,
         uppercase:    els.upper?.checked ?? false,
         tolerance:    parseFloat(els.tol?.value) || 0,
         widths:       {},

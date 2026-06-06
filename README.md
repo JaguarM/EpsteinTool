@@ -5,8 +5,8 @@ A tool that analyzes scanned PDF documents to detect black redaction bars and gu
 ## How It Works
 
 1. Upload a PDF with redacted (blacked-out) names
-2. The tool detects every redaction bar and measures its pixel width
-3. Enter candidate names — the tool calculates their rendered width using the document's font
+2. The tool detects redaction bars, fonts and measures their pixel width
+3. Enter additional candidate names, change box size or font settings
 4. Names whose width matches a redaction bar are highlighted as potential matches
 
 ## Install & Run (Windows)
@@ -23,9 +23,4 @@ chmod +x setup.sh
 ```
 
 ## Documentation
-Look at the incoplete documenation at [github.io](https://jaguarm.github.io/EpsteinTool/)!
-
-
-## License
-
-See [LICENSE](LICENSE).
+Look at the complete documentation at [github.io](https://jaguarm.github.io/EpsteinTool/)!

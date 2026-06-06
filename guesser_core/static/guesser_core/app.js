@@ -201,7 +201,7 @@
 
       // Candidate events
       if (els.nameInput) els.nameInput.addEventListener('keydown', e => e.key === 'Enter' && addName());
-      [els.kern, els.lig, els.upper, els.tol].filter(Boolean).forEach(el =>
+      [els.kern, els.upper, els.tol].filter(Boolean).forEach(el =>
         el.addEventListener('change', () => {
           if (typeof utbState === 'undefined' || !utbState.selectedId) return;
           const box = utbState.getBox(utbState.selectedId);
@@ -209,7 +209,6 @@
 
           box.tolerance  = parseFloat(els.tol?.value) || 0;
           box.kerning    = els.kern?.checked ?? box.kerning;
-          box.ligatures  = els.lig?.checked ?? box.ligatures;
           box.uppercase  = els.upper?.checked ?? box.uppercase;
 
           if (el === els.tol) {

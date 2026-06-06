@@ -77,7 +77,6 @@ const els = {
   // Settings
   tol: document.getElementById('tolerance'),
   kern: document.getElementById('kerning'),
-  lig: document.getElementById('ligatures'),
   upper: document.getElementById('force-uppercase'),
 
   // Data

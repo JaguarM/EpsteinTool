@@ -15,7 +15,7 @@ class HarfBuzzShaper:
         # upEM = self.face.upem
         # self.font.scale = (upEM, upEM)
 
-    def shape_text(self, text: str, kerning: bool = True, ligatures: bool = True):
+    def shape_text(self, text: str, kerning: bool = True):
         """
         Shapes LTR text and returns basic advances for rendering math.
         """
@@ -23,7 +23,7 @@ class HarfBuzzShaper:
         buf.add_str(text)
         buf.guess_segment_properties() # LTR, script, language
 
-        features = {"kern": kerning, "liga": ligatures}
+        features = {"kern": kerning}
         hb.shape(self.font, buf, features)
         
         infos = buf.glyph_infos
