@@ -50,6 +50,11 @@ class UnifiedTextBox {
     this.manualLabel = data.manualLabel || false;
     this.uppercase = data.uppercase || false;  // force-uppercase display
 
+    // Per-box name-format settings + derived candidate list (redaction-only).
+    // null nameSettings = inherit a copy of the current template on first use.
+    this.nameSettings = data.nameSettings || null;
+    this.candidates = data.candidates || null;  // generated-from-JSON ∪ custom names
+
     // Render font override (e.g. 'times.ttf') — null = use fontFamily
     this.renderFont = data.renderFont || null;
   }

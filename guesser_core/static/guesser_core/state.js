@@ -15,8 +15,13 @@ const state = {
 
   // Unredactor State
   namesData: [],          // raw JSON entries from epstein_names.json
-  customCandidates: [],   // names added manually by the user
-  candidates: [],         // derived: generateCandidatesFromData(namesData, nameSettings) + customCandidates
+  customCandidates: [],   // names added manually by the user (shared across all boxes)
+  excludedPersons: new Set(), // indices into namesData that were deleted — global, hides the
+                              // whole person from every box regardless of each box's name format
+  candidates: [],         // template/global union (template nameSettings ∪ custom, minus deleted)
+                          // — used by the uppercase heuristic; per-box matching uses box.candidates
+  // Template name-format settings: edited when no box is selected and copied onto
+  // each new redaction box. Per-box overrides live on box.nameSettings.
   nameSettings: {
     generateFull: true,          // "Jeffrey Epstein"
     generateFirstOnly: false,    // "Jeffrey"

@@ -46,9 +46,25 @@
 
     // ── Name generation from JSON ─────────────────────────────
 
-    function generateCandidatesFromData(namesData, settings) {
+    // opts.excluded — Set<personIndex> to skip entirely (deleted people).
+    // opts.ownerMap — Map<string, Set<personIndex>>, populated if provided so a
+    //                 displayed candidate can be traced back to the person(s) that
+    //                 produced it (used by removeName to delete the whole name).
+    function generateCandidatesFromData(namesData, settings, opts = {}) {
+      const excluded = opts.excluded || null;
+      const ownerMap = opts.ownerMap || null;
       const result = new Set();
-      for (const person of namesData) {
+      const add = (str, i) => {
+        result.add(str);
+        if (ownerMap) {
+          let owners = ownerMap.get(str);
+          if (!owners) ownerMap.set(str, owners = new Set());
+          owners.add(i);
+        }
+      };
+      for (let i = 0; i < namesData.length; i++) {
+        if (excluded && excluded.has(i)) continue;
+        const person = namesData[i];
         const firsts = person.first.length > 0
           ? (settings.expandFirstAliases ? person.first : [person.first[0]])
           : [];
@@ -60,29 +76,110 @@
 
         if (settings.generateFull) {
           if (firsts.length > 0 && lasts.length > 0) {
-            for (const f of firsts) for (const l of lasts) result.add(`${pre}${f} ${l}${suf}`.trim());
+            for (const f of firsts) for (const l of lasts) add(`${pre}${f} ${l}${suf}`.trim(), i);
           } else if (firsts.length > 0) {
-            for (const f of firsts) result.add(`${pre}${f}${suf}`.trim());
+            for (const f of firsts) add(`${pre}${f}${suf}`.trim(), i);
           } else if (lasts.length > 0) {
-            for (const l of lasts) result.add(`${pre}${l}${suf}`.trim());
+            for (const l of lasts) add(`${pre}${l}${suf}`.trim(), i);
           }
         }
         if (settings.generateFirstOnly) {
-          for (const f of firsts) result.add(f);
+          for (const f of firsts) add(f, i);
         }
         if (settings.generateLastOnly) {
-          for (const l of lasts) result.add(l);
+          for (const l of lasts) add(l, i);
         }
         if (settings.includeNickname && person.nickname) {
-          result.add(person.nickname);
+          add(person.nickname, i);
         }
       }
       return [...result];
     }
 
-    function rebuildCandidates() {
-      const fromJson = generateCandidatesFromData(state.namesData, state.nameSettings);
+    // ── Per-box name settings ─────────────────────────────────
+    //
+    // The Name-format settings (Generate / Include / Expand aliases) are stored
+    // per redaction box on box.nameSettings, with box.candidates holding that
+    // box's generated list ∪ the shared custom names. The sidebar panel reflects
+    // whichever scope is "active": the selected box, or — when nothing is
+    // selected — state.nameSettings, the template copied onto each new box.
+
+    /** Ensure a box has its own name settings (a copy of the template on first use). */
+    function ensureBoxNameSettings(box) {
+      if (!box.nameSettings) box.nameSettings = { ...state.nameSettings };
+      return box.nameSettings;
+    }
+
+    /** The settings object the sidebar panel currently edits. */
+    function getActiveNameSettings() {
+      const box = getSelectedRedaction();
+      return box ? ensureBoxNameSettings(box) : state.nameSettings;
+    }
+
+    /** Recompute a single box's candidate list: its format applied to the global
+     *  people pool (minus deleted people) ∪ the shared custom names. Also caches an
+     *  owner map (string → person indices) so a deleted row maps back to a person. */
+    function rebuildBoxCandidates(box) {
+      ensureBoxNameSettings(box);
+      const ownerMap = new Map();
+      const fromJson = generateCandidatesFromData(state.namesData, box.nameSettings, {
+        excluded: state.excludedPersons,
+        ownerMap,
+      });
+      box._candidateOwners = ownerMap;
+      box.candidates = [...new Set([...fromJson, ...state.customCandidates])];
+      return box.candidates;
+    }
+
+    /** A box's candidate list, computed lazily on first access. */
+    function getBoxCandidates(box) {
+      if (!box) return [];
+      if (!box.candidates) rebuildBoxCandidates(box);
+      return box.candidates;
+    }
+
+    function rebuildAllBoxCandidates() {
+      for (const box of getRedactionBoxes()) rebuildBoxCandidates(box);
+    }
+
+    /** Maintain state.candidates: the template universe (template settings ∪ custom),
+     *  used by the uppercase heuristic in embedded-text-viewer.js. */
+    function rebuildTemplateUnion() {
+      const fromJson = generateCandidatesFromData(state.namesData, state.nameSettings, {
+        excluded: state.excludedPersons,
+      });
       state.candidates = [...new Set([...fromJson, ...state.customCandidates])];
+    }
+
+    /** Push the active settings into the sidebar checkboxes + count. */
+    function syncNameSettingsUI() {
+      const s = getActiveNameSettings();
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+      set('ns-full',         s.generateFull);
+      set('ns-first-only',   s.generateFirstOnly);
+      set('ns-last-only',    s.generateLastOnly);
+      set('ns-prefix',       s.includePrefix);
+      set('ns-suffix',       s.includeSuffix);
+      set('ns-nickname',     s.includeNickname);
+      set('ns-expand-first', s.expandFirstAliases);
+      set('ns-expand-last',  s.expandLastAliases);
+
+      // Tell the user which scope these controls currently edit.
+      const scopeEl = document.getElementById('name-format-scope');
+      if (scopeEl) {
+        const box = getSelectedRedaction();
+        scopeEl.textContent = box ? '· this box' : '· new boxes';
+        scopeEl.title = box
+          ? 'Applies to the selected redaction box only'
+          : 'No box selected — these become the defaults for new redaction boxes';
+      }
+      updateNameSettingsCount();
+    }
+    window.syncNameSettingsUI = syncNameSettingsUI;
+
+    function rebuildCandidates() {
+      rebuildTemplateUnion();
+      rebuildAllBoxCandidates();
       updateNameSettingsCount();
       calculateAllWidths();
     }
@@ -90,7 +187,9 @@
     function updateNameSettingsCount() {
       const el = document.getElementById('name-settings-count');
       if (!el) return;
-      const jsonCount = generateCandidatesFromData(state.namesData, state.nameSettings).length;
+      const jsonCount = generateCandidatesFromData(state.namesData, getActiveNameSettings(), {
+        excluded: state.excludedPersons,
+      }).length;
       const customCount = state.customCandidates.length;
       el.textContent = customCount > 0
         ? `${jsonCount} from list + ${customCount} custom`
@@ -98,19 +197,32 @@
     }
 
     function readNameSettings() {
-      state.nameSettings.generateFull        = document.getElementById('ns-full').checked;
-      state.nameSettings.generateFirstOnly   = document.getElementById('ns-first-only').checked;
-      state.nameSettings.generateLastOnly    = document.getElementById('ns-last-only').checked;
-      state.nameSettings.includePrefix       = document.getElementById('ns-prefix').checked;
-      state.nameSettings.includeSuffix       = document.getElementById('ns-suffix').checked;
-      state.nameSettings.includeNickname     = document.getElementById('ns-nickname').checked;
-      state.nameSettings.expandFirstAliases  = document.getElementById('ns-expand-first').checked;
-      state.nameSettings.expandLastAliases   = document.getElementById('ns-expand-last').checked;
+      const s = getActiveNameSettings();
+      s.generateFull        = document.getElementById('ns-full').checked;
+      s.generateFirstOnly   = document.getElementById('ns-first-only').checked;
+      s.generateLastOnly    = document.getElementById('ns-last-only').checked;
+      s.includePrefix       = document.getElementById('ns-prefix').checked;
+      s.includeSuffix       = document.getElementById('ns-suffix').checked;
+      s.includeNickname     = document.getElementById('ns-nickname').checked;
+      s.expandFirstAliases  = document.getElementById('ns-expand-first').checked;
+      s.expandLastAliases   = document.getElementById('ns-expand-last').checked;
     }
 
     function onNameSettingChange() {
       readNameSettings();
-      rebuildCandidates();
+      const box = getSelectedRedaction();
+      if (box) {
+        // Per-box edit: rebuild and re-measure just this box.
+        rebuildBoxCandidates(box);
+        updateNameSettingsCount();
+        calculateWidthsForRedaction(box.id);
+      } else {
+        // No selection: we edited the template for future boxes. Keep the
+        // global heuristic universe in sync; existing boxes are untouched.
+        rebuildTemplateUnion();
+        updateNameSettingsCount();
+        renderCandidates();
+      }
     }
 
     /** Surface a names-list load failure loudly instead of silently emptying the list. */
@@ -168,15 +280,17 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadNamesData);
+    document.addEventListener('DOMContentLoaded', syncNameSettingsUI);
 
     // ── Candidate management ──────────────────────────────────
 
     function addName() {
       const v = els.nameInput.value.trim();
-      if (v && !state.candidates.includes(v)) {
+      if (v && !state.customCandidates.includes(v)) {
         state.customCandidates.push(v);
-        state.candidates.push(v);
         els.nameInput.value = '';
+        rebuildTemplateUnion();
+        rebuildAllBoxCandidates();
         updateNameSettingsCount();
         calculateAllWidths();
       }
@@ -185,26 +299,40 @@
       const lines = els.pasteInput.value.split('\n').map(l => l.trim()).filter(l => l);
       let added = 0;
       lines.forEach(l => {
-        if (!state.candidates.includes(l)) {
+        if (!state.customCandidates.includes(l)) {
           state.customCandidates.push(l);
-          state.candidates.push(l);
           added++;
         }
       });
-      if (added > 0) { updateNameSettingsCount(); calculateAllWidths(); }
+      if (added > 0) {
+        rebuildTemplateUnion();
+        rebuildAllBoxCandidates();
+        updateNameSettingsCount();
+        calculateAllWidths();
+      }
       els.pasteInput.value = '';
       document.getElementById('paste-area').style.display = 'none';
     }
 
     function clearAll() {
-      if (confirm('Clear custom names and reset to JSON list?')) {
+      if (confirm('Clear custom names and restore all deleted names?')) {
         state.customCandidates = [];
+        state.excludedPersons.clear();
         rebuildCandidates();
       }
     }
+
+    // Delete a candidate globally. Clicking a row (which may show just a first or
+    // last name) removes the WHOLE person from the shared pool, so every variant
+    // disappears from every box. Custom names are simply dropped from the list.
     function removeName(name) {
+      const box = getSelectedRedaction();
+      const owners = box && box._candidateOwners ? box._candidateOwners.get(name) : null;
+      if (owners) for (const idx of owners) state.excludedPersons.add(idx);
       state.customCandidates = state.customCandidates.filter(c => c !== name);
-      state.candidates = state.candidates.filter(c => c !== name);
+
+      rebuildTemplateUnion();
+      rebuildAllBoxCandidates();
       updateNameSettingsCount();
       calculateAllWidths();
     }
@@ -304,7 +432,8 @@
         }
       }
 
-      if (state.candidates.length === 0) {
+      const candidates = getBoxCandidates(box);
+      if (candidates.length === 0) {
         box.widths = {};
         if (utbState.selectedId === boxId) {
             renderCandidates();
@@ -353,7 +482,7 @@
       // (Default/native spacing renders the whole string in one pass.)
       const manualSpace = box.spaceWidth != null && box.defaultSpaceWidth === false;
 
-      state.candidates.forEach(c => {
+      candidates.forEach(c => {
         const disp = box.uppercase ? c.toUpperCase() : c;
         if (manualSpace && disp.includes(' ')) {
           const segments = disp.split(' ');
@@ -421,12 +550,14 @@
       const box = getSelectedRedaction();
       if (!box) {
           els.tableBody.innerHTML = '';
+          // No box selected — show how many the template would generate.
           els.pageInfo.textContent = `List: ${state.candidates.length}`;
           return;
       }
 
+      const candidates = getBoxCandidates(box);
       const isUpper = box.uppercase;
-      const sorted = [...state.candidates].sort((a, b) => {
+      const sorted = [...candidates].sort((a, b) => {
         let va = state.sortBy === 'width' ? (box.widths[a] || 0) : a.toLowerCase();
         let vb = state.sortBy === 'width' ? (box.widths[b] || 0) : b.toLowerCase();
         if (va < vb) return state.sortDir === 'asc' ? -1 : 1;
@@ -440,7 +571,7 @@
 
       const start = (state.page - 1) * state.perPage;
       const slice = sorted.slice(start, start + state.perPage);
-      els.pageInfo.textContent = `List: ${state.candidates.length} (${state.page}/${totalPages})`;
+      els.pageInfo.textContent = `List: ${candidates.length} (${state.page}/${totalPages})`;
 
       const btnPrev = document.getElementById('btn-prev-page');
       const btnNext = document.getElementById('btn-next-page');
@@ -486,6 +617,9 @@
       els.kern.checked = !!box.kerning;
       els.lig.checked = !!box.ligatures;
       els.upper.checked = !!box.uppercase;
+
+      // Reflect this box's per-box name-format settings in the sidebar panel.
+      syncNameSettingsUI();
 
       // Deselect all SVG groups, then select this one
       if (typeof selectBoxInSVG === 'function') selectBoxInSVG(box.id);
@@ -536,7 +670,7 @@
         const isUpper = box.uppercase;
         const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-variant-ligatures: ${box.ligatures ? 'common-ligatures' : 'none'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
-        const matches = state.candidates.filter(c => {
+        const matches = getBoxCandidates(box).filter(c => {
           const w = box.widths[c];
           return w !== undefined && Math.abs(w - candidateEW(box, c)) <= tol;
         });
@@ -620,6 +754,7 @@
         widths:       {},
         labelText:    '',
         manualLabel:  false,
+        nameSettings: { ...state.nameSettings },  // inherit current template
       }));
 
       if (typeof renderBox === 'function') renderBox(newBox);

@@ -105,7 +105,7 @@
         if (rowEl && rowEl.children.length >= 3) {
           rowEl.children[1].textContent = box.w.toFixed(2);
 
-          const matches = state.candidates.filter(c => {
+          const matches = (box.candidates || []).filter(c => {
             const w = box.widths?.[c];
             if (w === undefined) return false;
             const ew = typeof candidateEW === 'function' ? candidateEW(box, c) : box.w;
@@ -129,7 +129,7 @@
         const redBoxes = utbState.boxes.filter(b => b.type === 'redaction');
         let matchCount = 0;
         redBoxes.forEach(rb => {
-          const has = state.candidates.some(c => {
+          const has = (rb.candidates || []).some(c => {
             const w = rb.widths?.[c];
             if (w === undefined) return false;
             const ew = typeof candidateEW === 'function' ? candidateEW(rb, c) : rb.w;
@@ -185,6 +185,8 @@
         utbState.selectedId = null;
         deselectAllInSVG();
         if (typeof syncToolbarToSelection === 'function') syncToolbarToSelection();
+        if (typeof syncNameSettingsUI === 'function') syncNameSettingsUI();
+        if (typeof renderCandidates === 'function') renderCandidates();
       }
       return;
     }
@@ -222,6 +224,8 @@
       utbState.selectedId = null;
       deselectAllInSVG();
       if (typeof syncToolbarToSelection === 'function') syncToolbarToSelection();
+      if (typeof syncNameSettingsUI === 'function') syncNameSettingsUI();
+      if (typeof renderCandidates === 'function') renderCandidates();
     }
   }, true); // capture phase so it fires before the SVG handler above
 
