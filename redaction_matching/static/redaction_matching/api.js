@@ -616,7 +616,6 @@
         return `
           <tr class="${rowClass}">
             <td style="font-family:${box.fontFamily || 'inherit'};">
-              ${isMatch ? '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; color:#81c995; margin-right:4px;">check_circle</span>' : ''}
               ${disp}
             </td>
             <td class="col-right">${w !== undefined ? w.toFixed(2) : '-'}</td>
