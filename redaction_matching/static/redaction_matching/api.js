@@ -576,18 +576,12 @@
       document.getElementById('sort-icon').textContent = state.sortDir === 'asc' ? '▲' : '▼';
 
       const box = getSelectedRedaction();
-      if (!box) {
-          els.tableBody.innerHTML = '';
-          // No box selected — show how many the template would generate.
-          els.pageInfo.textContent = `List: ${state.candidates.length}`;
-          return;
-      }
+      const candidates = box ? getBoxCandidates(box) : state.candidates;
+      const isUpper = box ? box.uppercase : false;
 
-      const candidates = getBoxCandidates(box);
-      const isUpper = box.uppercase;
       const sorted = [...candidates].sort((a, b) => {
-        let va = state.sortBy === 'width' ? (box.widths[a] || 0) : a.toLowerCase();
-        let vb = state.sortBy === 'width' ? (box.widths[b] || 0) : b.toLowerCase();
+        let va = state.sortBy === 'width' && box ? (box.widths[a] || 0) : a.toLowerCase();
+        let vb = state.sortBy === 'width' && box ? (box.widths[b] || 0) : b.toLowerCase();
         if (va < vb) return state.sortDir === 'asc' ? -1 : 1;
         if (va > vb) return state.sortDir === 'asc' ? 1 : -1;
         return 0;
@@ -607,15 +601,16 @@
       if (btnNext) btnNext.disabled = state.page >= totalPages;
 
       els.tableBody.innerHTML = slice.map(n => {
-        const w = box.widths[n];
-        const isMatch = w !== undefined && Math.abs(w - candidateEW(box, n)) <= box.tolerance;
+        const w = box ? box.widths[n] : undefined;
+        const isMatch = box && w !== undefined && Math.abs(w - candidateEW(box, n)) <= box.tolerance;
         const esc = n.replace(/'/g, "&apos;");
         const disp = isUpper ? n.toUpperCase() : n;
         const rowClass = isMatch ? 'best-match' : '';
+        const fontStyle = box ? ` style="font-family:${box.fontFamily || 'inherit'};"` : '';
 
         return `
           <tr class="${rowClass}">
-            <td style="font-family:${box.fontFamily || 'inherit'};">
+            <td${fontStyle}>
               ${disp}
             </td>
             <td class="col-right">${w !== undefined ? w.toFixed(2) : '-'}</td>
