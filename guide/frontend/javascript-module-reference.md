@@ -4,23 +4,27 @@ The frontend is a single-page application built with vanilla JavaScript (no buil
 
 ## Loading Order
 
-The scripts must load in this exact order because later modules depend on globals defined by earlier ones:
+Scripts load in this order. Cross-module integration happens through the **`PDFHooks`** event bus (module 1) rather than the core calling plugin functions by name, so plugins are wired by *subscribing* to lifecycle events at runtime — the load order below matters only for the few direct global dependencies noted in the last column.
 
-| Order | File | Defines | Depends On |
-|-------|------|---------|------------|
-| 1 | `guesser_core/state.js` | `state`, `els` | DOM elements |
-| 2 | `redaction_matching/api.js` | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `createNewRedaction` | `state`, `els` |
-| 3 | `webgl_mask/webgl-mask.js` | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync` | `state`, `els` |
-| 4 | `guesser_core/pdf-viewer.js` | `handleFileUpload`, `goToPage`, `loadDocument` | `state`, `els`, `api.js`, `webgl-mask.js` |
-| 5 | `guesser_core/ui-events.js` | `updateCSSZoom`, `processZoomFromText`, `renderThumbnails` | `state`, `els` |
-| 6 | `guesser_core/app.js` | IIFE — wires all event listeners | All above |
-| 7 | `text_tool/unified-text-box.js` | `UnifiedTextBox`, `utbState`, `spanToUnified`, `normUtbFont` | — |
-| 8 | `text_tool/svg-renderer.js` | `renderBox`, `renderTextLayer`, `renderAllTextLayers`, `selectBoxInSVG`, `computeXPositions` | `utbState` |
-| 9 | `text_tool/drag-resize.js` | IIFE — SVG-native drag/resize event delegation | `utbState`, `renderBox` |
-| 10 | `text_tool/toolbar.js` | `syncToolbarToBox`, `syncToolbarToSelection`, `persistFromToolbar` | `utbState`, `renderBox` |
-| 11 | `text_tool/micro-typo.js` | `enterMicroTypo`, `exitMicroTypo` | `utbState`, `computeXPositions`, `renderBox` |
-| 12 | `text_tool/inline-edit.js` | `enterInlineEdit`, `commitInlineEdit`, `cancelInlineEdit` | `utbState`, `renderBox`, `exitMicroTypo` |
-| 13 | `text_tool/text-tool.js` | `utbFetchSpans`, `utbConnectRedactionsToLines`, `addEmbeddedTextSpan`, `handleManualAddBox` | `utbState`, `renderBox`, all above |
+| Order | File | Defines | Subscribes / Emits | Depends On |
+|-------|------|---------|--------------------|------------|
+| 1 | `guesser_core/hooks.js` | `PDFHooks` (`on`/`off`/`emit`) | — | — (loaded first) |
+| 2 | `guesser_core/state.js` | `state`, `els` | — | DOM elements |
+| 3 | `redaction_matching/api.js` | `addName`, `calculateAllWidths`, `renderCandidates`, `selectRedaction`, `updateAllMatchesView`, `createNewRedaction` | — | `state`, `els` |
+| 4 | `webgl_mask/webgl-mask.js` | `setupWebGLOverlay`, `clearWebGLContexts`, `updateWebGLUniforms`, `fetchMasksAsync`, `refreshWebGLCanvases` | **on:** `ui:ready`, `viewer:clear`, `page:rendered`, `pages:refresh`, `document:loaded` | `state` |
+| 5 | `guesser_core/pdf-viewer.js` | `handleFileUpload`, `goToPage`, `loadDocument` | **emit:** `viewer:clear`, `page:rendered`, `pages:refresh`, `document:loaded` | `state`, `els` |
+| 6 | `guesser_core/ui-events.js` | `updateCSSZoom`, `processZoomFromText`, `renderThumbnails` | **emit:** `zoom:changed` | `state`, `els` |
+| 7 | `guesser_core/app.js` | IIFE — wires core listeners; `openSubtoolbar`, `registerSubtoolbar`, `openRightPanel` | **emit:** `ui:ready` | All above |
+| 8 | `text_tool/unified-text-box.js` | `UnifiedTextBox`, `utbState`, `spanToUnified`, `normUtbFont` | — | — |
+| 9 | `text_tool/svg-renderer.js` | `renderBox`, `renderTextLayer`, `renderAllTextLayers`, `selectBoxInSVG`, `computeXPositions` | **on:** `page:rendered` | `utbState` |
+| 10 | `text_tool/drag-resize.js` | IIFE — SVG-native drag/resize event delegation | — | `utbState`, `renderBox` |
+| 11 | `text_tool/toolbar.js` | `syncToolbarToBox`, `syncToolbarToSelection`, `persistFromToolbar` | — | `utbState`, `renderBox` |
+| 12 | `text_tool/micro-typo.js` | `enterMicroTypo`, `exitMicroTypo` | — | `utbState`, `computeXPositions`, `renderBox` |
+| 13 | `text_tool/inline-edit.js` | `enterInlineEdit`, `commitInlineEdit`, `cancelInlineEdit` | — | `utbState`, `renderBox`, `exitMicroTypo` |
+| 14 | `text_tool/text-tool.js` | `handleManualAddBox` | — | `utbState`, `renderBox`, all above |
+| 15 | `embedded_text_viewer/etv-fetch.js` | `utbFetchSpans`, `utbConnectRedactionsToLines`, `addEmbeddedTextSpan`, `_utbFindNearestLine` | **on:** `document:loaded` | `utbState`, `renderBox`, `text-tool.js` (runtime) |
+
+> **Note:** Because `PDFHooks` is defined first and subscriptions are order-independent, a plugin can call `PDFHooks.on(...)` at module scope regardless of where it loads. `etv-fetch.js` subscribes to `document:loaded` instead of monkey-patching `window.loadDocument` (the previous, fragile approach). Its cross-module calls into `text_tool` still happen inside event handlers, so the load order remains safe.
 
 ## External Libraries
 

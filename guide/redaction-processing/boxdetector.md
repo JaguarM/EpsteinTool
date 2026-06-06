@@ -46,7 +46,7 @@ Because scanned document images might include circular hole-punches that are ful
 - If both the top and bottom boundaries are "tapered" (missing up to 30% of pixels in the starting and ending bounding rows respectively), the shape is flagged as a circle/ellipse and discarded.
 
 ### Intersecting & Overlapping Boxes (Crosses, Ladders, T-shapes)
-When vertical layout bars intersect horizontal redaction bars, they create a single contiguous black object. The algorithm corrects these merged shapes in the [clean_overlapping_boxes()](file:///c:/Users/yanni/Desktop/EpsteinTool/guesser/logic/BoxDetector.py#110-130) nested function:
+When vertical layout bars intersect horizontal redaction bars, they create a single contiguous black object. The algorithm corrects these merged shapes in the [clean_overlapping_boxes()](../../guesser_core/logic/BoxDetector.py) nested function:
 - It iterates through all discovered rectangular zones. 
 - If a taller vertical box (Box A) intersects a significantly wider horizontal box (Box B), and Box B creates a "T-shape" (ending around the same baseline), it modifies the height of the vertical box so it terminates neatly where the horizontal box begins.
 - This ensures intersecting redactions are returned as distinct standard rectangles rather than oddly merged geometric blobs.

@@ -73,8 +73,6 @@ w=r.width` directly.
    `word_before`/`word_after` neighbours, then computes pixel-accurate edges
    (see "current algorithm" below).
 6. Frontend: [redaction_matching/static/redaction_matching/api.js](../../redaction_matching/static/redaction_matching/api.js)
-   `candidateEW()` uses `box.isRefined` / `box.spaceWidth`. (User maintains this;
-   don't assume it is unset.)
 
 ## Coordinate conversion (used constantly)
 

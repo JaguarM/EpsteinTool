@@ -6,7 +6,7 @@
 
 ## Functions
 
-### `get_text_widths(texts, font_name, font_size, force_uppercase, scale_factor, kerning, ligatures)`
+### `get_text_widths(texts, font_name, font_size, force_uppercase, scale_factor, kerning)`
 
 Calculates pixel widths for a list of text strings.
 
@@ -20,7 +20,6 @@ Calculates pixel widths for a list of text strings.
 | `force_uppercase` | bool | `False` | Convert text to uppercase before measuring |
 | `scale_factor` | float | `1.35` | Multiplier applied to the raw advance width |
 | `kerning` | bool | `True` | Enable OpenType `kern` feature |
-| `ligatures` | bool | `True` | Enable `liga` and `clig` features |
 
 **Output:**
 
@@ -66,13 +65,10 @@ pixel_width = (total_advance / upem) * font_size * scale_factor
 | Feature | Enabled | Disabled |
 |---------|---------|----------|
 | `kern` | Default | `kerning=False` |
-| `liga` | Default | `ligatures=False` |
-| `clig` | Default | `ligatures=False` |
-| `dlig` | Never | `ligatures=False` |
 
 ### Pillow Fallback
 
-If HarfBuzz fails or is not installed, falls back to `ImageFont.truetype()` with `font.getlength()`. This method does not support fine-grained kerning/ligature control.
+If HarfBuzz fails or is not installed, falls back to `ImageFont.truetype()` with `font.getlength()`. This method does not support fine-grained kerning control.
 
 ---
 

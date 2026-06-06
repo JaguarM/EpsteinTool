@@ -2,9 +2,23 @@
 
 [webgl-mask.js](https://github.com/JaguarM/EpsteinTool/blob/main/webgl_mask/static/webgl_mask/webgl-mask.js) renders GPU-accelerated redaction mask overlays.
 
+## Integration — fully hook-driven
+
+`webgl-mask.js` is a self-contained plugin: it touches the core only through the [`PDFHooks`](../tool-expansion-guide.md#frontend-lifecycle--the-pdfhooks-bus) bus and owns its own DOM. Deleting the `webgl_mask/` folder removes every webgl reference from the running app.
+
+| PDFHooks event | Handler does |
+|----------------|--------------|
+| `ui:ready` | wires the `#toggle-webgl` button + `#edge-subtract` slider; calls `registerSubtoolbar(toggleBtn)` |
+| `page:rendered` | **creates** the `.webgl-overlay` `<canvas>` for that page and appends it (the core no longer owns this DOM), then `setupWebGLOverlay(...)` |
+| `pages:refresh` | `refreshWebGLCanvases()` |
+| `viewer:clear` | `clearWebGLContexts()` |
+| `document:loaded` | `fetchMasksAsync(file, isDefault)` |
+
 ## Architecture
 
 ```
+document:loaded event  →  fetchMasksAsync(file, isDefault)
+    ↓
 POST /webgl/masks
     ↓
 `state.maskImages` populated with all base64 masks
@@ -35,10 +49,10 @@ Registers a page container with the `IntersectionObserver`. When a page becomes 
 - Wrapping: `gl.CLAMP_TO_EDGE`
 
 ### `clearWebGLContexts()`
-Destroys all active WebGL contexts. Called when navigating between documents.
+Destroys all active WebGL contexts. Subscribed to the `viewer:clear` event (fired before each page change).
 
 ### `updateWebGLUniforms(specificPage?)`
-Reads `els.edgeSubtract.value / 255.0` → `uStrength` uniform and redraws. No texture re-upload needed — instant 60fps updates.
+Reads `#edge-subtract` value `/ 255.0` → `uStrength` uniform and redraws. No texture re-upload needed — instant 60fps updates. (The slider element is looked up directly by the plugin; the core `els` cache no longer holds it.)
 
 ## Shaders
 

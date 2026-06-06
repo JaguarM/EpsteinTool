@@ -1,6 +1,6 @@
 # Tool Expansion Guide
 
-A reference for adding new plugins to EpsteinTool. Read the architecture section first — it explains the conventions every plugin relies on.
+A reference for adding new plugins to the Epstein Unredactor. Read the architecture section first — it explains the conventions every plugin relies on.
 
 ---
 
@@ -70,26 +70,52 @@ Base class uses **tuples** for sequence defaults to avoid the mutable-default-on
 
 ### Global JavaScript Objects
 
-Two objects are defined in `guesser_core/static/guesser_core/state.js` and are available to all plugin scripts:
+These globals are available to all plugin scripts:
 
-- **`state`** — application state (current page, zoom, redactions, candidates, etc.)
-- **`els`** — cached DOM element references (viewer, toolbars, sidebar buttons, etc.)
+- **`PDFHooks`** (`guesser_core/static/guesser_core/hooks.js`) — the lifecycle event bus, loaded first before everything else. Plugins call `PDFHooks.on(event, handler)`; the core calls `PDFHooks.emit(event, payload)`. This is the primary frontend integration point — see [Frontend Lifecycle](#frontend-lifecycle--the-pdfhooks-bus) below.
+- **`state`** (`state.js`) — application state (current page, zoom, redactions, candidates, etc.)
+- **`els`** (`state.js`) — cached DOM references for **core** elements only (viewer, page controls, sidebar). Plugins look up their own DOM with `document.getElementById(...)`; the core `els` no longer holds plugin elements.
 
 ### Script Load Order
 
 Scripts load in this order, controlled by the `scripts_before_viewer` and `scripts_after_app` fields on each PDFTool:
 
 ```
-state.js
+hooks.js                  ← defines window.PDFHooks (loaded first)
+  → state.js
   → [tool.scripts_before_viewer for each registered tool]
   → pdf-viewer.js
   → ui-events.js
-  → app.js                ← defines window.openSubtoolbar, window.openRightPanel
-  → mobile.js
+  → app.js                ← defines window.openSubtoolbar, window.registerSubtoolbar, window.openRightPanel; emits 'ui:ready'
   → [tool.scripts_after_app for each registered tool]
 ```
 
-Scripts in `scripts_before_viewer` run before `app.js`, so they cannot call `app.js` functions at module scope — only inside event handlers. Scripts in `scripts_after_app` can safely reference `app.js` globals.
+`PDFHooks` exists before any plugin script, so a plugin can call `PDFHooks.on(...)` at module scope regardless of which bucket it loads in. Subscribing is order-independent: the core emits events at runtime (page render, document load, …), long after every script has loaded.
+
+Scripts in `scripts_before_viewer` run before `app.js`, so they cannot call `app.js` functions (like `openSubtoolbar`) at module scope — defer those to a `PDFHooks.on('ui:ready', …)` handler or another event callback. Scripts in `scripts_after_app` can reference `app.js` globals directly.
+
+### Frontend Lifecycle — the PDFHooks Bus
+
+The core viewer never calls plugin functions by name; it **emits events** and plugins **subscribe**. Register handlers at module scope:
+
+```js
+PDFHooks.on('page:rendered', ({ pageContainer, pageNum }) => {
+  // draw your per-page overlay into pageContainer
+});
+```
+
+Events emitted by the core:
+
+| Event | When | Payload |
+|-------|------|---------|
+| `ui:ready` | core toolbar wired (end of `app.js` init) | — |
+| `viewer:clear` | viewer torn down before a page change | — |
+| `page:rendered` | a page container was added to the DOM | `{ pageContainer, pageNum }` |
+| `pages:refresh` | re-sync per-page overlays | — |
+| `document:loaded` | a document finished loading | `{ file, isDefault }` |
+| `zoom:changed` | viewer zoom factor changed | `{ zoom }` |
+
+Handlers may be `async` (the core awaits them in registration order), and a throwing handler is caught so it can't break the core or other plugins. Because subscriptions live in the plugin's own script, deleting the plugin folder removes them automatically.
 
 ### Two UI Patterns
 
@@ -179,40 +205,34 @@ Start with `class="options-bar hidden"`. The bar must be hidden by default; `ope
 </div>
 ```
 
-### Step 5 — JavaScript Toggle
+### Step 5 — JavaScript Toggle (via `ui:ready` + `registerSubtoolbar`)
 
-Call `openSubtoolbar` inside the click handler. Because `app.js` loads before `scripts_after_app`, you can safely reference `openSubtoolbar` directly. If your script is in `scripts_before_viewer` instead, guard the call with `typeof openSubtoolbar === 'function'`.
+Wire the toggle inside a `PDFHooks.on('ui:ready', …)` handler — that guarantees the core's `openSubtoolbar`/`registerSubtoolbar` exist no matter which script bucket you load in. Call `registerSubtoolbar(button)` once so the core can deactivate your button generically when another subtoolbar opens. **You never edit `app.js`.**
 
 ```js
 // static/my_tool/my-tool.js
 
-document.getElementById('toggle-my-tool')?.addEventListener('click', () => {
-  const bar = document.getElementById('my-tool-bar');
+PDFHooks.on('ui:ready', () => {
   const btn = document.getElementById('toggle-my-tool');
+  const bar = document.getElementById('my-tool-bar');
+  if (!btn || !bar) return;
 
-  if (bar.classList.contains('hidden')) {
-    // Open: hand off to the global coordinator
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(bar, btn);
-    else { bar.classList.remove('hidden'); btn.classList.add('active'); }
-  } else {
-    // Close: revert to the default text-options-bar
-    if (typeof openSubtoolbar === 'function') openSubtoolbar(null, null);
-    else { bar.classList.add('hidden'); btn.classList.remove('active'); }
-  }
+  // Let the core manage this button without naming the plugin.
+  window.registerSubtoolbar?.(btn);
+
+  btn.addEventListener('click', () => {
+    if (bar.classList.contains('hidden')) {
+      window.openSubtoolbar?.(bar, btn);   // open my bar (closes the others)
+    } else {
+      window.openSubtoolbar?.(null, null); // back to the default text bar
+    }
+  });
 });
 ```
 
-### Step 6 — Register `openSubtoolbar` Awareness in `app.js`
+`openSubtoolbar` hides every element with class `options-bar` and deactivates every registered toggle, then shows the one you pass. Because it operates by class + registry, **no core edit is required** — that is the whole point of the pattern.
 
-`window.openSubtoolbar` in `app.js` hides all known bars when switching. Add your new bar to its hide list so it closes when another tool opens:
-
-```js
-// guesser_core/static/guesser_core/app.js — inside openSubtoolbar()
-document.getElementById('my-tool-bar')?.classList.add('hidden');
-document.getElementById('toggle-my-tool')?.classList.remove('active');
-```
-
-That's it. No changes to `index.html`, `urls.py`, or `settings.py` — the registry and dynamic discovery handle everything.
+That's it. No changes to `index.html`, `urls.py`, `settings.py`, or `app.js` — the registry, dynamic discovery, and hook bus handle everything.
 
 ---
 
@@ -369,7 +389,7 @@ urlpatterns = [
 
 The route is auto-discovered from `tool.url_module` — no need to edit `epstein_project/urls.py`.
 
-> **Note for backend-only apps** (no UI, no PDFTool): Apps like `extracted_text` that only provide API endpoints can still use the legacy `AppConfig` approach with `url_prefix` and `url_module` as class attributes on the AppConfig. The URL auto-discovery falls back to AppConfig for apps without a registered PDFTool.
+> **Note for logic-only modules** (no UI, no PDFTool, no routes): Apps like `extracted_text` that only provide Python logic imported by other apps require neither a PDFTool class nor URL routing — simply omit `url_prefix` and `url_module` from the `AppConfig`. The dynamic discovery in `settings.py` will still install the app (making its modules importable), but nothing will be mounted in `urls.py`.
 
 ---
 
@@ -377,12 +397,11 @@ The route is auto-discovered from `tool.url_module` — no need to edit `epstein
 
 | App | Type | PDFTool class | Toggle Button ID | Bar / Panel ID |
 |---|---|---|---|---|
-| `text_tool` | Subtoolbar | `TextTool` | `toggle-text-tool` | `text-tool-bar` |
+| `text_tool` | Subtoolbar | `TextTool` | `toggle-fmt` | `fabric-options-bar` |
 | `webgl_mask` | Subtoolbar | `WebglMaskTool` | `toggle-webgl` | `webgl-options-bar` |
-| `embedded_text_viewer` | Subtoolbar | `EmbeddedTextViewerTool` | `toggle-embedded-viewer` | `etv-bar` |
-| `tesseract_ocr` | Toolbar button | `TesseractOcrTool` | `toggle-ocr` | — |
+| `embedded_text_viewer` | Subtoolbar | `EmbeddedTextViewerTool` | `toggle-embedded-text` | `etv-bar` |
 | `redaction_matching` | Right Panel | `RedactionMatchingTool` | `toggle-tools` | `tools-sidebar` |
-| `extracted_text` | Backend-only | *(none)* | — | — |
+| `extracted_text` | Logic-only | *(none)* | — | — |
 | `guesser_core` | Core (always on) | *(none)* | — | `text-options-bar` |
 
 ---
@@ -394,10 +413,10 @@ The route is auto-discovered from `tool.url_module` — no need to edit `epstein
 3. **Write `my_tool/apps.py`** — `ready()` does `import my_tool.tool`
 4. **Create templates** — `toolbar_button.html`, `options_bar.html`, and/or `sidebar.html`
 5. **Create static assets** — JS and CSS files referenced in your tool class
-6. *(Optional)* If using subtoolbar: add your bar to `openSubtoolbar()` hide list in `app.js`
-7. *(Optional)* If using right panel: add your panel to `openRightPanel()` hide list in `app.js`
+6. **Wire runtime behaviour through `PDFHooks`** — subscribe to lifecycle events (`page:rendered`, `document:loaded`, …); for a subtoolbar, call `registerSubtoolbar(btn)` inside a `ui:ready` handler
+7. *(Right panel only)* add your panel to the `openRightPanel()` hide list in `app.js` (the right-panel pattern is not yet fully hook-driven)
 
-**Zero changes needed to**: `index.html`, `epstein_project/urls.py`, `settings.py`, or any other plugin's code.
+**Zero changes needed to**: `index.html`, `epstein_project/urls.py`, `settings.py`, `app.js` (for subtoolbars), or any other plugin's code.
 
 **To disable a plugin**: delete its folder. Django's dynamic discovery in `settings.py` won't find it and the app simply won't load.
 
@@ -408,6 +427,7 @@ The route is auto-discovered from `tool.url_module` — no need to edit `epstein
 - **Never use `display: block` directly.** Always toggle the `.hidden` class. Sidebars use CSS transitions keyed on `.hidden`; bypassing it breaks animations.
 - **Use optional chaining (`?.`) on all `getElementById` calls** in plugin JS. This ensures your script doesn't throw if the plugin is removed.
 - **Guard `openSubtoolbar` calls** with `typeof openSubtoolbar === 'function'` when your script is in `scripts_before_viewer`. Scripts in `scripts_after_app` can reference it directly.
-- **Keep plugin logic self-contained.** Views, URLs, and business logic belong in the plugin app. The only cross-plugin touchpoints are `openSubtoolbar` (subtoolbar pattern) and the two lines in `openRightPanel` (right-panel pattern).
+- **Integrate through `PDFHooks`, not by name.** Subscribe to lifecycle events instead of having the core call your functions, and look up your own DOM with `document.getElementById`. A subtoolbar plugin's only core touchpoints are the generic `registerSubtoolbar` + `openSubtoolbar`; the right-panel pattern still has a small `openRightPanel` touchpoint in `app.js`.
+- **Keep plugin logic self-contained.** Views, URLs, business logic, and DOM all belong in the plugin app.
 - **Disable by deleting the folder.** `settings.py` dynamically scans for plugin directories — removing the folder is the off-switch. No manual `INSTALLED_APPS` edits needed.
 - **Use tuples or lists for tool config fields.** The base class uses tuples for immutable defaults, but subclasses can safely assign lists. Both work in Django template iteration.

@@ -176,7 +176,7 @@ The WebGL fragment shader reads `maskVal` (0.0–1.0) directly as the alpha fact
 
 ## WebGL Integration
 
-The mask PNG is served by the Django backend at `/webgl/masks` and loaded as a `LUMINANCE` texture in [webgl-mask.js](file:///c:/Users/yanni/Desktop/EpsteinTool/webgl_mask/static/webgl_mask/webgl-mask.js).
+The mask PNG is served by the Django backend at `/webgl/masks` and loaded as a `LUMINANCE` texture in [webgl-mask.js](../../webgl_mask/static/webgl_mask/webgl-mask.js).
 
 Fragment shader reads:
 ```glsl

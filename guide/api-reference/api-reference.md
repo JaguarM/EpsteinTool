@@ -28,6 +28,23 @@ The Django backend exposes several HTTP endpoints organized into modular apps.
 | `POST` | `/webgl/masks` | Generate all redaction masks for an uploaded PDF |
 | `GET` | `/webgl/masks?default=true` | Generate all masks for the default PDF |
 
+### `embedded_text_viewer` (Embedded Text Viewer Plugin)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/embedded-text-viewer/api/extract-spans` | Extract all text spans from an uploaded PDF |
+| `GET` | `/embedded-text-viewer/api/extract-spans` | Extract spans from the bundled default PDF |
+
+> **Note:** This endpoint is **optional** — if the `embedded_text_viewer` plugin folder is deleted, the endpoint is removed and the text overlay feature is disabled.
+
+### `redaction_matching` (Name Matching Plugin)
+
+Frontend-only — exposes **no HTTP endpoints**. All name-width matching runs client-side in `redaction_matching/static/redaction_matching/api.js` against the widths returned by `/widths`.
+
+### `extracted_text` (Logic-only)
+
+No HTTP endpoints. A pure-Python module (`extracted_text/logic/extract.py`) imported by `embedded_text_viewer.views`.
+
 ---
 
 ## `POST /analyze-pdf`
@@ -117,7 +134,6 @@ Calculate pixel widths for a list of text strings using HarfBuzz text shaping.
   "size": 12,
   "scale": 133,
   "kerning": true,
-  "ligatures": true,
   "force_uppercase": false
 }
 ```
@@ -129,7 +145,6 @@ Calculate pixel widths for a list of text strings using HarfBuzz text shaping.
 | `size` | number | `12` | Font size in points |
 | `scale` | number | `135` | Scale percentage (divided by 100 internally to get `scale_factor`) |
 | `kerning` | bool | `true` | Enable OpenType `kern` feature |
-| `ligatures` | bool | `true` | Enable `liga`/`clig` features |
 | `force_uppercase` | bool | `false` | Measure uppercase version of each string |
 
 The width formula applied by the backend is:
@@ -199,4 +214,68 @@ Utility endpoint to fetch masks for the bundled default demonstration PDF.
 ### Response — `200 OK`
 
 Returns the same schema as `POST /webgl/masks`.
+
+---
+
+## `POST /embedded-text-viewer/api/extract-spans`
+
+Extract all text spans from an uploaded PDF. Used by `etv-fetch.js` to populate the SVG text overlay.
+
+### Request
+
+- **Content-Type:** `multipart/form-data`
+- **Body:** Form field `file` containing the uploaded PDF
+
+### Response — `200 OK`
+
+```json
+{
+  "spans": [
+    {
+      "page": 1,
+      "text": "IN THE CIRCUIT COURT",
+      "x": 245.33,
+      "y": 112.67,
+      "w": 326.00,
+      "h": 16.00,
+      "fontSize": 16.00,
+      "sizePt": 12.0,
+      "font": "TimesNewRomanPSMT",
+      "flags": 0,
+      "lineId": "1_3",
+      "chars": [{"c": "I", "x": 0.0, "w": 8.2}]
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `page` | int | 1-based page number |
+| `text` | string | Full text content of the span |
+| `x`, `y` | float | Top-left position in document pixel space (816×1056 base) |
+| `w`, `h` | float | Width and height of the span bounding box |
+| `fontSize` | float | Font size in CSS pixels |
+| `sizePt` | float | Font size in PDF points |
+| `font` | string | Base font name from the PDF (e.g. `"TimesNewRomanPSMT"`) |
+| `flags` | int | PyMuPDF font flags bitmask |
+| `lineId` | string | Groups spans on the same horizontal text line (e.g. `"1_3"`) |
+| `chars` | array | Per-character data: `c` (character), `x` (x offset within span), `w` (advance width) |
+
+### Errors
+
+| Status | Reason |
+|--------|--------|
+| `400` | No file uploaded or no file selected |
+| `500` | Processing error (detail in response body) |
+
+---
+
+## `GET /embedded-text-viewer/api/extract-spans`
+
+Utility endpoint to extract spans from the bundled default demonstration PDF.
+
+### Response — `200 OK`
+
+Returns the same schema as `POST /embedded-text-viewer/api/extract-spans`.
 

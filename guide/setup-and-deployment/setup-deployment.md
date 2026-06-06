@@ -25,5 +25,5 @@ This section covers everything needed to run the Epstein Unredactor, from local 
 | `numpy` | Array operations for image processing |
 | `pymupdf` | PDF parsing and image extraction |
 | `pillow` | Image format conversions, mask generation |
-| `uharfbuzz` | Precision text shaping with kerning/ligature support |
+| `uharfbuzz` | Precision text shaping with kerning support |
 | `gunicorn` | Production WSGI server |

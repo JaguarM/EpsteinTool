@@ -24,12 +24,12 @@ Welcome to the technical documentation for the Epstein Unredactor. This guide co
 
 ## Core Concepts
 
-The tool operates on a "Core + Plugin" architecture with a declarative tool registry:
+The tool operates on a "Core + Plugin" architecture backed by **two registries**, one per side of the stack, so the core never references a plugin by name:
 
-- **Core (`guesser_core`)**: Handles PDF parsing, image extraction, redaction box detection, and the base viewer template. Provides the `PDFTool` base class and `@register_tool` decorator.
-- **Plugins**: Optional features (WebGL masking, typography tools, OCR, etc.) are isolated into independent Django apps. Each plugin defines a `tool.py` subclassing `PDFTool` — the registry auto-discovers styles, templates, scripts, and URL routes.
+- **Core (`guesser_core`)**: Handles PDF parsing, image extraction, redaction box detection, and the base viewer. Provides the `PDFTool` base class + `@register_tool` decorator (backend wiring) and the `PDFHooks` event bus (frontend lifecycle wiring).
+- **Plugins**: Optional features (WebGL masking, typography, embedded-text overlay, name matching) are isolated into independent Django apps. Each defines a `tool.py` subclassing `PDFTool`; the registry auto-discovers its styles, templates, scripts, and URL routes. Plugin JavaScript subscribes to lifecycle events via `PDFHooks.on(...)` instead of being called by name.
 - **Adding a tool**: Create the app folder with a `tool.py` and `apps.py`. Django auto-discovers it — no changes to `index.html`, `urls.py`, or `settings.py`.
-- **Removing a tool**: Delete the folder. Done.
+- **Removing a tool**: Delete the folder. The app, its routes, templates, static, and event subscriptions all disappear together — no dangling references left in the core.
 
 ## Navigation
 

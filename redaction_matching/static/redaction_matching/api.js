@@ -687,6 +687,7 @@
 
       els.allMatchesBody.innerHTML = redactionBoxes.map(box => {
         const tol = box.tolerance;
+        const isUpper = box.uppercase;
         const fontStyle = `font-family: ${box.fontFamily || 'inherit'}; font-feature-settings: "kern" ${box.kerning ? 1 : 0}; text-transform: ${isUpper ? 'uppercase' : 'none'};`;
 
         const matches = getBoxCandidates(box).filter(c => {

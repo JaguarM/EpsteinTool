@@ -28,7 +28,7 @@ Every piece of text is stored as a `UnifiedTextBox` instance inside the global `
   color: string|null,   // null = per-type default color
 
   // Word Spacing
-  kerning, ligatures: bool,
+  kerning: bool,
   defaultSpaceWidth: bool,    // true = use native font spacing
   spaceWidth: float|null,     // manual override (used when defaultSpaceWidth is false)
   nativeSpaceWidth: float|null, // cached HarfBuzz natural space advance
@@ -134,7 +134,7 @@ The cumulative delta means nudging character `i` shifts characters `i+1`, `i+2`,
 
 ### `renderTextLayer(pageContainer, pageNum)`
 
-Clears all existing `<g>` groups in the SVG layer and re-renders every box on that page. Called by `pdf-viewer.js` via `window.renderTextLayer` hook in `goToPage`.
+Clears all existing `<g>` groups in the SVG layer and re-renders every box on that page. `svg-renderer.js` subscribes this to the core's `page:rendered` PDFHooks event (emitted by `pdf-viewer.js` in `goToPage`), so the core never calls it by name.
 
 ### `renderAllTextLayers()`
 
@@ -155,7 +155,7 @@ The `.selected` class on `.utb-group` makes `.utb-bbox` visible (CSS `visibility
 
 ## Embedded Text Ingestion
 
-Text spans are fetched from the backend by `utbFetchSpans(file)` in `text-tool.js` after `loadDocument` completes.
+Text spans are fetched from the backend by `utbFetchSpans(file)` in `etv-fetch.js (embedded_text_viewer)`, which subscribes to the core's `document:loaded` PDFHooks event (it no longer monkey-patches `window.loadDocument`).
 
 1. POST `/embedded-text-viewer/api/extract-spans` → `{ spans: [...] }`
 2. **Font size normalization**: all span `fontSize` values are converted to pt (`px * 0.75`), the median pt is computed, and any span within ±1pt of the median is snapped to that value. This prevents floating-point rounding in the PDF from creating many slightly-different sizes for the same body text.

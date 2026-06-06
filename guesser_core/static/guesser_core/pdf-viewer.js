@@ -91,11 +91,16 @@ async function loadDocument(data, file) {
   const redactionBoxes = typeof utbState !== 'undefined'
     ? utbState.boxes.filter(b => b.type === 'redaction') : [];
 
-  if (redactionBoxes.length > 0) {
+  // Optional matches-view refresh from the redaction_matching plugin. Isolate
+  // it so a failure here can't abort the document:loaded lifecycle that other
+  // plugins (webgl masks, embedded-text spans) depend on below.
+  try {
     if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
-    if (typeof selectRedaction === 'function') selectRedaction(redactionBoxes[0].id);
-  } else {
-    if (typeof updateAllMatchesView === 'function') updateAllMatchesView();
+    if (redactionBoxes.length > 0 && typeof selectRedaction === 'function') {
+      selectRedaction(redactionBoxes[0].id);
+    }
+  } catch (e) {
+    console.error('matches-view update failed:', e);
   }
 
   // Lifecycle: let plugins react to a freshly loaded document (webgl masks,

@@ -16,12 +16,15 @@ const state = {
   minZoom: 0.5,
   maxZoom: 8.0,
   renderQueue: [],
-  fabricCanvases: new Map(),  // page_num → Fabric.Canvas instance
 
   // Unredactor
-  candidates: [...],      // array of name strings (pre-populated with known names)
-  redactions: [],         // array of redaction objects (see below)
-  selectedRedactionIdx: null,
+  namesData: [],               // raw entries from the bundled names JSON
+  customCandidates: [...],     // user-added names, shared across every box
+  excludedPersons: new Set(),  // deleted people (indices into namesData), shared across boxes
+  candidates: [...],           // template union (template nameSettings ∪ custom, minus deleted)
+                               // — uppercase heuristic only; per-box matching uses box.candidates
+  nameSettings: {...},         // TEMPLATE format flags copied onto each new box (per-box
+                               // overrides live on box.nameSettings)
 
   // Pagination/Sort
   page: 1,
@@ -32,9 +35,9 @@ const state = {
 };
 ```
 
-### Redaction Object Schema
+### Redaction Object Schema (legacy)
 
-Each item in `state.redactions` is created by `handleFileUpload()`:
+> `state.redactions` and `state.selectedRedactionIdx` **no longer exist** — redactions live in `utbState.boxes` as `type='redaction'` entries (see the note below). The shape below is kept only as a reference for the fields that were carried over onto `UnifiedTextBox`.
 
 ```javascript
 {
@@ -86,8 +89,10 @@ All DOM elements are cached at load time to avoid repeated `getElementById` call
 
 | Group | Elements |
 |-------|----------|
-| **Viewer** | `dragOverlay`, `viewerContainer`, `viewer`, `titleElem`, `pageCountElem`, `pageInputElem`, `zoomInputElem`, `zoomInBtn`, `zoomOutBtn`, `sidebar`, `toggleSidebarBtn`, `thumbnailView` |
-| **Tools** | `toolsSidebar`, `toggleToolsBtn`, `toolAddBoxBtn`, `toggleWebglBtn`, `webglOptionsBar`, `textOptionsBar`, `maskColor`, `edgeSubtract` |
-| **Settings** | `font`, `size`, `calcScale`, `tol`, `kern`, `lig`, `upper` |
+| **Viewer** | `dragOverlay`, `viewerContainer`, `viewer`, `titleElem`, `pageCountElem`, `pageInputElem`, `zoomInputElem`, `zoomInBtn`, `zoomOutBtn`, `sidebar`, `toggleSidebarBtn`, `thumbnailView`, `prevPageBtn`, `nextPageBtn` |
+| **Tools** | `toolsSidebar`, `toggleToolsBtn`, `toolAddBoxBtn`, `toolTextBtn`, `textOptionsBar` |
+| **Settings** | `tol`, `kern`, `upper` |
 | **Data** | `pdfFile`, `nameInput`, `pasteInput`, `tableBody`, `pageInfo` |
 | **Matches** | `allMatchesCard`, `allMatchesSummary`, `allMatchesBody` |
+
+> **Plugin-owned controls are not in `els`.** The core cache no longer holds plugin elements (e.g. the webgl mask toggle `#toggle-webgl`, the reveal-strength slider `#edge-subtract`, or the ETV add-text button). Each plugin looks up its own DOM with `document.getElementById(...)` — see the [PDFHooks pattern](../tool-expansion-guide.md#frontend-lifecycle--the-pdfhooks-bus).

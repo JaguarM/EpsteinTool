@@ -2,7 +2,7 @@
 
 `toolbar.js` manages the formatting toolbar and is the single code path for reading and writing typography properties on any `UnifiedTextBox`. There is no branching on `box.type` — embedded, redaction, and harfbuzz boxes are all handled identically.
 
-`text-tool.js` is the lifecycle/bootstrap layer: it fetches text spans after document load and exposes the tools (`addEmbeddedTextSpan`, `handleManualAddBox`) for placing new boxes.
+`text-tool.js` handles manual redaction box creation.
 
 ---
 
@@ -76,7 +76,6 @@ POST /widths
   size: box.sizePt || box.fontSize,
   scale: state.pageWidth / 816 * (4/3) * 100,
   kerning: box.kerning,
-  ligatures: box.ligatures,
 }
 → { results: [{ width: float }] }    // natural space advance
 ```
@@ -115,23 +114,8 @@ This replaced the old double-click gesture, which is now used for inline text ed
 
 ## Lifecycle: `text-tool.js`
 
-### Span fetching
-
-`utbFetchSpans(file)` is called after `loadDocument` completes:
-
-1. POST `/embedded-text-viewer/api/extract-spans` → `{ spans: [...] }`
-2. Normalizes font sizes (median-pt snap, ±1pt tolerance) on both spans and existing redaction boxes.
-3. Removes all existing `type='embedded'` boxes from `utbState` (clean slate for re-fetch).
-4. Adds each span as a `UnifiedTextBox` via `spanToUnified(span)`.
-5. Calls `renderAllTextLayers()`.
-6. Calls `utbConnectRedactionsToLines()` to snap redaction boxes to their overlapping text lines.
-7. Calls `calculateAllWidths()` to recalculate redaction candidate widths after normalization.
-
-### `loadDocument` wrapping
-
-`text-tool.js` wraps `window.loadDocument` to reset `utbState` and clear SVG layers before each new document, then triggers span fetching after the original `loadDocument` resolves.
+> Span fetching and the `document:loaded` lifecycle subscription live in `embedded_text_viewer/etv-fetch.js`. `text-tool.js` handles only manual redaction box creation.
 
 ### Placing new boxes
 
-- `window.addEmbeddedTextSpan(pageNum, x, y)`: creates a new `type='embedded'` box, snaps to the nearest text line within `2×` line height, selects it, and opens the toolbar.
-- `window.handleManualAddBox(pageNum, x, y)`: delegates to `createNewRedaction()` if available (from `redaction_matching`), otherwise creates a `type='redaction'` box directly.
+- `window.handleManualAddBox(pageNum, x, y)`: delegates to `createNewRedaction()` if available (from `redaction_matching`), otherwise creates a `type='redaction'` box directly. Calls `window._utbFindNearestLine?.()` — defined by `etv-fetch.js` (optional: gracefully absent if ETV plugin is not installed).
