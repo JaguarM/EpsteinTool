@@ -407,3 +407,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# VuePress
+guide/.vuepress/.temp/
+guide/.vuepress/.cache/
+guide/.vuepress/dist/

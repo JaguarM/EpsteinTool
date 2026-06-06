@@ -1,1 +1,0 @@
-export const siteData = JSON.parse("{\"base\":\"/EpsteinTool/\",\"lang\":\"en-US\",\"title\":\"Epstein Unredactor\",\"description\":\"Technical Documentation for the Epstein PDF Analysis Tool\",\"head\":[],\"locales\":{\"/\":{\"lang\":\"en-US\",\"title\":\"Epstein Unredactor\",\"description\":\"Technical Documentation for the Epstein PDF Analysis Tool\"}}}")
