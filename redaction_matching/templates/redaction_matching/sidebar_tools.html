@@ -69,6 +69,21 @@
                 <input type="checkbox" id="ns-expand-last" onchange="onNameSettingChange()"> Last names
               </label>
             </div>
+
+            <div style="font-size:10px; color:#9aa0a6; margin:7px 0 3px; text-transform:uppercase; letter-spacing:0.5px;">Filter by letters</div>
+            <div style="display:flex; gap:10px; align-items:flex-end;">
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#e8eaed;">
+                First letter
+                <input type="text" id="ns-first-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()"
+                  style="width:38px; text-align:center; text-transform:uppercase; background:rgba(0,0,0,0.25); color:#e8eaed; border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:3px 0; font-size:12px;">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#e8eaed;">
+                Last letter
+                <input type="text" id="ns-last-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()"
+                  style="width:38px; text-align:center; text-transform:uppercase; background:rgba(0,0,0,0.25); color:#e8eaed; border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:3px 0; font-size:12px;">
+              </label>
+              <span style="font-size:10px; color:#5f6368; line-height:1.4; padding-bottom:3px;">Blank = no filter</span>
+            </div>
           </div>
 
           <div class="table-cont">

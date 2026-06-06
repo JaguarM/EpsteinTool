@@ -46,6 +46,24 @@
 
     // ── Name generation from JSON ─────────────────────────────
 
+    // First/last-letter filter. A candidate passes when its first character equals
+    // settings.firstLetter (if set) and its last character equals settings.lastLetter
+    // (if set), case-insensitive. Applied to the rendered candidate string, so it
+    // naturally adapts to the format: for a first-name-only candidate the "last
+    // letter" comes from the first name; for a last-name-only candidate the "first
+    // letter" comes from the last name. Empty fields impose no constraint.
+    function matchesLetterFilter(str, settings) {
+      const fl = (settings.firstLetter || '').trim().toLowerCase();
+      const ll = (settings.lastLetter || '').trim().toLowerCase();
+      if (!fl && !ll) return true;
+      const s = (str || '').trim();
+      if (!s) return false;
+      if (fl && s[0].toLowerCase() !== fl) return false;
+      if (ll && s[s.length - 1].toLowerCase() !== ll) return false;
+      return true;
+    }
+    window.matchesLetterFilter = matchesLetterFilter;
+
     // opts.excluded — Set<personIndex> to skip entirely (deleted people).
     // opts.ownerMap — Map<string, Set<personIndex>>, populated if provided so a
     //                 displayed candidate can be traced back to the person(s) that
@@ -55,6 +73,7 @@
       const ownerMap = opts.ownerMap || null;
       const result = new Set();
       const add = (str, i) => {
+        if (!matchesLetterFilter(str, settings)) return;
         result.add(str);
         if (ownerMap) {
           let owners = ownerMap.get(str);
@@ -127,7 +146,8 @@
         ownerMap,
       });
       box._candidateOwners = ownerMap;
-      box.candidates = [...new Set([...fromJson, ...state.customCandidates])];
+      const customs = state.customCandidates.filter(c => matchesLetterFilter(c, box.nameSettings));
+      box.candidates = [...new Set([...fromJson, ...customs])];
       return box.candidates;
     }
 
@@ -164,6 +184,10 @@
       set('ns-expand-first', s.expandFirstAliases);
       set('ns-expand-last',  s.expandLastAliases);
 
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      setVal('ns-first-letter', s.firstLetter);
+      setVal('ns-last-letter',  s.lastLetter);
+
       // Tell the user which scope these controls currently edit.
       const scopeEl = document.getElementById('name-format-scope');
       if (scopeEl) {
@@ -187,10 +211,12 @@
     function updateNameSettingsCount() {
       const el = document.getElementById('name-settings-count');
       if (!el) return;
-      const jsonCount = generateCandidatesFromData(state.namesData, getActiveNameSettings(), {
+      const active = getActiveNameSettings();
+      const jsonCount = generateCandidatesFromData(state.namesData, active, {
         excluded: state.excludedPersons,
       }).length;
-      const customCount = state.customCandidates.length;
+      // Counts reflect the active letter filter too.
+      const customCount = state.customCandidates.filter(c => matchesLetterFilter(c, active)).length;
       el.textContent = customCount > 0
         ? `${jsonCount} from list + ${customCount} custom`
         : `${jsonCount} from list`;
@@ -206,6 +232,8 @@
       s.includeNickname     = document.getElementById('ns-nickname').checked;
       s.expandFirstAliases  = document.getElementById('ns-expand-first').checked;
       s.expandLastAliases   = document.getElementById('ns-expand-last').checked;
+      s.firstLetter         = (document.getElementById('ns-first-letter')?.value || '').trim();
+      s.lastLetter          = (document.getElementById('ns-last-letter')?.value || '').trim();
     }
 
     function onNameSettingChange() {

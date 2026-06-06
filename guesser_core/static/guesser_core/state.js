@@ -31,6 +31,8 @@ const state = {
     expandFirstAliases: false,   // one candidate per first-name variant
     expandLastAliases: false,    // one candidate per last-name variant
     includeNickname: false,      // add nickname field as extra candidate
+    firstLetter: '',             // keep only candidates whose first character matches
+    lastLetter: '',              // keep only candidates whose last character matches
   },
   // Legacy redaction array removed — now managed by utbState.boxes
   // selectedRedactionIdx removed — now utbState.selectedId
