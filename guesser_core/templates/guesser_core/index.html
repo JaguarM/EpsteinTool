@@ -88,11 +88,6 @@
           <span class="material-symbols-outlined">upload_file</span>
         </button>
 
-        {% for name, tool in tools.items %}
-          {% if tool.toolbar_button %}
-        {% include tool.toolbar_button %}
-          {% endif %}
-        {% endfor %}
       </div>
     </header>
 
@@ -154,13 +149,14 @@
   <div id="sidebar-backdrop" class="hidden"></div>
 
   <script src="{% static 'guesser_core/hooks.js' %}?v=1"></script>
-  <script src="{% static 'guesser_core/state.js' %}?v=2"></script>
+  <script src="{% static 'text_tool/geometry.js' %}?v=1"></script>
+  <script src="{% static 'guesser_core/state.js' %}?v=3"></script>
   {% for name, tool in tools.items %}
     {% for script in tool.scripts_before_viewer %}
   <script src="{% static script.path %}{% if script.version %}?{{ script.version }}{% endif %}"></script>
     {% endfor %}
   {% endfor %}
-  <script src="{% static 'guesser_core/pdf-viewer.js' %}?v=3"></script>
+  <script src="{% static 'guesser_core/pdf-viewer.js' %}?v=4"></script>
   <script src="{% static 'guesser_core/ui-events.js' %}?v=2"></script>
   <script src="{% static 'guesser_core/app.js' %}?v=2"></script>
 

@@ -64,7 +64,7 @@ Handles raw image uploads (PNG, JPEG, TIFF, …). Runs the same box detection pi
 
 Returns the same structure as `process_pdf()` with:
 - `spans` always `[]`
-- `suggested_scale` always `178` (fallback; no page geometry is available)
+- `suggested_scale` always `geo.DEFAULT_SCALE` (`133`; no page geometry is available, so it uses the same 96-dpi default as PDFs — earlier versions hardcoded `178` here)
 - `page_width` / `page_height` reflect the actual uploaded image dimensions
 
 ---

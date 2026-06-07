@@ -21,8 +21,10 @@ class UnifiedTextBox {
 
     // Typography
     this.fontFamily = data.fontFamily || 'Times New Roman';
-    this.fontSize = data.fontSize || 12;
-    this.sizePt = data.sizePt || null;  // PDF points (for HarfBuzz calls)
+    // Font size is stored ONLY in points (the canonical unit). It is converted
+    // to image px exactly once, at SVG render time (GEO.docPtToPx in
+    // svg-renderer.js). There is no separate px field.
+    this.sizePt = data.sizePt || 12;
     this.bold = data.bold || false;
     this.italic = data.italic || false;
     this.underline = data.underline || false;
@@ -123,8 +125,7 @@ function spanToUnified(span) {
     lineId: span.lineId || null,
     x: span.x, y: span.y, w: span.w, h: span.h,
     fontFamily: normUtbFont(font) || 'Times New Roman',
-    fontSize: span.fontSize,
-    sizePt: span.sizePt || null,
+    sizePt: span.sizePt || span.fontSize || 12,
     bold: isBold,
     italic: isItalic,
     letterSpacing: parseFloat(span.letterSpacing) || 0,
@@ -185,7 +186,7 @@ function utbFindNearestLine(pageNum, y, threshold = 2.0) {
     h: nearest.h,
     lineId: nearest.lineId,
     font: nearest.fontFamily,
-    fontSize: nearest.fontSize,
+    sizePt: nearest.sizePt,
   };
 }
 
@@ -205,7 +206,7 @@ function utbGetSpansCompat() {
       h: b.h,
       lineId: b.lineId,
       chars: b.baseCharPositions,
-      fontSize: b.fontSize,
+      sizePt: b.sizePt,
       font: b.fontFamily,
     }));
 }

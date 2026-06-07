@@ -11,7 +11,7 @@
 | Control ID | Property | Notes |
 |------------|----------|-------|
 | `#fabric-font-family` | `box.fontFamily` | CSS family name (e.g. `"Times New Roman"`) |
-| `#fabric-font-size` | `box.fontSize` | Displayed and entered in **pt**; stored internally in px |
+| `#fabric-font-size` | `box.sizePt` | Displayed, entered, and stored in **points** — no conversion |
 | `#fabric-bold` | `box.bold` | Toggle button (`.active` class = on) |
 | `#fabric-italic` | `box.italic` | Toggle button |
 | `#fabric-underline` | `box.underline` | Toggle button |
@@ -26,14 +26,17 @@
 
 ## Font Size Units
 
-Font sizes are stored internally in CSS pixels but the toolbar displays and accepts values in points:
+Font size has a single canonical unit — **points** — stored on `box.sizePt`.
+The toolbar reads and writes that value directly, with no DPI conversion:
 
 ```
-display pt = box.fontSize × 0.75
-stored px  = input pt ÷ 0.75
+toolbar input  =  box.sizePt        (points, both directions)
 ```
 
-`syncToolbarToBox` converts px → pt when populating the input. `persistFromToolbar` converts the pt input back to px before writing to the box.
+Points are converted to image pixels exactly once, at the SVG render boundary
+(`GEO.docPtToPx(box.sizePt)` in `svg-renderer.js`). There is no separate px
+`fontSize` field. See [`geometry.js`](../redaction-processing/width-calculator-documentation.md)
+(`window.GEO`) for the conversion helpers.
 
 ---
 
@@ -42,7 +45,7 @@ stored px  = input pt ÷ 0.75
 Reads from the `UnifiedTextBox` and pushes values into the toolbar UI. Called whenever a box is selected (from `drag-resize.js`) or when the selection changes.
 
 ```js
-fsInput.value = Math.round(box.fontSize * 0.75 * 100) / 100;  // px → pt
+fsInput.value = Math.round(box.sizePt * 100) / 100;  // points, shown directly
 ```
 
 Also sets font family, bold/italic/underline/strikethrough active states, letter spacing, color, Default Space Width checkbox, space-width slider, and nudge button state (active if micro-typo mode is active for this box, disabled if box lacks `baseCharPositions`).
@@ -54,8 +57,8 @@ Also sets font family, bold/italic/underline/strikethrough active states, letter
 Reads the current toolbar state and writes it directly to the box, then calls `renderBox(box)`.
 
 ```js
-const inputSize = parseFloat(el('fabric-font-size').value);
-box.fontSize = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize;  // pt → px
+const inputSize = parseFloat(el('fabric-font-size').value);   // points
+box.sizePt = !isNaN(inputSize) ? inputSize : box.sizePt;
 ```
 
 If `box.defaultSpaceWidth` is unchecked and the box has text, the manual `box.spaceWidth` from the slider is used.
@@ -73,8 +76,8 @@ POST /widths
 {
   strings: [' '],
   font: 'times.ttf',        // derived from box.fontFamily
-  size: box.sizePt || box.fontSize,
-  scale: state.pageWidth / 816 * (4/3) * 100,
+  size: box.sizePt,         // points
+  scale: GEO.docScale(),    // = (pageWidth / 612) × 100
   kerning: box.kerning,
 }
 → { results: [{ width: float }] }    // natural space advance

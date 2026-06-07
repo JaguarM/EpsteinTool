@@ -1,6 +1,11 @@
 import numpy as np
 import cv2
 
+try:
+    from . import geometry as geo
+except ImportError:  # standalone execution (see ProcessRedactions sys.path shim)
+    import geometry as geo
+
 
 def _is_glyph_col(col, dark_thresh=160, min_dark_px=2, max_dark_frac=0.8):
     """
@@ -317,9 +322,10 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
             # sane range so a sparse line can't produce a wild value).
             gaps = [(best_line_words[i + 1][0] - best_line_words[i][2]) * pts_to_px_x
                     for i in range(len(best_line_words) - 1)]
-            gaps = [g for g in gaps if 3 <= g <= 11]
-            space_px = sum(gaps) / len(gaps) if gaps else 5.0
-            space_px = min(max(space_px, 3.0), 8.0)
+            gap_lo, gap_hi = geo.GAP_FILTER_RANGE
+            gaps = [g for g in gaps if gap_lo <= g <= gap_hi]
+            space_px = sum(gaps) / len(gaps) if gaps else geo.SPACE_PX_FALLBACK
+            space_px = min(max(space_px, geo.SPACE_PX_CLAMP[0]), geo.SPACE_PX_CLAMP[1])
 
             # Inset the vertical band so the box's own top/bottom corners are not
             # mistaken for edge content.

@@ -12,15 +12,16 @@ window.handleManualAddBox = function (pageNum, x, y) {
     const finalH = nearestLine ? nearestLine.h : 20;
     const finalLineId = nearestLine ? nearestLine.lineId : null;
     const lineFont = nearestLine?.font;
-    const lineFontSz = nearestLine?.fontSize;
-    createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
+    const lineSizePt = nearestLine?.sizePt;
+    createNewRedaction(pageNum, x - 50, finalY, 100, finalH, finalLineId, lineFont, lineSizePt);
     return;
   }
 
   // Fallback: pure UTB creation (no redaction_matching plugin)
   const nearest = window._utbFindNearestLine?.(pageNum, y);
   const defaultFF = document.getElementById('fabric-font-family')?.value || 'Times New Roman';
-  const defaultFS = (parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75;
+  // Font-size input is in POINTS — no DPI conversion.
+  const defaultSizePt = parseFloat(document.getElementById('fabric-font-size')?.value) || 12;
 
   const newBox = utbState.addBox(new UnifiedTextBox({
     type: 'redaction',
@@ -32,7 +33,7 @@ window.handleManualAddBox = function (pageNum, x, y) {
     w: nearest ? nearest.w : 100,
     h: nearest ? nearest.h : 20,
     fontFamily: nearest ? nearest.fontFamily : defaultFF,
-    fontSize: nearest ? nearest.fontSize : defaultFS,
+    sizePt: nearest ? nearest.sizePt : defaultSizePt,
   }));
 
   renderBox(newBox);

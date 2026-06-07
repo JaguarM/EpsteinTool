@@ -12,6 +12,7 @@ try:
     from .refiners.pipeline import RefinerPipeline
     from .refiners.etv_refiner import EtvRefiner
     from .refiners.base import DetectedBox
+    from . import geometry as geo
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,13 +20,15 @@ except ImportError:
     from refiners.pipeline import RefinerPipeline
     from refiners.etv_refiner import EtvRefiner
     from refiners.base import DetectedBox
+    import geometry as geo
 
 _etv_pipeline = RefinerPipeline([EtvRefiner()])
 
 
 def _crop_to_page_ratio(img_bytes):
     """Crop excess bottom pixels so an embedded page image matches the standard
-    8.5x11 (1056/816) ratio the detector and the 816x1056 coordinate space assume.
+    8.5x11 page ratio (geo.PAGE_ASPECT) the detector and pixel coordinate space
+    assume.
 
     Returns the (possibly re-encoded) PNG bytes; on any failure returns the input
     bytes unchanged. This is the only pixel-altering step between the embedded
@@ -37,7 +40,7 @@ def _crop_to_page_ratio(img_bytes):
             if pil_img.mode not in ("RGB", "RGBA", "L"):
                 pil_img = pil_img.convert("RGB")
             w, h = pil_img.size
-            expected_h = int(round(w * (1056.0 / 816.0)))
+            expected_h = int(round(w * geo.PAGE_ASPECT))
             if h > expected_h:
                 pil_img = pil_img.crop((0, 0, w, expected_h))
                 out_io = BytesIO()
@@ -203,7 +206,7 @@ def process_pdf(pdf_bytes):
     redactions.sort(key=lambda b: (b["page"], b["y"], b["x"]))
 
     # suggested_scale: converts font advances (in pt) to image pixel widths.
-    ratio = page_scale_ratio if page_scale_ratio is not None else (816.0 / 612.0)
+    ratio = page_scale_ratio if page_scale_ratio is not None else geo.PT_TO_PX
     suggested_scale = round(100 * ratio)
 
     # suggested_size: mode of body-text span sizes, rounded to nearest 0.5 pt.
@@ -230,8 +233,8 @@ def process_pdf(pdf_bytes):
         "suggested_size": suggested_size,
         "page_images": [page_images.get(i + 1) for i in range(num_pages)],
         "page_image_type": "image/png",
-        "page_width": 816,
-        "page_height": 1056,
+        "page_width": geo.PAGE_WIDTH_PX,
+        "page_height": geo.PAGE_HEIGHT_PX,
         "num_pages": num_pages,
     }
 
@@ -270,7 +273,7 @@ def process_image(image_bytes, mime_type="image/png"):
         return {
             "redactions": redactions,
             "spans": [],
-            "suggested_scale": 178,
+            "suggested_scale": geo.DEFAULT_SCALE,
             "page_images": [page_image_b64],
             "page_image_type": mime_type,
             "page_width": img_w,

@@ -18,7 +18,7 @@ Calculates pixel widths for a list of text strings.
 | `font_name` | str | `"times.ttf"` | Font filename |
 | `font_size` | int/float | `12` | Font size in **points** |
 | `force_uppercase` | bool | `False` | Convert text to uppercase before measuring |
-| `scale_factor` | float | `1.35` | Multiplier applied to the raw advance width |
+| `scale_factor` | float | `geo.DEFAULT_SCALE / 100` (≈ `1.333`) | Multiplier applied to the raw advance width (pt → image px) |
 | `kerning` | bool | `True` | Enable OpenType `kern` feature |
 
 **Output:**
@@ -95,13 +95,19 @@ pixel_width = (advance / upem) × font_size_pt × scale_factor
 For the width to match a redaction box measured in the 816 × 1056 px embedded page images:
 
 ```
-scale_factor = img_width_px / page_width_pt
+scale_factor = PAGE_WIDTH_PX / PAGE_WIDTH_PT
              = 816 / 612
              = 4/3
              ≈ 1.3333
 ```
 
 This is equivalent to converting from 72 dpi (PDF points) to 96 dpi (screen pixels): `96 / 72 = 4/3`.
+
+All of these constants — `PAGE_WIDTH_PX`, `PAGE_WIDTH_PT`, `PT_TO_PX`, and the
+percentage form `DEFAULT_SCALE` — live in one place,
+[`guesser_core/logic/geometry.py`](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/logic/geometry.py)
+(mirrored on the frontend as `window.GEO` in `text_tool/static/text_tool/geometry.js`).
+Import them instead of re-deriving `816` / `612` / `0.75` in calling code.
 
 ### How the frontend sets scale_factor
 
@@ -113,6 +119,6 @@ scale_factor = scale / 100.0   # e.g. 133 / 100 = 1.33
 
 The auto-detected value `suggested_scale = 133` corresponds to `scale_factor ≈ 1.333`, which correctly maps 12 pt Times New Roman to its pixel width in the embedded page images.
 
-> **Note:** The function signature's default `scale_factor=1.35` is a legacy approximation of 4/3. In normal operation the frontend always supplies an explicit scale from the `suggested_scale` auto-detection, so the default is rarely used.
+> **Note:** The function signature's default is now `scale_factor = geo.DEFAULT_SCALE / 100` (≈ `1.333`), derived from the single geometry module rather than the old hardcoded `1.35` approximation. In normal operation the frontend always supplies an explicit scale (`GEO.docScale()`) from the `suggested_scale` auto-detection, so the default is rarely used.
 
 For a full derivation of the correct scale value and why the old formula (`(median_size / 12) × (816/612)² × 100 ≈ 178`) was incorrect, see [Scale & Size Detection](scale-and-size-detection.md).

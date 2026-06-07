@@ -34,8 +34,8 @@ function getOrCreateSVGLayer(pageContainer, pageNum) {
   let svg = pageContainer.querySelector(`.text-layer[data-page="${pageNum}"]`);
   if (svg) return svg;
 
-  const pw = state?.pageWidth || 816;
-  const ph = state?.pageHeight || 1056;
+  const pw = state?.pageWidth || GEO.PAGE_WIDTH_PX;
+  const ph = state?.pageHeight || GEO.PAGE_HEIGHT_PX;
 
   svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('text-layer');
@@ -171,7 +171,9 @@ function _updateText(g, box) {
   const baseline = computeBaseline(box);
 
   text.setAttribute('y', baseline);
-  text.setAttribute('font-size', box.fontSize);
+  // The one and only pt -> px conversion: box.sizePt (points) into the SVG's
+  // image-pixel viewBox space.
+  text.setAttribute('font-size', GEO.docPtToPx(box.sizePt));
   text.setAttribute('font-family', _svgFontFamily(box));
 
   // Use inline style to ensure it overrides the CSS stylesheet colors

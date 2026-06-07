@@ -1,3 +1,174 @@
+/* =========================================================
+   Candidates sidebar (replaces the old inline styles)
+   ========================================================= */
+
+/* Add-name row */
+.cand-add-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.cand-add-row .tool-btn { width: auto; }
+
+/* Paste mode */
+.paste-area {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+.paste-textarea {
+  height: 120px;
+  resize: vertical;
+  background: transparent;
+  border: none;
+  font-family: monospace;
+}
+.paste-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.paste-actions .paste-import-btn { flex: 1; }
+.paste-actions .paste-cancel-btn { width: auto; }
+
+/* Paste Mode / Clear Custom quick links */
+.cand-links {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+.cand-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #8ab4f8;
+  text-decoration: none;
+}
+.cand-link:hover { text-decoration: underline; }
+.cand-link--danger { color: #f28b82; }
+.cand-link .material-symbols-outlined { font-size: 14px; }
+
+/* Collapsible sections (Name format, Filter by letters) */
+.cand-section {
+  margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+}
+.cand-section-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  list-style: none;            /* hide default disclosure triangle (Firefox) */
+  user-select: none;
+}
+.cand-section-summary::-webkit-details-marker { display: none; }  /* Chrome/Safari */
+.cand-section-summary::after {
+  content: 'expand_more';
+  font-family: 'Material Symbols Outlined';
+  font-size: 18px;
+  color: #9aa0a6;
+  transition: transform 0.15s ease;
+  margin-left: auto;
+}
+.cand-section[open] > .cand-section-summary::after { transform: rotate(180deg); }
+.cand-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e8eaed;
+}
+.cand-scope {
+  color: #5f6368;
+  font-weight: 400;
+}
+.cand-count {
+  font-size: 10px;
+  color: #8ab4f8;
+}
+.cand-section-body {
+  padding: 0 8px 8px;
+}
+
+/* Name-format groups */
+.cand-group-label {
+  font-size: 10px;
+  color: #9aa0a6;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cand-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 9px;
+}
+.cand-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #e8eaed;
+  cursor: pointer;
+}
+.cand-check input { accent-color: #8ab4f8; }
+
+/* Letter filter */
+.cand-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.cand-letter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: #e8eaed;
+}
+.cand-letter input {
+  width: 38px;
+  padding: 3px 0;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: #e8eaed;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+.cand-letter input:focus { outline: none; border-color: #8ab4f8; }
+.cand-filter-hint {
+  font-size: 10px;
+  color: #5f6368;
+  line-height: 1.4;
+  padding-bottom: 3px;
+}
+
+/* Candidates table pager */
+.cand-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+.cand-pager .cand-pager-btn {
+  width: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.cand-pager-info {
+  text-align: center;
+  font-size: 11px;
+  color: #9aa0a6;
+}
+
 .table-cont {
   margin-top: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);

@@ -31,8 +31,8 @@ async function loadDocument(data, file) {
   state.pageImages = (data.page_images || []).map(b64 => b64 ? `data:${imgType};base64,${b64}` : null);
   state.maskImages = (data.mask_images || []).map(b64 => b64 ? `data:image/png;base64,${b64}` : null);
   state.numPages = data.num_pages || state.pageImages.length || 1;
-  state.pageWidth = data.page_width || 816;
-  state.pageHeight = data.page_height || 1056;
+  state.pageWidth = data.page_width || GEO.PAGE_WIDTH_PX;
+  state.pageHeight = data.page_height || GEO.PAGE_HEIGHT_PX;
 
   els.pageCountElem.textContent = `/ ${state.numPages}`;
   els.pageInputElem.value = 1;
@@ -41,27 +41,26 @@ async function loadDocument(data, file) {
   await goToPage(1);
   renderThumbnails();
 
-  const autoScale = data.suggested_scale || 178;
-  const autoSize = data.suggested_size || 12;
+  const autoScale = data.suggested_scale || GEO.DEFAULT_SCALE;
+  const autoSize = data.suggested_size || 12;  // points
   const autoFont = data.suggested_font || null;
 
-  // Derive initial font family (CSS name) and size (px)
+  // Derive initial font family (CSS name)
   let initialFontFamily = 'Times New Roman';
   if (autoFont) {
     const fabricFont = ttfToFabricFont(autoFont);
     if (fabricFont) initialFontFamily = fabricFont;
   }
-  // Convert point size to 96 DPI pixel space (1pt = 1.333px)
-  const initialFontSize = autoSize / 0.75;
 
-  // Sync fabric toolbar to the document's detected font/size
+  // Sync fabric toolbar to the document's detected font/size. The font-size
+  // input holds POINTS (the canonical unit) — no DPI conversion here.
   const fabricSel = document.getElementById('fabric-font-family');
   if (fabricSel && Array.from(fabricSel.options).find(o => o.value === initialFontFamily)) {
     fabricSel.value = initialFontFamily;
     if (typeof textOptions !== 'undefined') textOptions.fontFamily = initialFontFamily;
   }
   const fabricSizeInput = document.getElementById('fabric-font-size');
-  if (fabricSizeInput) fabricSizeInput.value = initialFontSize;
+  if (fabricSizeInput) fabricSizeInput.value = autoSize;
 
   // Ingest server-detected redaction boxes as native UnifiedTextBox instances
   if (typeof utbState !== 'undefined' && data.redactions) {
@@ -73,7 +72,6 @@ async function loadDocument(data, file) {
         lineId:     null,
         x: r.x, y: r.y, w: r.width, h: r.height,
         fontFamily:   initialFontFamily,
-        fontSize:     initialFontSize,
         sizePt:       autoSize,
         kerning:      els.kern?.checked ?? false,
         uppercase:    els.upper?.checked ?? false,

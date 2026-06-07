@@ -68,11 +68,19 @@ if page_scale_ratio is None and img_rect.width > 0:
     page_scale_ratio = img_w / img_rect.width   # e.g. 816 / 612
 
 # ... after loop ...
-ratio = page_scale_ratio if page_scale_ratio is not None else (816.0 / 612.0)
+ratio = page_scale_ratio if page_scale_ratio is not None else geo.PT_TO_PX
 suggested_scale = round(100 * ratio)   # → 133
 ```
 
-This makes the formula self-calibrating for non-standard page sizes or unusual scan resolutions.
+`geo.PT_TO_PX` (`= 816/612 = 4/3`) and the percentage fallback `geo.DEFAULT_SCALE`
+(`133`) both come from [`guesser_core/logic/geometry.py`](https://github.com/JaguarM/EpsteinTool/blob/main/guesser_core/logic/geometry.py),
+the single source of truth for all page/DPI constants. This makes the formula
+self-calibrating for non-standard page sizes or unusual scan resolutions.
+
+> **Raw image uploads** (`process_image`) have no page geometry to measure, so
+> they default to the same `geo.DEFAULT_SCALE` (133) as PDFs. (Earlier versions
+> hardcoded `178` here, which assumed a ~128 dpi scan and disagreed with the
+> 96-dpi PDF path; the two paths are now unified.)
 
 ---
 
@@ -112,8 +120,8 @@ PyMuPDF returns sub-point sizes like `11.38`, `10.86`, `12.02`. These are render
 
 ```js
 // pdf-viewer.js — on PDF load
-els.calcScale.value = data.suggested_scale || 178;   // e.g. 133
-els.size.value      = data.suggested_size  || 12;    // e.g. 12.0
+els.calcScale.value = data.suggested_scale || GEO.DEFAULT_SCALE;  // e.g. 133
+els.size.value      = data.suggested_size  || 12;                 // e.g. 12.0 (pt)
 
 // Each redaction is initialised with these settings:
 settings: { font: ..., size: autoSize, scale: autoScale, ... }

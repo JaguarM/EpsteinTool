@@ -21,8 +21,8 @@ Every piece of text is stored as a `UnifiedTextBox` instance inside the global `
 
   // Typography
   fontFamily: string,
-  fontSize: float,      // stored in CSS px (= pt / 0.75)
-  sizePt: float|null,   // PDF points, used for HarfBuzz calls
+  sizePt: float,        // font size in POINTS — the single canonical unit
+                        // (converted to px once, at SVG render time)
   bold, italic, underline, strikethrough: bool,
   letterSpacing: float,
   color: string|null,   // null = per-type default color
@@ -112,7 +112,7 @@ The core function. Creates or updates the `<g>` group and its children for a sin
 
 ```js
 text.setAttribute('y', computeBaseline(box));       // box.y + box.h * 0.85
-text.setAttribute('font-size',   box.fontSize);     // stored in px
+text.setAttribute('font-size',   GEO.docPtToPx(box.sizePt));  // pt → px (only here)
 text.setAttribute('font-family', '"Times New Roman"');
 text.setAttribute('x', xs.join(' '));               // one value per character
 text.textContent = box.text;
@@ -158,7 +158,7 @@ The `.selected` class on `.utb-group` makes `.utb-bbox` visible (CSS `visibility
 Text spans are fetched from the backend by `utbFetchSpans(file)` in `etv-fetch.js (embedded_text_viewer)`, which subscribes to the core's `document:loaded` PDFHooks event (it no longer monkey-patches `window.loadDocument`).
 
 1. POST `/embedded-text-viewer/api/extract-spans` → `{ spans: [...] }`
-2. **Font size normalization**: all span `fontSize` values are converted to pt (`px * 0.75`), the median pt is computed, and any span within ±1pt of the median is snapped to that value. This prevents floating-point rounding in the PDF from creating many slightly-different sizes for the same body text.
+2. **Font size normalization**: works directly on the canonical `span.sizePt` (points). The median `sizePt` is computed and rounded to `documentBasePt`; any span within ±1pt of it is snapped to that value, otherwise it rounds to the nearest whole point. This prevents floating-point rounding in the PDF from creating many slightly-different sizes for the same body text. (The normalized value must be written back to `span.sizePt` — `spanToUnified` reads `sizePt`, so normalizing the old px `fontSize` field would be silently ignored.)
 3. Same normalization is applied retroactively to existing redaction boxes.
 4. Old embedded boxes are removed from `utbState.boxes` (avoiding double-render on re-fetch).
 5. Each span is converted via `spanToUnified(span)` and added with `utbState.addBox(...)`.

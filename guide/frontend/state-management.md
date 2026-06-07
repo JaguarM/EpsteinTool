@@ -51,8 +51,8 @@ const state = {
 
   settings: {            // per-redaction font/matching settings
     font: "times.ttf",
-    size: 12,
-    scale: 178,
+    size: 12,            // points
+    scale: 133,
     tol: 3,              // tolerance in pixels for width matching
     kern: true,
     lig: true,

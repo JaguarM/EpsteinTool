@@ -498,46 +498,70 @@ html {
 
 #text-toolbar-row {
   display: flex;
-  align-items: stretch;
-  overflow-x: hidden;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;        /* single Word-style ribbon line — never stack onto a 2nd level */
+  overflow-x: auto;         /* if it can't fit, scroll horizontally instead of wrapping */
+  overflow-y: hidden;
   min-height: 44px;
+  scrollbar-width: thin;
 }
 
-/* Every plugin subtoolbar uses class="options-bar", so styling them by class
-   means the core never enumerates specific plugins. Visibility is handled by
-   the global `.hidden { display: none !important }` rule above. */
-.options-bar {
+#text-toolbar-row::-webkit-scrollbar { height: 6px; }
+#text-toolbar-row::-webkit-scrollbar-track { background: transparent; }
+#text-toolbar-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 3px;
+}
+
+/* The ribbon is built from "bars". Every bar shares the same flex layout via
+   `.ribbon-bar`. A bar that ALSO carries `.options-bar` is one that
+   `openSubtoolbar` manages (mutually-exclusive / contextual); a bar with only
+   `.ribbon-bar` is a persistent, always-visible region of the ribbon. Styling by
+   class means the core never enumerates specific plugins. Visibility of the
+   contextual bars is handled by the global `.hidden` rule above. */
+.options-bar,
+.ribbon-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   background-color: transparent;
-  padding: 0 16px;
+  padding: 0 12px;
   flex-shrink: 0;
   color: #e8eaed;
   font-size: 13px;
 }
 
+/* Left-to-right reading order across the whole ribbon, independent of the order
+   the plugins happen to inject their bars: insert tools → text formatting →
+   match tuning. Using `order` keeps each app's template self-contained. */
+#fabric-insert-bar  { order: 1; }
+#fabric-options-bar { order: 2; }
+#text-options-bar   { order: 3; }
+
 .options-group {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 3px;
   position: relative;
-  padding: 4px 0;
+  padding: 3px 0;
 }
 
+/* Word-ribbon convention: the group label sits *below* its controls. */
 .options-group-header {
-  font-size: 10px;
+  order: 2;
+  font-size: 9px;
   text-transform: uppercase;
-  color: #9aa0a6;
+  color: #80868b;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
+  letter-spacing: 0.06em;
   user-select: none;
 }
 
 .options-group-controls {
+  order: 1;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -550,6 +574,13 @@ html {
   flex-shrink: 0;
   margin: 0 4px;
   align-self: center;
+}
+
+/* A shorter divider used *inside* a group's control row (e.g. between the
+   Tolerance field and the Kerning/Uppercase checkboxes). */
+.options-divider--inline {
+  height: 20px;
+  margin: 0 6px;
 }
 
 .options-label {

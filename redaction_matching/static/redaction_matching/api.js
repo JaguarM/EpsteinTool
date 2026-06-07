@@ -483,7 +483,7 @@
         textEl = _getMeasureTextEl();
         isOffscreen = true;
         
-        textEl.setAttribute('font-size', box.fontSize || 16);
+        textEl.setAttribute('font-size', GEO.docPtToPx(box.sizePt));
         let fontFamily = `"${box.fontFamily || 'Times New Roman'}"`;
         if (box.renderFont) fontFamily = `"etv_${box.renderFont}", ${fontFamily}`;
         textEl.setAttribute('font-family', fontFamily);
@@ -745,19 +745,20 @@
       const finalH      = nearestLine ? nearestLine.h      : 20;
       const finalLineId = nearestLine ? nearestLine.lineId : null;
       const lineFont    = nearestLine?.font;
-      const lineFontSz  = nearestLine?.fontSize;
+      const lineSizePt  = nearestLine?.sizePt;
 
-      createNewRedaction(pageNum, pxX - 50, finalY, 100, finalH, finalLineId, lineFont, lineFontSz);
+      createNewRedaction(pageNum, pxX - 50, finalY, 100, finalH, finalLineId, lineFont, lineSizePt);
     }
 
-    function createNewRedaction(pageNum, x, y, width, height, lineId = null, lineFont = null, lineFontSz = null) {
+    function createNewRedaction(pageNum, x, y, width, height, lineId = null, lineFont = null, lineSizePt = null) {
       const normFn = typeof normUtbFont === 'function' ? normUtbFont : (n => n);
       const fontFamily = (lineFont ? normFn(lineFont) : null)
                       || document.getElementById('fabric-font-family')?.value
                       || 'Times New Roman';
-      const fontSize   = lineFontSz
-                      || parseInt(document.getElementById('fabric-font-size')?.value)
-                      || 16;
+      // Font-size input is in POINTS — no DPI conversion.
+      const sizePt     = lineSizePt
+                      || parseFloat(document.getElementById('fabric-font-size')?.value)
+                      || 12;
 
       const newBox = utbState.addBox(new UnifiedTextBox({
         type:       'redaction',
@@ -766,7 +767,7 @@
         lineId:     lineId,
         x: x, y: y, w: width, h: height,
         fontFamily:   fontFamily,
-        fontSize:     fontSize,
+        sizePt:       sizePt,
         kerning:      els.kern?.checked ?? true,
         uppercase:    els.upper?.checked ?? false,
         tolerance:    parseFloat(els.tol?.value) || 0,

@@ -2,89 +2,81 @@
         <div class="tool-card">
           <h2><span class="step">1</span> Candidates</h2>
 
-          <div style="display: flex; gap: 4px; margin-bottom: 4px;">
-            <input type="text" id="name-input" class="tool-input" placeholder="Type name..." style="flex:1;">
-            <button class="tool-btn" style="width: auto;" onclick="addName()">Add</button>
+          <div class="cand-add-row">
+            <input type="text" id="name-input" class="tool-input" placeholder="Type name...">
+            <button class="tool-btn cand-add-btn" onclick="addName()">Add</button>
           </div>
 
-          <div id="paste-area" style="display:none; margin-bottom:12px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px; border: 1px dashed rgba(255,255,255,0.1);">
-            <textarea id="paste-input" class="tool-input" style="height: 120px; resize:vertical; background: transparent; border: none; font-family: monospace;"
+          <!-- `display` is toggled inline by api.js (none/block); the class only
+               supplies the styling, so the two don't fight. -->
+          <div id="paste-area" class="paste-area" style="display:none;">
+            <textarea id="paste-input" class="tool-input paste-textarea"
               placeholder="Paste a list of names (one per line)..."></textarea>
-            <div style="display: flex; gap: 4px; margin-top: 8px;">
-              <button class="tool-btn" style="flex:1;" onclick="processPaste()">Import Names</button>
-              <button class="tool-btn secondary" style="width: auto;" onclick="document.getElementById('paste-area').style.display='none'">Cancel</button>
+            <div class="paste-actions">
+              <button class="tool-btn paste-import-btn" onclick="processPaste()">Import Names</button>
+              <button class="tool-btn secondary paste-cancel-btn"
+                onclick="document.getElementById('paste-area').style.display='none'">Cancel</button>
             </div>
           </div>
 
-          <div style="display:flex; justify-content:space-between; margin-bottom: 8px; padding: 0 2px;">
-            <a href="#" style="color:#8ab4f8; font-size:11px; text-decoration:none; display: flex; align-items: center; gap: 4px;"
+          <div class="cand-links">
+            <a href="#" class="cand-link"
               onclick="document.getElementById('paste-area').style.display = document.getElementById('paste-area').style.display === 'none' ? 'block' : 'none'; return false;">
-              <span class="material-symbols-outlined" style="font-size: 14px;">content_paste</span> Paste Mode</a>
-            <a href="#" style="color:#f28b82; font-size:11px; text-decoration:none; display: flex; align-items: center; gap: 4px;"
-              onclick="clearAll(); return false;">
-              <span class="material-symbols-outlined" style="font-size: 14px;">delete_sweep</span> Clear Custom</a>
+              <span class="material-symbols-outlined">content_paste</span> Paste Mode</a>
+            <a href="#" class="cand-link cand-link--danger" onclick="clearAll(); return false;">
+              <span class="material-symbols-outlined">delete_sweep</span> Clear Custom</a>
           </div>
 
-          <!-- Name format settings -->
-          <div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.07);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <span style="font-size:11px; color:#9aa0a6; font-weight:500;">Name format
-                <span id="name-format-scope" style="color:#5f6368; font-weight:400;" title="These settings apply per redaction box">· new boxes</span>
+          <!-- Name format options — collapsed by default -->
+          <details class="cand-section">
+            <summary class="cand-section-summary">
+              <span class="cand-section-title">Name format
+                <span id="name-format-scope" class="cand-scope" title="These settings apply per redaction box">· new boxes</span>
               </span>
-              <span id="name-settings-count" style="font-size:10px; color:#8ab4f8;"></span>
-            </div>
+              <span id="name-settings-count" class="cand-count"></span>
+            </summary>
 
-            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Generate</div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:7px;">
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-full" checked onchange="onNameSettingChange()"> Full name
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-first-only" onchange="onNameSettingChange()"> First only
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-last-only" onchange="onNameSettingChange()"> Last only
-              </label>
-            </div>
+            <div class="cand-section-body">
+              <div class="cand-group-label">Generate</div>
+              <div class="cand-checks">
+                <label class="cand-check"><input type="checkbox" id="ns-full" checked onchange="onNameSettingChange()"> Full name</label>
+                <label class="cand-check"><input type="checkbox" id="ns-first-only" onchange="onNameSettingChange()"> First only</label>
+                <label class="cand-check"><input type="checkbox" id="ns-last-only" onchange="onNameSettingChange()"> Last only</label>
+              </div>
 
-            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Include</div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:7px;">
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-prefix" onchange="onNameSettingChange()"> Prefix/Title
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-suffix" onchange="onNameSettingChange()"> Suffix
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-nickname" onchange="onNameSettingChange()"> Nickname
-              </label>
-            </div>
+              <div class="cand-group-label">Include</div>
+              <div class="cand-checks">
+                <label class="cand-check"><input type="checkbox" id="ns-prefix" onchange="onNameSettingChange()"> Prefix/Title</label>
+                <label class="cand-check"><input type="checkbox" id="ns-suffix" onchange="onNameSettingChange()"> Suffix</label>
+                <label class="cand-check"><input type="checkbox" id="ns-nickname" onchange="onNameSettingChange()"> Nickname</label>
+              </div>
 
-            <div style="font-size:10px; color:#9aa0a6; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Expand aliases</div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-expand-first" onchange="onNameSettingChange()"> First names
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; font-size:11px; cursor:pointer; color:#e8eaed;">
-                <input type="checkbox" id="ns-expand-last" onchange="onNameSettingChange()"> Last names
-              </label>
+              <div class="cand-group-label">Expand aliases</div>
+              <div class="cand-checks">
+                <label class="cand-check"><input type="checkbox" id="ns-expand-first" onchange="onNameSettingChange()"> First names</label>
+                <label class="cand-check"><input type="checkbox" id="ns-expand-last" onchange="onNameSettingChange()"> Last names</label>
+              </div>
             </div>
+          </details>
 
-            <div style="font-size:10px; color:#9aa0a6; margin:7px 0 3px; text-transform:uppercase; letter-spacing:0.5px;">Filter by letters</div>
-            <div style="display:flex; gap:10px; align-items:flex-end;">
-              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#e8eaed;">
-                First letter
-                <input type="text" id="ns-first-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()"
-                  style="width:38px; text-align:center; text-transform:uppercase; background:rgba(0,0,0,0.25); color:#e8eaed; border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:3px 0; font-size:12px;">
-              </label>
-              <label style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#e8eaed;">
-                Last letter
-                <input type="text" id="ns-last-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()"
-                  style="width:38px; text-align:center; text-transform:uppercase; background:rgba(0,0,0,0.25); color:#e8eaed; border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:3px 0; font-size:12px;">
-              </label>
-              <span style="font-size:10px; color:#5f6368; line-height:1.4; padding-bottom:3px;">Blank = no filter</span>
+          <!-- Letter filter — collapsed by default (secondary control) -->
+          <details class="cand-section">
+            <summary class="cand-section-summary">
+              <span class="cand-section-title">Filter by letters</span>
+            </summary>
+
+            <div class="cand-section-body">
+              <div class="cand-filter">
+                <label class="cand-letter">First letter
+                  <input type="text" id="ns-first-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()">
+                </label>
+                <label class="cand-letter">Last letter
+                  <input type="text" id="ns-last-letter" maxlength="1" autocomplete="off" oninput="onNameSettingChange()">
+                </label>
+                <span class="cand-filter-hint">Blank = no filter</span>
+              </div>
             </div>
-          </div>
+          </details>
 
           <div class="table-cont">
             <table>
@@ -98,11 +90,11 @@
               <tbody id="names-body"></tbody>
             </table>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <button class="tool-btn secondary" style="padding: 2px 8px; font-size: 11px; width: auto;"
+          <div class="cand-pager">
+            <button class="tool-btn secondary cand-pager-btn"
               onclick="changePage(-1)" id="btn-prev-page" disabled>&lt; Prev</button>
-            <div style="text-align:center; font-size:11px; color:#9aa0a6;" id="page-info"></div>
-            <button class="tool-btn secondary" style="padding: 2px 8px; font-size: 11px; width: auto;"
+            <div class="cand-pager-info" id="page-info"></div>
+            <button class="tool-btn secondary cand-pager-btn"
               onclick="changePage(1)" id="btn-next-page" disabled>Next &gt;</button>
           </div>
         </div>

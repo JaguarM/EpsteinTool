@@ -36,19 +36,19 @@
     downEvent.preventDefault();
     downEvent.stopPropagation();
 
-    const start  = toSVGPoint(svgEl, downEvent.clientX, downEvent.clientY);
-    const origX  = box.x;
+    const start = toSVGPoint(svgEl, downEvent.clientX, downEvent.clientY);
+    const origX = box.x;
 
     // Snapshot all line boxes' Y positions for grouped vertical move
-    const lineBoxes  = getLineBoxes(box);
-    const origYs     = lineBoxes.map(b => b.y);
+    const lineBoxes = getLineBoxes(box);
+    const origYs = lineBoxes.map(b => b.y);
     const linkedReds = getLinkedRedactions(box.lineId, box.page);
-    const origRedYs  = linkedReds.map(b => b.y);
+    const origRedYs = linkedReds.map(b => b.y);
 
     function onMove(e) {
       const cur = toSVGPoint(svgEl, e.clientX, e.clientY);
-      const dx  = cur.x - start.x;
-      const dy  = cur.y - start.y;
+      const dx = cur.x - start.x;
+      const dy = cur.y - start.y;
 
       // Dragged box: horizontal only
       box.x = origX + dx;
@@ -69,11 +69,11 @@
 
     function onUp() {
       window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('mouseup', onUp);
     }
 
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
+    window.addEventListener('mouseup', onUp);
   }
 
   // ── Resize ────────────────────────────────────────────────────
@@ -88,7 +88,7 @@
 
     function onMove(e) {
       const cur = toSVGPoint(svgEl, e.clientX, e.clientY);
-      const dx  = cur.x - start.x;
+      const dx = cur.x - start.x;
 
       if (edge === 'r') {
         box.w = Math.max(4, origW + dx);
@@ -148,14 +148,14 @@
 
     function onUp() {
       window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('mouseup', onUp);
       if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
         calculateWidthsForRedaction(box.id);
       }
     }
 
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
+    window.addEventListener('mouseup', onUp);
   }
 
   // ── Event delegation on SVG layers ───────────────────────────
@@ -184,6 +184,7 @@
       if (utbState.selectedId) {
         utbState.selectedId = null;
         deselectAllInSVG();
+        document.getElementById('fabric-options-bar')?.classList.add('hidden');
         if (typeof syncToolbarToSelection === 'function') syncToolbarToSelection();
         if (typeof syncNameSettingsUI === 'function') syncNameSettingsUI();
         if (typeof renderCandidates === 'function') renderCandidates();
@@ -206,10 +207,6 @@
       selectRedaction(box.id);
     }
 
-    // Open the formatting toolbar if hidden
-    const fbar = document.getElementById('fabric-options-bar');
-    if (fbar?.classList.contains('hidden')) fbar.classList.remove('hidden');
-
     initDrag(e, box, svgEl);
   });
 
@@ -223,6 +220,7 @@
     if (utbState.selectedId) {
       utbState.selectedId = null;
       deselectAllInSVG();
+      document.getElementById('fabric-options-bar')?.classList.add('hidden');
       if (typeof syncToolbarToSelection === 'function') syncToolbarToSelection();
       if (typeof syncNameSettingsUI === 'function') syncNameSettingsUI();
       if (typeof renderCandidates === 'function') renderCandidates();

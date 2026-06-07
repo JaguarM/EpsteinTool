@@ -32,7 +32,7 @@
 
     box.baseCharPositions.forEach((cp, i) => {
       const hitX = xs[i];
-      const hitW = cp.w > 0 ? cp.w : (xs[i + 1] ? xs[i + 1] - xs[i] : box.fontSize * 0.6);
+      const hitW = cp.w > 0 ? cp.w : (xs[i + 1] ? xs[i + 1] - xs[i] : GEO.docPtToPx(box.sizePt) * 0.6);
 
       const r = document.createElementNS(SVG_NS, 'rect');
       r.classList.add('utb-char-hit');
@@ -100,8 +100,8 @@
       const pageRect   = pageEl.getBoundingClientRect();
       const charX      = parseFloat(anchorEl.getAttribute('x'));
       const charY      = parseFloat(anchorEl.getAttribute('y'));
-      const scaleX     = svgRect.width  / (state?.pageWidth  || 816);
-      const scaleY     = svgRect.height / (state?.pageHeight || 1056);
+      const scaleX     = svgRect.width  / (state?.pageWidth  || GEO.PAGE_WIDTH_PX);
+      const scaleY     = svgRect.height / (state?.pageHeight || GEO.PAGE_HEIGHT_PX);
       const screenLeft = svgRect.left - pageRect.left + charX * scaleX;
       const screenTop  = svgRect.top  - pageRect.top  + charY * scaleY;
 

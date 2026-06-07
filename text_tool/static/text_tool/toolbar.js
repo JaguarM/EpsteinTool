@@ -28,7 +28,8 @@
     }
 
     const fsInput = el('fabric-font-size');
-    if (fsInput) fsInput.value = Math.round(box.fontSize * 0.75 * 100) / 100;
+    // Font-size input is in POINTS — box.sizePt is shown directly.
+    if (fsInput) fsInput.value = Math.round(box.sizePt * 100) / 100;
 
     el('fabric-bold')         ?.classList.toggle('active', box.bold);
     el('fabric-italic')       ?.classList.toggle('active', box.italic);
@@ -64,8 +65,10 @@
       nudgeBtn.disabled = !box.baseCharPositions?.length;
     }
 
-    // Show toolbar if hidden
-    // el('fabric-options-bar')?.classList.remove('hidden');
+    // Formatting is contextual: reveal the Font/Style/Spacing groups whenever a
+    // box becomes the active selection. Every selection path (click, add-box,
+    // sidebar row) routes through here, so this is the single reveal point.
+    el('fabric-options-bar')?.classList.remove('hidden');
   }
 
   // Expose for drag-resize.js and other modules
@@ -86,12 +89,12 @@
     if (!box) return;
 
     const newFamily = el('fabric-font-family')?.value || box.fontFamily;
-    const inputSize = parseFloat(el('fabric-font-size')?.value);
-    const newSize   = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize;
-    const fontChanged = newFamily !== box.fontFamily || newSize !== box.fontSize;
+    const inputSize = parseFloat(el('fabric-font-size')?.value);  // points
+    const newSize   = !isNaN(inputSize) ? inputSize : box.sizePt;
+    const fontChanged = newFamily !== box.fontFamily || newSize !== box.sizePt;
 
     box.fontFamily    = newFamily;
-    box.fontSize      = newSize;
+    box.sizePt        = newSize;
     box.bold          = el('fabric-bold')         ?.classList.contains('active') ?? box.bold;
     box.italic        = el('fabric-italic')       ?.classList.contains('active') ?? box.italic;
     box.underline     = el('fabric-underline')    ?.classList.contains('active') ?? box.underline;
@@ -128,10 +131,9 @@
 
   async function fetchNaturalSpaceWidth(box) {
     const font  = _ttfForFamily(box.fontFamily);
-    // HarfBuzz expects the size in POINTS. box.fontSize is px (96dpi); fall back
-    // to px×0.75 when sizePt is absent (e.g. some redaction boxes).
-    const size  = box.sizePt || (box.fontSize * 0.75);
-    const scale = typeof state !== 'undefined' ? (state.pageWidth / 816 * (4/3)) : (4/3);
+    // HarfBuzz expects the size in POINTS — box.sizePt is already points.
+    const size  = box.sizePt;
+    const scale = GEO.docScale();  // px-per-pt × 100 for this document
     const key = `${font}|${size}|${box.kerning ? 1 : 0}|${scale}`;
     if (_naturalSpaceCache.has(key)) return _naturalSpaceCache.get(key);
     try {
@@ -142,7 +144,7 @@
           strings: [' '],
           font:    font,
           size:    size,
-          scale:   scale * 100,
+          scale:   scale,
           kerning:    box.kerning,
         }),
       });
@@ -184,10 +186,10 @@
   el('fabric-font-family')?.addEventListener('change', () => persistFromToolbar(getSelected()));
   el('fabric-font-size')  ?.addEventListener('input',  () => {
     const box = getSelected();
-    if (box) { 
-      const inputSize = parseFloat(el('fabric-font-size').value);
-      box.fontSize = !isNaN(inputSize) ? inputSize / 0.75 : box.fontSize; 
-      renderBox(box); 
+    if (box) {
+      const inputSize = parseFloat(el('fabric-font-size').value);  // points
+      box.sizePt = !isNaN(inputSize) ? inputSize : box.sizePt;
+      renderBox(box);
       if (box.type === 'redaction' && typeof calculateWidthsForRedaction === 'function') {
         calculateWidthsForRedaction(box.id);
       }

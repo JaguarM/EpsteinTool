@@ -2,6 +2,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
+from guesser_core.logic import geometry as geo
 from .logic.width_calculator import get_text_widths, get_available_fonts, get_justified_space_width
 
 
@@ -18,7 +19,7 @@ def calculate_widths(request):
     try:
         font_name = str(data.get('font') or 'times.ttf')
         font_size = float(data.get('size') or 12)
-        scale = float(data.get('scale') or 135)
+        scale = float(data.get('scale') or geo.DEFAULT_SCALE)
         force_uppercase = bool(data.get('force_uppercase', False))
         kerning = bool(data.get('kerning', True))
         space_width = data.get('space_width')

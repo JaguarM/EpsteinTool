@@ -5,8 +5,8 @@ const state = {
   // PDF Viewer State
   pageImages: [],    // data URLs, one per page (index 0 = page 1)
   numPages: 0,
-  pageWidth: 816,
-  pageHeight: 1056,
+  pageWidth: GEO.PAGE_WIDTH_PX,
+  pageHeight: GEO.PAGE_HEIGHT_PX,
   currentPage: 1,
   currentZoom: 1.0,
   minZoom: 0.5,

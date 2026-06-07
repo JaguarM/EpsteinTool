@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass
 class DetectedBox:
-    """Redaction box in image pixel space (816px-wide page)."""
+    """Redaction box in image pixel space (see guesser_core.logic.geometry)."""
     page: int
     x: float
     y: float

@@ -44,8 +44,9 @@
     input.setAttribute('value', box.text);
     input.className = 'utb-edit-input';
 
-    // WYSIWYG styling
-    const pxSize = box.fontSize;  // fontSize is already in CSS px
+    // WYSIWYG styling. The input lives in the same image-px space as the SVG,
+    // so convert the canonical point size to px the same way svg-renderer does.
+    const pxSize = GEO.docPtToPx(box.sizePt);
     input.style.fontFamily = `"${box.fontFamily}"`;
     input.style.fontSize = `${pxSize}px`;
     input.style.color = box.color || _typeColor(box.type);

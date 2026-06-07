@@ -4,6 +4,11 @@ except ImportError:
     hb = None
 import os
 
+from guesser_core.logic import geometry as geo
+
+# px-per-pt as a multiplier (geo.DEFAULT_SCALE is the same value as a percentage).
+_DEFAULT_SCALE_FACTOR = geo.DEFAULT_SCALE / 100.0
+
 
 def _resolve_font_path(font_name):
     """Search local and assets/fonts for a TTF file; return path or None."""
@@ -18,7 +23,7 @@ def _resolve_font_path(font_name):
     return None
 
 
-def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=1.35, kerning=True, space_width=None):
+def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=False, scale_factor=_DEFAULT_SCALE_FACTOR, kerning=True, space_width=None):
     """
     Calculates pixel widths for a list of text strings using HarfBuzz shaping.
     Returns list of {text, width, chars} dicts where chars holds per-character x offsets.
@@ -82,7 +87,7 @@ def get_text_widths(texts, font_name="times.ttf", font_size=12, force_uppercase=
 
 
 def get_justified_space_width(text, block_w, font_name="times.ttf", font_size=12,
-                               force_uppercase=False, scale_factor=1.35,
+                               force_uppercase=False, scale_factor=_DEFAULT_SCALE_FACTOR,
                                kerning=True):
     """
     Compute the pixel width each space must have so the total shaped width of
