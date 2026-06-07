@@ -26,7 +26,8 @@ async function utbFetchSpans(file) {
     const spans = data.spans || [];
 
     if (spans.length > 0) {
-      const ptSizes = spans.map(s => s.fontSize * 0.75).sort((a, b) => a - b);
+      // Font size is in POINTS (the canonical unit); normalize sizePt directly.
+      const ptSizes = spans.map(s => s.sizePt).sort((a, b) => a - b);
       const medianPt = ptSizes[Math.floor(ptSizes.length / 2)];
       const documentBasePt = Math.round(medianPt);
 
@@ -35,14 +36,14 @@ async function utbFetchSpans(file) {
       let mostUsedFont = 'Times New Roman';
 
       spans.forEach(span => {
-        const pt = span.fontSize * 0.75;
+        const pt = span.sizePt;
         let normalizedPt;
         if (Math.abs(pt - documentBasePt) <= 1.0) {
           normalizedPt = documentBasePt;
         } else {
           normalizedPt = Math.round(pt);
         }
-        span.fontSize = normalizedPt / 0.75;
+        span.sizePt = normalizedPt;
 
         const f = typeof normUtbFont === 'function' ? normUtbFont(span.font) : (span.font || 'Times New Roman');
         if (f) {
@@ -61,7 +62,7 @@ async function utbFetchSpans(file) {
       }
 
       utbState.boxes.filter(b => b.type === 'redaction').forEach(box => {
-        const pt = box.fontSize * 0.75;
+        const pt = box.sizePt;
         let normalizedPt;
         if (Math.abs(pt - documentBasePt) <= 1.0) {
           normalizedPt = documentBasePt;
@@ -70,8 +71,8 @@ async function utbFetchSpans(file) {
         }
 
         let changed = false;
-        if (box.fontSize !== normalizedPt / 0.75) {
-          box.fontSize = normalizedPt / 0.75;
+        if (box.sizePt !== normalizedPt) {
+          box.sizePt = normalizedPt;
           changed = true;
         }
         if (box.fontFamily !== mostUsedFont) {
@@ -187,7 +188,8 @@ window.addEmbeddedTextSpan = function (pageNum, x, y) {
     w: 120,
     h: nearest ? nearest.h : 20,
     fontFamily: nearest ? nearest.fontFamily : (document.getElementById('fabric-font-family')?.value || 'Times New Roman'),
-    fontSize: nearest ? nearest.fontSize : ((parseFloat(document.getElementById('fabric-font-size')?.value) || 12) / 0.75),
+    // Font-size input is in POINTS — no DPI conversion.
+    sizePt: nearest ? nearest.sizePt : (parseFloat(document.getElementById('fabric-font-size')?.value) || 12),
   }));
 
   renderBox(newBox);

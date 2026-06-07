@@ -107,10 +107,10 @@ function computeXPositions(box) {
 
 /**
  * Compute baseline Y: approximately 85% down from the top of the bounding box.
- * SVG <text> y is the baseline, not the top. TODO: -2 Temporary fix. 
+ * SVG <text> y is the baseline, not the top. TODO: -1 Temporary fix. 
  */
 function computeBaseline(box) {
-  return (box.y || 0) + (box.h || 0) * 0.85 - 2;
+  return (box.y || 0) + (box.h || 0) * 0.85 - 1;
 }
 
 
@@ -298,15 +298,15 @@ function _updateSpaceLabels(g, box) {
     if (box.spaceWidth != null && !box.defaultSpaceWidth) {
       const label = box.spaceWidth.toFixed(1);
       // Both badges show the Space W. value used between multi-word candidate words
-      _spacebadge(g, box.x,          labelTopY, label, 'rgba(80,200,255,0.92)');
-      _spacebadge(g, box.x + box.w,  labelTopY, label, 'rgba(80,200,255,0.92)');
+      _spacebadge(g, box.x, labelTopY, label, 'rgba(80,200,255,0.92)');
+      _spacebadge(g, box.x + box.w, labelTopY, label, 'rgba(80,200,255,0.92)');
     }
   }
 
   // ── All boxes with text positions ─────────────────────────────────
   if (!box.baseCharPositions?.length) {
     if (!box.text || typeof box.text !== 'string' || !box.text.includes(' ')) return;
-    
+
     const textEl = g.querySelector('.utb-text');
     if (!textEl) return;
 
@@ -314,7 +314,7 @@ function _updateSpaceLabels(g, box) {
 
     for (let i = 0; i < box.text.length; i++) {
       if (box.text[i] !== ' ') continue;
-      
+
       // Skip spaces that have no text following them
       let hasTextFollowing = false;
       for (let j = i + 1; j < box.text.length; j++) {
@@ -325,7 +325,7 @@ function _updateSpaceLabels(g, box) {
       }
       if (!hasTextFollowing) continue;
 
-      
+
       let spX = 0;
       let spW = 0;
       try {
@@ -335,7 +335,7 @@ function _updateSpaceLabels(g, box) {
       } catch (e) {
         continue;
       }
-      
+
       const actualSpaceWidth = hasSpaceOverride ? box.spaceWidth : (box.nativeSpaceWidth || spW || 0);
       _spacebadge(g, spX + actualSpaceWidth / 2, labelTopY, actualSpaceWidth.toFixed(1), 'rgba(255,210,0,0.92)');
     }
@@ -424,7 +424,7 @@ window.computeXPositions = computeXPositions;
 window.computeBaseline = computeBaseline;
 window.getOrCreateSVGLayer = getOrCreateSVGLayer;
 window.clearAllSVGLayers = clearAllSVGLayers;
-window.setShowSpaceWidthLabels = function(val) {
+window.setShowSpaceWidthLabels = function (val) {
   showSpaceWidthLabels = val;
   renderAllTextLayers();
 };
