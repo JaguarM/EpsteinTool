@@ -99,50 +99,23 @@
       }
       renderBox(box);
 
-      // Live match-list update for redaction boxes during resize
-      if (box.type === 'redaction' && typeof state !== 'undefined') {
-        const rowEl = document.getElementById(`match-row-${box.id}`);
-        if (rowEl && rowEl.children.length >= 3) {
-          rowEl.children[1].textContent = box.w.toFixed(2);
-
-          const matches = (box.candidates || []).filter(c => {
-            const w = box.widths?.[c];
-            if (w === undefined) return false;
-            const ew = typeof candidateEW === 'function' ? candidateEW(box, c) : box.w;
-            return Math.abs(w - ew) <= (box.tolerance || 0);
-          });
-          const isUpper = box.uppercase;
-          const fontStyle = `font-family: ${box.fontFamily || 'inherit'};`;
-          rowEl.children[2].innerHTML = matches.length
-            ? `<span style="color:#81c995; ${fontStyle}">${matches.map(m => isUpper ? m.toUpperCase() : m).join(', ')}</span>`
-            : `<span class="no-match">No obvious matches</span>`;
-
-          // Update label text
-          if (!box.manualLabel) {
-            box.text = matches.length > 0 ? (isUpper ? matches[0].toUpperCase() : matches[0]) : '';
-            box.labelText = box.text;
-            renderBox(box);
-          }
+      // Live match-list update for redaction boxes during resize.
+      //
+      // Delegate to the SAME canonical functions used on release
+      // (updateAllMatchesView + renderCandidates) instead of a hand-rolled
+      // filter, so the matches shown while dragging are identical to those
+      // shown after dropping. A resize only changes box.w — candidate widths
+      // (box.widths) are invariant to it — so there's no need to re-measure;
+      // we just re-filter against the live box.w, exactly like a tolerance
+      // change does (see app.js). The previous inline filter listed matches in
+      // raw candidate order and picked the first as the label, whereas
+      // updateAllMatchesView sorts by closest width and labels with the best
+      // fit — which is why the list/label used to jump on release.
+      if (box.type === 'redaction') {
+        if (typeof updateAllMatchesView === 'function') updateAllMatchesView(box.id);
+        if (utbState.selectedId === box.id && typeof renderCandidates === 'function') {
+          renderCandidates();
         }
-
-        // Update summary counts
-        const redBoxes = utbState.boxes.filter(b => b.type === 'redaction');
-        let matchCount = 0;
-        redBoxes.forEach(rb => {
-          const has = (rb.candidates || []).some(c => {
-            const w = rb.widths?.[c];
-            if (w === undefined) return false;
-            const ew = typeof candidateEW === 'function' ? candidateEW(rb, c) : rb.w;
-            return Math.abs(w - ew) <= (rb.tolerance || 0);
-          });
-          if (has) matchCount++;
-        });
-        if (els.allMatchesSummary) {
-          els.allMatchesSummary.textContent = `${matchCount} of ${redBoxes.length} redactions have potential matches.`;
-        }
-        const progress = redBoxes.length ? (matchCount / redBoxes.length) * 100 : 0;
-        const progressBar = document.getElementById('match-progress-bar');
-        if (progressBar) progressBar.style.width = `${progress}%`;
       }
     }
 
