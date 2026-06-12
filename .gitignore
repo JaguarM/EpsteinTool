@@ -6,7 +6,6 @@
 # PDF and workspace files
 #*.pdf
 *.code-workspace 
-run_app.bat
 TROUBLESHOOT.md
 out.txt
 .claude/
