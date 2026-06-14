@@ -9,20 +9,31 @@ from PIL import Image
 
 try:
     from .BoxDetector import find_redaction_boxes_in_image
-    from .refiners.pipeline import RefinerPipeline
-    from .refiners.etv_refiner import EtvRefiner
+    from .refiners.registry import RefinerRegistry
     from .refiners.base import DetectedBox
     from . import geometry as geo
 except ImportError:
     # Standalone execution — add this directory to sys.path
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from BoxDetector import find_redaction_boxes_in_image
-    from refiners.pipeline import RefinerPipeline
-    from refiners.etv_refiner import EtvRefiner
+    from refiners.registry import RefinerRegistry
     from refiners.base import DetectedBox
     import geometry as geo
 
-_etv_pipeline = RefinerPipeline([EtvRefiner()])
+_pipeline = None
+
+
+def _get_pipeline():
+    """Build the refiner pipeline from the registry on first use.
+
+    Built lazily so refiners registered by plugins during Django app startup
+    are present by the time the first PDF is processed. With no refiner plugin
+    installed the registry is empty and boxes pass through unrefined.
+    """
+    global _pipeline
+    if _pipeline is None:
+        _pipeline = RefinerRegistry.build_pipeline()
+    return _pipeline
 
 
 def _crop_to_page_ratio(img_bytes):
@@ -184,7 +195,7 @@ def process_pdf(pdf_bytes):
                             x=float(bx1), y=float(by1),
                             width=float(bx2 - bx1), height=float(by2 - by1),
                         )
-                        refined = _etv_pipeline.run(detected, {"etv": etv_evidence})
+                        refined = _get_pipeline().run(detected, {"etv": etv_evidence})
 
                         w = refined.width
                         h = refined.height

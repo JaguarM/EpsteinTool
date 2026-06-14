@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 import cv2
 
@@ -5,6 +7,101 @@ try:
     from . import geometry as geo
 except ImportError:  # standalone execution (see ProcessRedactions sys.path shim)
     import geometry as geo
+
+try:
+    # HarfBuzz-shaped widths, used to reconstruct the Word grid: the natural
+    # space width and the stretched per-space width of a justified line.
+    from text_tool.logic.width_calculator import (
+        get_text_widths,
+        get_justified_space_width,
+    )
+except Exception:  # standalone / shaping unavailable -> fall back to pixel gaps
+    get_text_widths = None
+    get_justified_space_width = None
+
+
+# PDF base-font name (often a subset like "ABCDEE+TimesNewRomanPSMT") mapped to a
+# TTF that ships in assets/fonts/. Used only to size the natural/justified space;
+# default to a serif (the sample corpus is Times) when nothing matches.
+_FONT_MAP = (
+    ("times", "times.ttf"), ("roman", "times.ttf"), ("serif", "times.ttf"),
+    ("arial", "Arial.ttf"), ("helvetica", "Arial.ttf"),
+    ("courier", "Courier_New.ttf"), ("mono", "Courier_New.ttf"),
+    ("verdana", "Verdana.ttf"),
+    ("calibri", "calibri.ttf"),
+    ("segoe", "segoe_ui.ttf"),
+)
+
+
+def _map_font(pdf_font_name):
+    name = (pdf_font_name or "").lower()
+    for key, ttf in _FONT_MAP:
+        if key in name:
+            return ttf
+    return "times.ttf"
+
+
+def _collect_spans(page):
+    """Flatten the page's text spans to (bbox, font_name, size_pt) tuples."""
+    spans = []
+    try:
+        page_dict = page.get_text("dict")
+    except Exception:
+        return spans
+    for block in page_dict.get("blocks", []):
+        if block.get("type") != 0:  # text blocks only
+            continue
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                bb = span.get("bbox")
+                size = span.get("size", 0)
+                if bb and size and size > 0:
+                    spans.append((bb, span.get("font", ""), float(size)))
+    return spans
+
+
+def _line_font(spans, line_words):
+    """Pick the dominant (font_ttf, size_pt) for the spans covering a line."""
+    if not line_words:
+        return ("times.ttf", 12.0)
+    y0 = min(w[1] for w in line_words)
+    y1 = max(w[3] for w in line_words)
+    cands = [(font, size) for bb, font, size in spans
+             if y0 - 2 <= (bb[1] + bb[3]) / 2.0 <= y1 + 2]
+    if not cands:
+        return ("times.ttf", 12.0)
+    size = Counter(round(s * 2) / 2 for _, s in cands).most_common(1)[0][0]
+    font = next((f for f, s in cands if round(s * 2) / 2 == size), cands[0][0])
+    return (_map_font(font), float(size))
+
+
+def _line_space_widths(line_words, block_w_px, font_ttf, size_pt, scale_factor):
+    """
+    Reconstruct the inter-word spacing the line was set with, in image px.
+
+    Returns ``(natural_space_px, justified_space_px)``. ``natural_space_px`` is
+    the font's shaped space advance; ``justified_space_px`` is the per-space
+    width that makes the full line text (including any word hidden under a box —
+    the text layer survives the paint) fill its ETV extent ``block_w_px``. Either
+    may be ``None`` when shaping is unavailable or not applicable (e.g. the final,
+    un-stretched line of a justified paragraph solves back to ~the natural space).
+    """
+    if get_text_widths is None:
+        return (None, None)
+    nat = get_text_widths([" "], font_name=font_ttf, font_size=size_pt,
+                          scale_factor=scale_factor)
+    natural_space = nat[0].get("width") if nat else None
+    if not natural_space or natural_space <= 0:
+        natural_space = None
+
+    justified_space = None
+    if get_justified_space_width is not None and block_w_px and block_w_px > 0:
+        line_text = " ".join((w[4] or "") for w in line_words).strip()
+        if line_text:
+            justified_space = get_justified_space_width(
+                line_text, block_w_px, font_name=font_ttf, font_size=size_pt,
+                scale_factor=scale_factor)
+    return (natural_space, justified_space)
 
 
 def _is_glyph_col(col, dark_thresh=160, min_dark_px=2, max_dark_frac=0.8):
@@ -214,6 +311,7 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
         img_array = np.frombuffer(base_image_bytes, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
     words_pts = page.get_text("words")
+    spans = _collect_spans(page)
     px_to_pts_x = img_rect.width / img_w
     px_to_pts_y = img_rect.height / img_h
     pts_to_px_x = 1.0 / px_to_pts_x
@@ -319,13 +417,46 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
             right_bound = (word_after[0] - img_rect.x0) * pts_to_px_x if word_after else float(img_w)
 
             # Average inter-word space on this line, in image px (clamped to a
-            # sane range so a sparse line can't produce a wild value).
+            # sane range so a sparse line can't produce a wild value). Used for
+            # the right edge and as a fallback when shaping is unavailable.
             gaps = [(best_line_words[i + 1][0] - best_line_words[i][2]) * pts_to_px_x
                     for i in range(len(best_line_words) - 1)]
             gap_lo, gap_hi = geo.GAP_FILTER_RANGE
             gaps = [g for g in gaps if gap_lo <= g <= gap_hi]
-            space_px = sum(gaps) / len(gaps) if gaps else geo.SPACE_PX_FALLBACK
+            # Real inter-word gap on this line (mean of the surviving, sane gaps).
+            # Gaps that span the box are far outside GAP_FILTER_RANGE and are
+            # dropped, so this reflects genuine adjacent visible-word spacing.
+            measured_gap = sum(gaps) / len(gaps) if gaps else None
+            space_px = measured_gap if measured_gap is not None else geo.SPACE_PX_FALLBACK
             space_px = min(max(space_px, geo.SPACE_PX_CLAMP[0]), geo.SPACE_PX_CLAMP[1])
+
+            # Reconstruct the Word grid for the LEFT edge. Shape the line in its
+            # own font for the natural space width; a justified line stretches
+            # that space, so the box should start one *stretched* space after the
+            # previous word. Justification is judged from the measured pixel gap,
+            # not the fill-width solve: under a redaction the text layer is often
+            # fragmented, which makes the solve explode, so it is debug-only here.
+            font_ttf, size_pt = _line_font(spans, best_line_words)
+            block_w_px = ((best_line_words[-1][2] - best_line_words[0][0]) * pts_to_px_x
+                          if best_line_words else None)
+
+            # The line's first word is the paragraph origin and in Word always
+            # sits on a 1/4-inch grid line. Snap it to the grid and carry that
+            # correction along the line, so a box with a word in front is placed
+            # relative to the grid-aligned origin rather than the drifted render.
+            first_word_x0_px = (best_line_words[0][0] - img_rect.x0) * pts_to_px_x
+            grid_origin_px = round(first_word_x0_px / geo.GRID_PX) * geo.GRID_PX
+            grid_offset = grid_origin_px - first_word_x0_px
+            natural_space, justified_space = _line_space_widths(
+                best_line_words, block_w_px, font_ttf, size_pt, pts_to_px_x)
+            is_justified = (measured_gap is not None and natural_space is not None
+                            and measured_gap > natural_space + geo.JUSTIFY_SPACE_TOL_PX)
+            if is_justified:
+                word_space_px = measured_gap        # stretched space (bounded by GAP_FILTER_RANGE)
+            elif natural_space is not None:
+                word_space_px = natural_space        # natural single space after the word
+            else:
+                word_space_px = space_px             # shaping unavailable -> pixel-gap fallback
 
             # Inset the vertical band so the box's own top/bottom corners are not
             # mistaken for edge content.
@@ -350,9 +481,23 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
             nbr_r = _next_word_edge(img, content_x2, +1, y0_scan, y1_scan,
                                     (right_bound + 6.0) if word_after else (content_x2 + 14.0))
 
-            expected_x1_px = content_x1
-            if nbr_l is not None:
-                expected_x1_px = max(content_x1, nbr_l + space_px)
+            # Left edge, Word-grid aware:
+            #  * No word in front -> the box is the first thing on the line, so
+            #    its true start is a 1/4-inch grid line measured from the page
+            #    left edge (Word indents/tab stops). The painted ink can't be
+            #    trusted there, but the grid always matches the source, so snap
+            #    to the nearest grid line.
+            #  * Word in front -> place the start one (natural or stretched)
+            #    space after that word's far edge, then re-anchor to the grid by
+            #    the line's first-word offset. max() never lets the result sit
+            #    inside the painted ink (keeps a poking glyph that is real ink).
+            grid_x1 = round(content_x1 / geo.GRID_PX) * geo.GRID_PX
+            if word_before is None:
+                expected_x1_px = float(grid_x1)
+            else:
+                expected_x1_px = content_x1
+                if nbr_l is not None:
+                    expected_x1_px = max(content_x1, nbr_l + word_space_px + grid_offset)
 
             expected_x2_px = content_x2
             if nbr_r is not None:
@@ -383,13 +528,41 @@ def estimate_widths_for_boxes(page, boxes, img_rect, img_w, img_h, base_image_by
                     'nbr_r': nbr_r,                   # next word near edge by pixels, right
                     'expected_x1': expected_x1_px,
                     'expected_x2': expected_x2_px,
+                    # Word-grid reconstruction (left edge):
+                    'font': font_ttf,
+                    'size_pt': size_pt,
+                    'block_w_px': block_w_px,         # line ETV extent (first.x0 -> last.x1)
+                    'measured_gap': measured_gap,     # mean real inter-word gap, px
+                    'natural_space': natural_space,   # shaped space advance, px
+                    'justified_space': justified_space,  # solved fill-width (debug only; see note), px
+                    'is_justified': is_justified,
+                    'word_space_px': word_space_px,   # space actually used for the left edge
+                    'grid_x1': float(grid_x1),        # nearest 1/4-inch grid line to content_x1
+                    'first_word_x0_px': first_word_x0_px,  # line's first-word left edge, px
+                    'grid_origin_px': float(grid_origin_px),  # that edge snapped to the grid
+                    'grid_offset': grid_offset,       # correction carried along the line
+                    'word_before_present': word_before is not None,
                 })
         else:
-            expected_widths.append((None, None, None))
+            # No neighbouring words on the box's line, so we can't reconstruct
+            # the inter-word spacing. The box is isolated, which in the Word
+            # source means it began on a 1/4-inch grid line. Snap its painted
+            # left edge to the nearest grid line (origin = page left edge) and
+            # abstain on the right edge — the same treatment a no-word-before
+            # box gets when a line context exists.
+            y0_scan = int(by1) + 2
+            y1_scan = int(by2) - 2
+            content_x1 = _content_edge(img, bx1, -1, y0_scan, y1_scan, 0.0)
+            grid_x1 = round(content_x1 / geo.GRID_PX) * geo.GRID_PX
+            expected_widths.append((float(grid_x1), None, None))
             if debug_out is not None:
                 debug_out.append({
                     'raw_ink': (float(b_dict['bx1']), float(b_dict['bx2'])),
-                    'reason': 'no neighbouring words found on any candidate line',
+                    'reason': 'no neighbouring words; isolated box, left edge grid-snapped',
+                    'content_x1': content_x1,
+                    'grid_x1': float(grid_x1),
+                    'expected_x1': float(grid_x1),
+                    'word_before_present': False,
                 })
 
     return expected_widths

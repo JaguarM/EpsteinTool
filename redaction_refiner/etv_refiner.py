@@ -1,10 +1,13 @@
 from __future__ import annotations
 from typing import Any
 
-from .base import DetectedBox, BoxProposal, RedactionRefiner
+from guesser_core.logic import geometry as geo
+from guesser_core.logic.refiners.base import DetectedBox, BoxProposal, RedactionRefiner
+from guesser_core.logic.refiners.registry import register_refiner
 from guesser_core.logic.SurroundingWordWidth import estimate_widths_for_boxes
 
 
+@register_refiner
 class EtvRefiner(RedactionRefiner):
     """
     Refines redaction box edges using embedded PDF text (ETV).
@@ -21,7 +24,9 @@ class EtvRefiner(RedactionRefiner):
     """
 
     name = "etv"
-    _confidence = 0.9
+    # Word-grid / justification-aware edge: trusted above a raw painted-pixel
+    # edge so the grid reconstruction wins the edge-by-edge merge.
+    _confidence = 0.95
     _max_width_change = 0.25  # reject proposals that change width by more than 25%
 
     def refine(self, box: DetectedBox, evidence: Any) -> BoxProposal:
@@ -45,10 +50,12 @@ class EtvRefiner(RedactionRefiner):
         temp_x1 = exp_x1 if exp_x1 is not None else box.x
         temp_x2 = exp_x2 if exp_x2 is not None else box.x + box.width
 
-        # Reject if proposed width change is too large — guards against bad ETV matches
+        # Reject if the proposed width change is too large — guards against bad
+        # ETV matches. The allowance is floored at one grid cell so a bounded
+        # grid snap (<= half a cell) on a small box is never silently dropped.
         if box.width > 0:
-            diff_pct = abs((temp_x2 - temp_x1) - box.width) / box.width
-            if diff_pct > self._max_width_change:
+            allowed = max(self._max_width_change * box.width, float(geo.GRID_PX))
+            if abs((temp_x2 - temp_x1) - box.width) > allowed:
                 return BoxProposal()
 
         return BoxProposal(

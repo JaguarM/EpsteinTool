@@ -37,3 +37,13 @@ DEFAULT_SCALE = round(100 * PT_TO_PX)  # 133
 SPACE_PX_FALLBACK = 5.0    # mean gap to assume when none is measurable
 SPACE_PX_CLAMP = (3.0, 8.0)    # clamp applied to the per-line mean gap
 GAP_FILTER_RANGE = (3.0, 11.0)  # raw gaps kept before averaging
+
+# Word-grid reconstruction of the left edge (all image px @ 96 DPI).
+# Microsoft Word lays indents/tab stops on a 1/4-inch grid measured from the
+# left page edge, with a 1-inch default left margin (grid index 4).
+GRID_PX = round(IMAGE_DPI * 0.25)   # 24 — 1/4-inch grid step
+DEFAULT_MARGIN_PX = IMAGE_DPI       # 96 — default 1-inch left margin
+# A justified line stretches its inter-word spaces. We classify a line as
+# justified when the per-space width that fills the line exceeds the font's
+# natural space width by more than this tolerance.
+JUSTIFY_SPACE_TOL_PX = 1.5
