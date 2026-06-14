@@ -88,6 +88,12 @@
           <span class="material-symbols-outlined">upload_file</span>
         </button>
 
+        {% for name, tool in tools.items %}
+          {% if tool.toolbar_button %}
+        {% include tool.toolbar_button %}
+          {% endif %}
+        {% endfor %}
+
       </div>
     </header>
 
