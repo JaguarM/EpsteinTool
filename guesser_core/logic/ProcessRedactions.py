@@ -62,29 +62,6 @@ def _crop_to_page_ratio(img_bytes):
     return img_bytes
 
 
-def extract_page_image(doc, page_index):
-    """Extract the first PNG/TIFF embedded raster image on a page, cropped to the
-    8.5x11 page ratio exactly as process_pdf feeds it to the detector.
-
-    Returns (img_bytes, img_rect) or None if the page has no usable embedded
-    image. Shared with the width debugger so it sees the server's exact pixels.
-    """
-    image_list = doc.get_page_images(page_index)
-    if not image_list:
-        return None
-    page = doc[page_index]
-    for img_info in image_list:
-        xref = img_info[0]
-        base_image = doc.extract_image(xref)
-        if not base_image:
-            continue
-        if base_image.get("ext", "").lower() not in ("png", "tiff", "tif"):
-            continue
-        image_rects = page.get_image_rects(xref)
-        if not image_rects:
-            continue
-        return _crop_to_page_ratio(base_image["image"]), image_rects[0]
-    return None
 
 
 

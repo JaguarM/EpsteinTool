@@ -23,9 +23,7 @@ class LayoutCalculator:
         """
         return round(points * self.TWIPS_PER_POINT)
         
-    def calculate_cluster_width(self, advance: int) -> float:
-        """ Calculate raw width of a cluster in points """
-        return self.advance_to_points(advance)
+
         
     def calculate_run_width_twips(self, shaped_glyphs: list) -> int:
         """
@@ -62,13 +60,5 @@ class LayoutCalculator:
             "target_container_width": container_width_twips
         }
 
-    def calculate_tab_width_twips(self, current_x_twips: int) -> int:
-        """
-        Calculate the width of a tab character to snap to the next 720-twip interval.
-        Follows Word's convention of skipping to the next stop if too close (< 360 twips).
-        """
-        next_stop = ((current_x_twips // 720) + 1) * 720
-        if next_stop - current_x_twips < 360:
-            next_stop += 720
-        return next_stop - current_x_twips
+
 

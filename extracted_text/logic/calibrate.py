@@ -34,9 +34,6 @@ LIGATURE_FRAGMENTS = frozenset({"fi", "fl", "ff", "ffi", "ffl"})
 
 # PyMuPDF flag bits
 FLAG_SUPERSCRIPT = 1
-FLAG_ITALIC      = 2
-FLAG_SERIF       = 4
-FLAG_MONO        = 8
 FLAG_BOLD        = 16
 
 
@@ -231,15 +228,7 @@ def _hb_font(font_name: str):
     return _hb_cache[font_name]
 
 
-def _hb_char_advance(char: str, font_name: str, size_pt: float) -> float:
-    """HarfBuzz advance width for a single character (no kerning context)."""
-    font, upem = _hb_font(font_name)
-    buf = hb.Buffer()
-    buf.add_str(char)
-    buf.guess_segment_properties()
-    hb.shape(font, buf, {"kern": False, "liga": False})
-    total = sum(p.x_advance for p in buf.glyph_positions)
-    return (total / upem) * size_pt
+
 
 
 def _hb_shape_advances(text: str, font_name: str, size_pt: float,
@@ -474,72 +463,11 @@ class GlyphCalibration:
 
         return result
 
-    def predict_width(self, text: str,
-                      font_size_pt: float | None = None,
-                      kerning: bool = True,
-                      ligatures: bool = True,
-                      line_space_px: float | None = None,
-                      pdf_chars: list[dict] | None = None) -> float:
-        """Helper to get total predicted width without full position arrays."""
-        positions = self.predict_positions(
-            text, font_size_pt, kerning, ligatures, line_space_px, pdf_chars
-        )
-        if not positions:
-            return 0.0
-        last = positions[-1]
-        return round(last["x"] + last["w"], 2)
+
 
     # ── Diagnostics ────────────────────────────────────────────────────
 
-    def report(self) -> dict:
-        """Summary statistics for debugging and display."""
-        char_stats = {}
-        for c, ratios in self._raw.items():
-            if len(ratios) < 2:
-                continue
-            char_stats[c] = {
-                "count":  len(ratios),
-                "median": round(statistics.median(ratios), 4),
-                "stdev":  round(statistics.stdev(ratios), 4),
-                "min":    round(min(ratios), 4),
-                "max":    round(max(ratios), 4),
-            }
-
-        return {
-            "group":        str(self.group),
-            "font_name":    self.font_name,
-            "ref_size_pt":  self.ref_size_pt,
-            "global_ratio": self.global_ratio,
-            "char_count":   len(self.ratios),
-            "span_count":   self.group.count,
-            "char_ratios":  self.ratios,
-            "char_stats":   char_stats,
-        }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Convenience: run the full pipeline on extracted spans
-# ═══════════════════════════════════════════════════════════════════════════
 
-def calibrate_document(spans: list[dict],
-                       font_name: str = "times.ttf",
-                       scale: float = 4.0 / 3.0,
-                       ) -> list[GlyphCalibration]:
-    """Full pipeline: cluster spans → train one calibration per group.
 
-    Returns list of GlyphCalibration objects, largest group first.
-    """
-    grouper = FontGrouper()
-    groups = grouper.cluster(spans)
-
-    calibrations = []
-    for group in groups:
-        cal = GlyphCalibration(
-            group=group,
-            font_name=font_name,
-            scale=scale,
-        )
-        cal.train()
-        calibrations.append(cal)
-
-    return calibrations

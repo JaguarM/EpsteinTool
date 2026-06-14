@@ -22,9 +22,7 @@ class RefinerRegistry:
             raise ValueError(f"{refiner_cls.__name__} must define a 'name' attribute")
         cls._refiners[name] = refiner_cls
 
-    @classmethod
-    def get_refiners(cls) -> dict[str, type]:
-        return dict(cls._refiners)
+
 
     @classmethod
     def build_pipeline(cls, names: list[str] | None = None) -> RefinerPipeline:
