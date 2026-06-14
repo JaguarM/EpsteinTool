@@ -431,6 +431,7 @@ function selectBoxInSVG(id) {
   if (id) {
     document.querySelectorAll(`.utb-group[data-id="${id}"]`).forEach(g => g.classList.add('selected'));
   }
+  window.refreshRuler?.(); // covers select + deselect (id === null)
 }
 
 function deselectAllInSVG() {

@@ -53,6 +53,7 @@
       // Dragged box: horizontal only
       box.x = origX + dx;
       renderBox(box);
+      window.refreshRuler?.(); // keep the ruler marker glued to the box
 
       // Whole line: vertical only
       for (let i = 0; i < lineBoxes.length; i++) {
@@ -186,6 +187,7 @@
   // Deselect when clicking outside any SVG layer, toolbar, or sidebar
   document.addEventListener('mousedown', e => {
     if (e.target.closest('svg.text-layer')) return;
+    if (e.target.closest('svg.ruler-layer')) return; // ruler marker drag must not deselect
     if (e.target.closest('#fabric-options-bar')) return;
     if (e.target.closest('#unified-options-bar-container')) return;
     if (e.target.closest('#tools-sidebar')) return;
