@@ -58,6 +58,11 @@ class UnifiedTextBox {
 
     // Render font override (e.g. 'times.ttf') — null = use fontFamily
     this.renderFont = data.renderFont || null;
+
+    // Layout: when true the box auto-sizes its width to the rendered text on
+    // every render and draws no manual resize handles (used by manually-added
+    // text boxes). Server-extracted spans keep their real width (false).
+    this.autoWidth = data.autoWidth || false;
   }
 }
 

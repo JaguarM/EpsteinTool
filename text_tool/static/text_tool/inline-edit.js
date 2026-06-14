@@ -98,6 +98,10 @@
     const box = utbState.getBox(utbState.editingId);
     const group = document.querySelector(`.utb-group[data-id="${utbState.editingId}"]`);
 
+    // Snapshot for the optional "grow leftward when text is prepended" behavior.
+    const prevText  = box ? box.text : '';
+    const prevRight = box ? box.x + box.w : 0;
+
     if (group) {
       const fo = group.querySelector('.utb-inline-edit');
       const input = fo?.querySelector('input');
@@ -115,7 +119,28 @@
 
     utbState.editingId = null;
 
-    if (box) renderBox(box);
+    if (box) {
+      // When an embedded/harfbuzz span's text actually changes, its server
+      // per-character positions no longer match the new text — drop them and
+      // switch the box to auto-size, so it resizes to content from now on just
+      // like a manually-added text box.
+      if (box.type !== 'redaction' && box.text !== prevText) {
+        box.autoWidth = true;
+        box.baseCharPositions = null;
+        box.charAdvances = {};
+      }
+
+      renderBox(box);  // auto-width boxes recompute box.w from the new text here
+
+      // If the edit only prepended characters (new text ends with the old
+      // text), keep the RIGHT edge fixed so the box grows leftward instead of
+      // always rightward. Auto-width boxes only.
+      if (box.autoWidth && prevText && box.text.length > prevText.length &&
+          box.text.endsWith(prevText)) {
+        box.x = prevRight - box.w;
+        renderBox(box);
+      }
+    }
   }
 
   // ── Cancel ──────────────────────────────────────────────────

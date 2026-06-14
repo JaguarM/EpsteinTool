@@ -292,6 +292,25 @@
     }
   });
 
+  // Add-text tool: arm "click on page to drop a new editable text box".
+  // The actual placement is handled by the viewer mousedown listener in app.js
+  // (state.activeTool === 'text' → addEmbeddedTextSpan). Core no longer wires
+  // this plugin-owned button, so the toggle lives here.
+  el('etv-add-text-btn')?.addEventListener('click', () => {
+    const btn = el('etv-add-text-btn');
+    if (state.activeTool === 'text') {
+      state.activeTool = null;
+      btn.classList.remove('active');
+      els.viewer.style.cursor = 'default';
+    } else {
+      state.activeTool = 'text';
+      btn.classList.add('active');
+      // Mutually exclusive with the add-box tool
+      el('tool-add-box')?.classList.remove('active');
+      els.viewer.style.cursor = 'crosshair';
+    }
+  });
+
   // Toggle-embedded-text button (show/hide embedded text in SVG globally)
   el('toggle-embedded-text')?.classList.add('active');
   el('toggle-embedded-text')?.addEventListener('click', () => {

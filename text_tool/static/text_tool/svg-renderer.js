@@ -110,7 +110,7 @@ function computeXPositions(box) {
  * SVG <text> y is the baseline, not the top. TODO: -1 Temporary fix. 
  */
 function computeBaseline(box) {
-  return (box.y || 0) + (box.h || 0) * 0.85 - 1;
+  return (box.y || 0) + (box.h || 0) * 0.85 - 1.3;
 }
 
 
@@ -137,10 +137,32 @@ function renderBox(box) {
   }
   g.dataset.type = box.type;
 
-  _updateBBox(g, box);
+  // Text first so _autoFitWidth can measure the rendered glyphs and set box.w
+  // before the bounding box / handles are drawn from it.
   _updateText(g, box);
+  _autoFitWidth(g, box);
+  _updateBBox(g, box);
   _updateEdgeHandles(g, box);
   _updateSpaceLabels(g, box);
+}
+
+/**
+ * Auto-size box.w to the measured width of its rendered text.
+ * Only applies to boxes flagged autoWidth (manually-added text boxes); the
+ * left edge (box.x) is preserved so text grows rightward by default. The
+ * inline-edit commit handler may shift box.x afterwards to grow leftward.
+ */
+function _autoFitWidth(g, box) {
+  if (!box.autoWidth) return;
+  const text = g.querySelector('.utb-text');
+  if (!text) return;
+  let measured;
+  try {
+    measured = text.getComputedTextLength();
+  } catch (e) {
+    return;  // not measurable (e.g. detached) — leave width untouched
+  }
+  box.w = Math.max(measured, 6);  // keep a clickable minimum for empty text
 }
 
 /** Update (or create) the bounding-box rect inside a group. */
@@ -228,6 +250,10 @@ function _updateText(g, box) {
 function _updateEdgeHandles(g, box) {
   // Remove existing handles
   g.querySelectorAll('.utb-edge').forEach(h => h.remove());
+
+  // Only redaction boxes are manually resized. Text boxes (embedded / harfbuzz)
+  // auto-size to their content — see _autoFitWidth — so they get no handles.
+  if (box.type !== 'redaction') return;
 
   const handleW = 4; // px in SVG space
   for (const edge of ['l', 'r']) {

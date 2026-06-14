@@ -42,7 +42,7 @@
           } else {
             state.activeTool = 'add-box';
             els.toolAddBoxBtn.classList.add('active');
-            if (els.toolTextBtn) els.toolTextBtn.classList.remove('active');
+            document.getElementById('etv-add-text-btn')?.classList.remove('active');
             els.viewer.style.cursor = 'crosshair';
           }
         });
@@ -140,11 +140,13 @@
           document.getElementById('tool-add-box')?.classList.remove('active');
         }
         else if (state.activeTool === 'text') {
-           // Create new ETV span at click position
-           if (typeof addEmbeddedTextSpan === 'function') {
+           // Create a new editable UnifiedTextBox at the click position.
+           if (typeof handleManualAddText === 'function') {
+              handleManualAddText(pageNum, pxX, pxY);
+           } else if (typeof addEmbeddedTextSpan === 'function') {
               addEmbeddedTextSpan(pageNum, pxX, pxY);
            }
-           
+
            // Deselect tool after one use to avoid spam
            state.activeTool = null;
            els.viewer.style.cursor = 'default';
