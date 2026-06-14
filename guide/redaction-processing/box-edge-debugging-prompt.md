@@ -64,9 +64,11 @@ w=r.width` directly.
    wins; on tie keep the wider edge. Proposals may sit slightly outside the ink
    (poking glyph) or inside it — the **refiner** is responsible for trustworthy
    edges, not the pipeline.
-4. [guesser_core/logic/refiners/etv_refiner.py](../../guesser_core/logic/refiners/etv_refiner.py)
+4. [redaction_refiner/etv_refiner.py](../../redaction_refiner/etv_refiner.py)
    — wraps `estimate_widths_for_boxes`. Has a `_max_width_change = 0.25` guard
-   (rejects proposals changing width > 25 %). Confidence `0.9`.
+   (rejects proposals changing width > 25 %). Confidence `0.9`. Lives in the
+   `redaction_refiner` plugin and self-registers via `@register_refiner`;
+   `ProcessRedactions` builds its pipeline from `RefinerRegistry`.
 5. [guesser_core/logic/SurroundingWordWidth.py](../../guesser_core/logic/SurroundingWordWidth.py)
    — **the real edge logic.** `estimate_widths_for_boxes(page, boxes, img_rect,
    img_w, img_h, base_image_bytes)`. Buckets page words into lines, finds the
@@ -201,7 +203,7 @@ from io import BytesIO
 from PIL import Image
 from guesser_core.logic.BoxDetector import find_redaction_boxes_in_image
 from guesser_core.logic.refiners.pipeline import RefinerPipeline
-from guesser_core.logic.refiners.etv_refiner import EtvRefiner
+from redaction_refiner.etv_refiner import EtvRefiner
 from guesser_core.logic.refiners.base import DetectedBox
 pipe = RefinerPipeline([EtvRefiner()])
 doc = fitz.open('assets/pdfs/times/efta00018586.pdf'); page = doc[7]

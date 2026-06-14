@@ -39,10 +39,10 @@ redaction_light/
 │   │   ├── SurroundingWordWidth.py # ETV edge-refinement logic (wrapped by EtvRefiner)
 │   │   ├── ProcessRedactions.py    # Orchestrator: PDF → boxes → RefinerPipeline → redactions
 │   │   ├── masking.py              # Shared mask-array helpers (used by webgl_mask)
-│   │   └── refiners/               # Refiner pipeline package
+│   │   └── refiners/               # Refiner framework (contracts only — concrete refiners live in plugins)
 │   │       ├── base.py             # DetectedBox, BoxProposal dataclasses + RedactionRefiner ABC
 │   │       ├── pipeline.py         # RefinerPipeline: independent runs + confidence-based merge
-│   │       └── etv_refiner.py      # EtvRefiner — wraps SurroundingWordWidth (confidence=0.9)
+│   │       └── registry.py         # RefinerRegistry + @register_refiner; ProcessRedactions builds its pipeline from this
 │   ├── templates/                  # Base index.html (iterates registry for plugins)
 │   └── static/guesser_core/        # Base UI JS: hooks.js (event bus), state.js, pdf-viewer.js,
 │                                   #   ui-events.js, app.js, styles.css
@@ -164,7 +164,7 @@ graph TD
         subgraph "refiners/"
             RF_BASE["base.py\nDetectedBox · BoxProposal\nRedactionRefiner ABC"]
             RF_PIPE["pipeline.py\nRefinerPipeline"]
-            RF_ETV["etv_refiner.py\nEtvRefiner"]
+            RF_REG["registry.py\nRefinerRegistry"]
         end
     end
 
@@ -194,6 +194,11 @@ graph TD
         ET_LOGIC["extracted_text.logic.extract"]
     end
 
+    subgraph "redaction_refiner (Plugin)"
+        RR_TOOL["tool.py\nRedactionRefinerTool"]
+        RR_ETV["etv_refiner.py\nEtvRefiner"]
+    end
+
     %% Backend registration flow
     BASE -.->|"inherits"| WGL_TOOL
     BASE -.->|"inherits"| TXT_TOOL
@@ -203,6 +208,7 @@ graph TD
     TXT_TOOL -->|"@register_tool"| REG
     RM_TOOL -->|"@register_tool"| REG
     ETV_TOOL -->|"@register_tool"| REG
+    RR_TOOL -->|"@register_tool"| REG
 
     %% Frontend hook subscriptions (core emits, plugins subscribe)
     APP -->|"emit()"| HOOKS
@@ -217,10 +223,12 @@ graph TD
     %% Core dependencies
     core_views --> PR
     PR --> BD
-    PR --> RF_PIPE
+    PR --> RF_REG
+    RF_REG --> RF_PIPE
     RF_PIPE --> RF_BASE
-    RF_ETV --> SW
-    RF_ETV --> RF_BASE
+    RR_ETV -->|"@register_refiner"| RF_REG
+    RR_ETV --> SW
+    RR_ETV --> RF_BASE
     core_views -->|"get_tools()"| REG
     HTML -.->|"iterates registry"| REG
 
@@ -250,15 +258,15 @@ For each edge (left / right) independently:
 |---------|-----------|----------|--------------|
 | `EtvRefiner` | 0.9 | `fitz.Page`, image rect + dims | Finds words before/after box in embedded PDF text; measures space width; rejects proposals that change box width by >25% |
 
-The pipeline is built in `ProcessRedactions.py` as `_etv_pipeline = RefinerPipeline([EtvRefiner()])`.
+`EtvRefiner` is defined in the `redaction_refiner` plugin and self-registers via `@register_refiner`. `ProcessRedactions.py` builds its pipeline lazily from `RefinerRegistry.build_pipeline()`, so it never imports concrete refiners — removing the `redaction_refiner` plugin leaves the registry empty and boxes pass through unrefined rather than crashing the core.
 
 ### Adding a new refiner
 
-1. Create a class anywhere that inherits `RedactionRefiner` from `guesser_core/logic/refiners/base.py`.
+1. Create a class in the `redaction_refiner` plugin (or any plugin) that inherits `RedactionRefiner` from `guesser_core/logic/refiners/base.py` and decorate it with `@register_refiner`.
 2. Implement `refine(box: DetectedBox, evidence: Any) -> BoxProposal`.
-3. Add an instance to the pipeline list in `guesser_core/logic/ProcessRedactions.py` and supply its evidence in the `evidence_map` passed to `pipeline.run()`.
+3. Import the module from the plugin's `apps.py` `ready()` so it registers at startup, and supply its evidence under the refiner's `name` in the `evidence_map` passed to `pipeline.run()`.
 
-No changes to `base.py`, `pipeline.py`, or existing refiners are needed.
+No changes to `base.py`, `pipeline.py`, `registry.py`, or existing refiners are needed.
 
 ## Frontend plugin integration — the `PDFHooks` bus
 

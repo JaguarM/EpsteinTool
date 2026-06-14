@@ -34,8 +34,7 @@ The primary entry point for PDF files. Accepts raw bytes from the uploaded file 
   "y": 438.0,
   "width": 121.53,
   "height": 16.0,
-  "area": 1944.48,
-  "lineId": "1_12"
+  "area": 1944.48
 }
 ```
 
@@ -91,13 +90,15 @@ fitz.open()  ──► per-page loop
                         ├─ find_redaction_boxes_in_image()   → pixel-space boxes
                         ├─ page.get_image_rects()            → placement rect in PDF pts
                         │     └─ captures page_scale_ratio = img_px / page_pts
-                        └─ estimate_widths_for_boxes()       → refined x1/x2 from text context
-                              └─ 25% tolerance gate: keep refined only if |Δw| ≤ 25% of original
+                        └─ _get_pipeline().run(box, {"etv": evidence})
+                              → RefinerPipeline merges edge proposals from the
+                                registered refiners (currently EtvRefiner, which
+                                wraps estimate_widths_for_boxes and applies its
+                                own width-change guard — see below)
 
   ▼
 Post-loop calculations
-  ├─ _snap_redactions_to_text()       → vertical alignment & lineId assignment
-  │     └─ exclusion: skip if height > 2.5 × line_height
+  ├─ redactions.sort(page → y → x)
   ├─ suggested_scale  = round(100 × page_scale_ratio)   [133 for standard 816 px / 612 pt pages]
   └─ suggested_size   = mode of body-text span sizes, rounded to 0.5 pt
                         (spans ≥ 20 chars preferred; falls back to all spans)
@@ -121,17 +122,25 @@ This same ratio is what `suggested_scale / 100` represents — see [Scale & Size
 
 ---
 
-## Edge Refinement (25% Tolerance)
+## Edge Refinement (refiner pipeline)
 
-`estimate_widths_for_boxes()` (from `SurroundingWordWidth.py`) examines surrounding text spans to infer where a redaction likely starts and ends. `ProcessRedactions.py` accepts the refined coordinates only when the new width is within ±25% of the raw `BoxDetector` measurement:
+`ProcessRedactions.py` does **not** refine edges itself. For each detected box it
+runs the refiner pipeline (`_get_pipeline().run(box, {"etv": evidence})`), which
+the core builds from the `RefinerRegistry` and so stays decoupled from any
+concrete refiner. The only edge guard — accept the proposed edge only when the
+width change is within tolerance — now lives **inside the refiner**, not here:
 
 ```python
-diff_pct = abs(new_w - bw) / bw
-if diff_pct <= 0.25:
-    use refined coordinates
-else:
-    keep BoxDetector coordinates
+# redaction_refiner/etv_refiner.py
+allowed = max(self._max_width_change * box.width, float(geo.GRID_PX))  # 25% of width, floored at one grid cell
+if abs((temp_x2 - temp_x1) - box.width) > allowed:
+    return BoxProposal()        # abstain -> box keeps its raw BoxDetector edge
 ```
+
+The grid-cell floor ensures a bounded ¼-inch grid snap on a small box is not
+silently rejected. See [SurroundingWordWidth](surrounding-word-width.md) for the
+edge reconstruction itself and the refiner architecture in
+[architecture-overview](../architecture/architecture-overview.md).
 
 ---
 
@@ -140,6 +149,7 @@ else:
 | Module | Used for |
 |--------|----------|
 | `BoxDetector.find_redaction_boxes_in_image()` | Raw black-box detection in pixel space |
-| `SurroundingWordWidth.estimate_widths_for_boxes()` | Context-aware x1/x2 refinement |
+| `refiners.RefinerRegistry` / `RefinerPipeline` | Build and run the edge-refinement pipeline |
+| `redaction_refiner.EtvRefiner` (plugin) | Wraps `SurroundingWordWidth.estimate_widths_for_boxes()` for context-aware x1/x2 refinement |
 | `fitz` (PyMuPDF) | PDF parsing, text span extraction, image extraction |
 | `collections.Counter` | Mode calculation for `suggested_size` |
